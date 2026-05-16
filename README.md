@@ -19,6 +19,20 @@ Phasmid is research software. It is not a replacement for full-disk encryption, 
 
 **Who this is for:** security researchers, field-risk evaluators, and local-only disclosure-control experiments. It is not for casual file encryption.
 
+## Concept Track Baseline
+
+Phasmid's fixed core message:
+
+Phasmid is a coercion-aware local storage prototype for constrained devices.  
+It asks whether encryption can protect not only data, but also the person who may be forced to disclose it.
+
+For internal concept work, use two tracks without changing the technical core:
+
+- `privacy-and-research track`: emphasizes privacy-preserving disclosure, compelled-access safety, and explicit claims/non-claims transparency.
+- `field-operations track`: emphasizes constrained-device readiness, operational resilience, and safer disclosure behavior under inspection pressure.
+
+Internal draft assets: [`docs/CONCEPT_TRACKS.md`](docs/CONCEPT_TRACKS.md), [`docs/submissions/README.md`](docs/submissions/README.md).
+
 ## Requirements
 
 | Requirement | Detail |

@@ -42,6 +42,7 @@ Use this order when documents overlap:
 - Threat model authority: [`THREAT_MODEL.md`](THREAT_MODEL.md)
 - Claims registry: [`CLAIMS.md`](CLAIMS.md)
 - Non-claims registry: [`NON_CLAIMS.md`](NON_CLAIMS.md)
+- Concept-track submission framing: [`CONCEPT_TRACKS.md`](CONCEPT_TRACKS.md)
 - Coercion-safe delaying note: [`COERCION_SAFE_DELAYING.md`](COERCION_SAFE_DELAYING.md)
 - STRIDE analysis: [`THREAT_ANALYSIS_STRIDE.md`](THREAT_ANALYSIS_STRIDE.md)
 - Key lifecycle notes: [`KEY_LIFECYCLE.md`](KEY_LIFECYCLE.md)
@@ -52,6 +53,11 @@ Use this order when documents overlap:
 - Historical roadmap archive: [`ROADMAP_HISTORY.md`](ROADMAP_HISTORY.md)
 - Archived design/evaluation notes: [`archive/`](archive/)
 - Archive policy: [`archive/README.md`](archive/README.md)
+
+## Submission assets
+
+- Concept-track framing: [`CONCEPT_TRACKS.md`](CONCEPT_TRACKS.md)
+- Concept-only submission package: [`submissions/README.md`](submissions/README.md)
 
 ## Configuration and engineering policy
 
