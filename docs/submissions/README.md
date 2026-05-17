@@ -9,6 +9,30 @@ Use these files to keep one technical core while adjusting audience framing:
 - [`TRACK_PRIVACY_RESEARCH.md`](TRACK_PRIVACY_RESEARCH.md): privacy-and-research framing package
 - [`TRACK_FIELD_OPERATIONS.md`](TRACK_FIELD_OPERATIONS.md): field-operations framing package
 
+## Regional Mapping Guidance
+
+Use the same technical core and demo order for every region, then adjust framing only:
+
+- Europe-oriented submissions: start from `TRACK_PRIVACY_RESEARCH.md`
+  - Recommended title: `Phasmid: Coercion-Safe Deniable Storage for Constrained Devices`
+  - Emphasis: compelled-access safety, over-disclosure reduction, explicit claims/non-claims
+- MEA-oriented submissions: start from `TRACK_FIELD_OPERATIONS.md`
+  - Recommended title: `Phasmid: Field-Ready Coercion-Aware Storage for Constrained Devices`
+  - Emphasis: constrained-device field readiness, operational resilience, safe fallback behavior
+
+## Reuse-Risk Control
+
+To avoid appearing as duplicate submissions across regions:
+
+- keep a fixed shared demo sequence in `COMMON_DEMO_RUNBOOK.md`
+- change audience framing, examples, and abstract wording by track
+- include a visible "what changed since prior submission" note in each final package
+
+Suggested internal release labels:
+
+- `Coercion-Safe Disclosure Edition` (privacy/research-first package)
+- `Field Operations Edition` (field-operations-first package)
+
 Draft handling rules:
 
 - Do not copy-paste these files as final public abstracts without review.

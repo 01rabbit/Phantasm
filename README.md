@@ -13,9 +13,25 @@
 [![local-only](https://img.shields.io/badge/operation-local--only-lightgrey)](docs/THREAT_MODEL.md)
 [![Security Policy](https://img.shields.io/badge/security-policy-informational)](SECURITY.md)
 
-Phasmid is a field-evaluation prototype for local-only coercion-aware storage. It is the reference implementation of the Janus Eidolon System, a two-slot local storage architecture designed to separate visible disclosure from protected local state under practical risks such as device seizure, compelled access, and over-disclosure.
+> When encryption is strong enough, attackers may stop attacking the cipher and start attacking the human.
+
+Phasmid is a field-evaluation prototype for local-only coercion-aware deniable storage.
+
+It is designed for situations where an attacker may not break the cipher, but may seize a device, inspect it, or compel a person to disclose access.
+
+Phasmid is the reference implementation of the Janus Eidolon System, a two-slot local storage architecture designed to separate visible disclosure from protected local state under practical risks such as device seizure, compelled access, and over-disclosure.
+
+## Why Phasmid exists
+
+Most encryption tools assume the user can safely refuse disclosure. In field conditions, that assumption may fail.
+
+Phasmid treats coercion, inspection, and over-disclosure as first-class design constraints. It does not try to defeat all forensic analysis; it explores controlled disclosure behavior on local-only constrained devices under documented limits.
+
+## What Phasmid is not
 
 Phasmid is research software. It is not a replacement for full-disk encryption, hardware-backed key storage, an audited classified-data handling system, or a complete solution to compelled disclosure.
+
+Phasmid does not claim anti-forensic evasion, law-enforcement bypass, perfect deniability, guaranteed secure deletion, remote wipe, or remote unlock.
 
 **Who this is for:** security researchers, field-risk evaluators, and local-only disclosure-control experiments. It is not for casual file encryption.
 
