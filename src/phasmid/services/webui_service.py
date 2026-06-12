@@ -18,7 +18,12 @@ LOG = logging.getLogger(__name__)
 
 
 class WebUIService:
-    """Manages the WebUI subprocess and inactivity auto-kill timer."""
+    """Manages the WebUI subprocess and inactivity auto-kill timer.
+
+    Singleton construction is lock-protected.  Process lifecycle methods are
+    intended for the TUI control path and timer callback; pid-file and socket
+    probes remain best-effort observations, not inter-process locks.
+    """
 
     _instance: WebUIService | None = None
     _lock = threading.Lock()

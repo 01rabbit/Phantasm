@@ -27,6 +27,14 @@ LOG = logging.getLogger(__name__)
 
 
 class AIGate:
+    """Object-cue orchestrator with one capture thread and lock-guarded state.
+
+    The frame generator may run on a background thread.  Shared match state and
+    reference data are mutated only while holding ``self.lock``; callers should
+    use the public methods instead of reading those fields as synchronization
+    primitives.
+    """
+
     # Legacy internal identifiers are retained for vault compatibility only.
     # They must never be emitted to UI, API responses, overlays, CLI output,
     # default logs, documentation examples, or user-visible errors.
