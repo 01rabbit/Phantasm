@@ -2,6 +2,8 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Iterator
+from typing import Any, cast
 
 import cv2
 import numpy as np
@@ -58,10 +60,10 @@ class AIGate:
     MODE_COERCION_SAFE = "coercion_safe"
     MODE_DEMO = "demo"
 
-    def __init__(self, reference_dir=None):
+    def __init__(self, reference_dir: str | None = None) -> None:
         self._stop_event = threading.Event()
         self.lock = threading.Lock()
-        self.latest_frame = None
+        self.latest_frame: Any | None = None
 
         self.reference_dir = reference_dir or state_dir()
         os.makedirs(self.reference_dir, mode=0o700, exist_ok=True)
@@ -87,8 +89,8 @@ class AIGate:
         self.object_detected = False
         self.last_match_mode = self.MATCH_NONE
         self.match_states = {mode: False for mode in self.MODES}
-        self.match_history = []
-        self.latest_gate_results = {}
+        self.match_history: list[tuple[str, ...]] = []
+        self.latest_gate_results: dict[str, Any] = {}
 
         self.matcher = ObjectCueMatcher(
             min_reference_keypoints=self.MIN_REFERENCE_KEYPOINTS,
@@ -103,38 +105,55 @@ class AIGate:
         self.reference_data = {mode: self._empty_reference() for mode in self.MODES}
         self._load_references()
 
-        self._thread = None
+        self._thread: threading.Thread | None = None
 
-    def _empty_reference(self):
+    def _empty_reference(self) -> dict[str, Any]:
         return self.matcher.empty_reference()
 
-    def _validate_mode(self, mode):
+    def _validate_mode(self, mode: str) -> None:
         if mode not in self.MODES:
             raise ValueError("unsupported local entry")
 
-    def _reference_state_from_image(self, image):
-        return self.matcher.reference_state_from_image(image)
+    def _reference_state_from_image(self, image: Any) -> dict[str, Any] | None:
+        return cast(dict[str, Any] | None, self.matcher.reference_state_from_image(image))
 
-    def _to_gray(self, image):
+    def _to_gray(self, image: Any) -> Any:
         return self.matcher.to_gray(image)
 
-    def _reference_state_from_arrays(self, des, kp_data, shape):
-        state = self.matcher.reference_state_from_arrays(des, kp_data, shape)
+    def _reference_state_from_arrays(
+        self, des: Any, kp_data: Any, shape: Any
+    ) -> dict[str, Any]:
+        state = cast(
+            dict[str, Any],
+            self.matcher.reference_state_from_arrays(des, kp_data, shape),
+        )
         if state["des"] is not None:
             state["path"] = self.state_blob_path
         return state
 
-    def _load_references(self):
+    def _load_references(self) -> None:
         with self.lock:
             self.reference_data = self.store.load()
 
-    def _match_reference_state(self, ref_state, frame_gray):
-        return self.matcher.match_reference_state(ref_state, frame_gray)
+    def _match_reference_state(
+        self, ref_state: dict[str, Any], frame_gray: Any
+    ) -> dict[str, object] | None:
+        return cast(
+            dict[str, object] | None,
+            self.matcher.match_reference_state(ref_state, frame_gray),
+        )
 
-    def _match_descriptors(self, ref_state, kp, des):
-        return self.matcher.match_descriptors(ref_state, kp, des)
+    def _match_descriptors(
+        self, ref_state: dict[str, Any], kp: Any, des: Any
+    ) -> dict[str, object] | None:
+        return cast(
+            dict[str, object] | None,
+            self.matcher.match_descriptors(ref_state, kp, des),
+        )
 
-    def _references_too_similar(self, mode, candidate_state):
+    def _references_too_similar(
+        self, mode: str, candidate_state: dict[str, Any]
+    ) -> bool:
         other_mode = "secret" if mode == "dummy" else "dummy"
         other_state = self.reference_data[other_mode]
         if other_state["des"] is None:
@@ -147,7 +166,7 @@ class AIGate:
             is not None
         )
 
-    def _state_to_arrays(self, state):
+    def _state_to_arrays(self, state: dict[str, Any]) -> dict[str, np.ndarray]:
         kp_data = np.array(
             [
                 [
@@ -169,16 +188,18 @@ class AIGate:
             "shape": np.array(state["shape"], dtype=np.int32),
         }
 
-    def _read_reference_blob(self):
+    def _read_reference_blob(self) -> dict[str, dict[str, object | None]]:
         return self.store.load()
 
-    def _write_reference_blob(self, references):
+    def _write_reference_blob(
+        self, references: dict[str, dict[str, object | None]]
+    ) -> None:
         self.store.save(references)
 
-    def _encrypt_template(self, plaintext, path):
+    def _encrypt_template(self, plaintext: bytes, path: str) -> bytes:
         return self.state_cipher.encrypt(plaintext)
 
-    def _read_encrypted_template(self, path):
+    def _read_encrypted_template(self, path: str) -> bytes:
         with open(path, "rb") as handle:
             data = handle.read()
         return self.state_cipher.decrypt(
@@ -187,16 +208,18 @@ class AIGate:
             auth_failed_message="reference template authentication failed",
         )
 
-    def _state_encryption_key(self):
+    def _state_encryption_key(self) -> bytes:
         return self.state_cipher.encryption_key()
 
-    def _load_or_create_local_state_key(self):
+    def _load_or_create_local_state_key(self) -> bytes:
         return self.state_cipher._load_or_create_local_state_key()
 
-    def _template_aad(self, path):
+    def _template_aad(self, path: str) -> bytes:
         return f"phasmid-reference-state:{os.path.basename(path)}".encode("utf-8")
 
-    def _update_match_result(self, matches):
+    def _update_match_result(
+        self, matches: dict[str, dict[str, object] | None]
+    ) -> None:
         active_modes = [mode for mode, result in matches.items() if result is not None]
         self.match_history.append(tuple(active_modes))
         self.match_history = self.match_history[-self.MATCH_HISTORY_FRAMES :]
@@ -228,7 +251,9 @@ class AIGate:
         self.object_detected = True
         self.match_states = {mode: mode == matched_mode for mode in self.MODES}
 
-    def _update_match_result_from_gate_results(self, results):
+    def _update_match_result_from_gate_results(
+        self, results: dict[str, Any]
+    ) -> None:
         if any(result.state == "ambiguous" for result in results.values()):
             self.latest_gate_results = results
             self.last_match_mode = self.MATCH_AMBIGUOUS
@@ -273,11 +298,11 @@ class AIGate:
         self.object_detected = True
         self.match_states = {mode: mode == matched_mode for mode in self.MODES}
 
-    def sequence_for_mode(self, mode, length=1):
+    def sequence_for_mode(self, mode: str, length: int = 1) -> list[str]:
         self._validate_mode(mode)
         return [self.AUTH_TOKENS[mode]] * length
 
-    def get_auth_sequence(self, length=1):
+    def get_auth_sequence(self, length: int = 1) -> list[str]:
         current_mode = recognition_mode()
         confidence = self._recognition_confidence()
         true_threshold = true_unlock_threshold()
@@ -294,7 +319,7 @@ class AIGate:
 
         return [self.MATCH_NONE] * length
 
-    def _recognition_confidence(self):
+    def _recognition_confidence(self) -> float:
         if self.last_match_mode in self.AUTH_TOKENS:
             if self.experimental_object_model_enabled:
                 result = self.latest_gate_results.get(self.last_match_mode)
@@ -308,7 +333,7 @@ class AIGate:
             return 1.0
         return 0.0
 
-    def capture_reference(self, mode):
+    def capture_reference(self, mode: str) -> tuple[bool, str]:
         self._validate_mode(mode)
         if self.latest_frame is None:
             return False, text.AI_GATE_NO_FRAME
@@ -341,7 +366,7 @@ class AIGate:
 
         return True, text.AI_GATE_OBJECT_MATCHED
 
-    def _best_reference_state_from_recent_frames(self):
+    def _best_reference_state_from_recent_frames(self) -> dict[str, Any] | None:
         candidates = []
         for _ in range(self.REFERENCE_CAPTURE_SAMPLES):
             with self.lock:
@@ -355,7 +380,7 @@ class AIGate:
             return None
         return max(candidates, key=lambda state: len(state["kp"]))
 
-    def get_status(self):
+    def get_status(self) -> dict[str, Any]:
         camera_status = self.camera.status()
         status = {
             "camera_ready": bool(camera_status["ready"]),
@@ -392,7 +417,7 @@ class AIGate:
             }
         return status
 
-    def clear_references(self):
+    def clear_references(self) -> tuple[bool, str]:
         empty = {mode: self._empty_reference() for mode in self.MODES}
         try:
             self.store.save(empty)
@@ -410,7 +435,7 @@ class AIGate:
 
         return True, text.AI_GATE_CUES_CLEARED
 
-    def _draw_match_status(self, image):
+    def _draw_match_status(self, image: Any) -> None:
         h, w, _ = image.shape
         cv2.rectangle(image, (0, 0), (w, 50), (0, 0, 0), -1)
         cv2.putText(
@@ -506,7 +531,7 @@ class AIGate:
             1,
         )
 
-    def generate_frames(self):
+    def generate_frames(self) -> Iterator[bytes]:
         frame_delay = 1.0 / self.TARGET_FPS
         empty_reads = 0
         try:
@@ -581,7 +606,7 @@ class AIGate:
         finally:
             self.release_camera()
 
-    def _camera_error_frame(self):
+    def _camera_error_frame(self) -> Any:
         width, height = self.FRAME_SIZE
         image = np.zeros((height, width, 3), dtype=np.uint8)
         cv2.putText(
@@ -604,32 +629,32 @@ class AIGate:
         )
         return image
 
-    def _prepare_stream_frame(self, frame):
+    def _prepare_stream_frame(self, frame: Any) -> Any:
         # Apply a single deterministic horizontal mirror correction.
         return cv2.flip(frame, 1)
 
-    def close(self):
+    def close(self) -> None:
         self._stop_event.set()
         self.release_camera()
         if self._thread:
             self._thread.join()
             self._thread = None
 
-    def release_camera(self):
+    def release_camera(self) -> None:
         self.camera.close()
 
-    def start(self):
+    def start(self) -> None:
         if self._thread is None:
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._generate_loop, daemon=True)
             self._thread.start()
 
-    def _generate_loop(self):
+    def _generate_loop(self) -> None:
         for _ in self.generate_frames():
             pass
 
 
-def get_gesture_sequence(length=1):
+def get_gesture_sequence(length: int = 1) -> list[str]:
     return gate.get_auth_sequence(length=length)
 
 

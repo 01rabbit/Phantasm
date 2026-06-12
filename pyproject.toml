@@ -72,12 +72,6 @@ module = [
 ]
 ignore_missing_imports = true
 
-[[tool.mypy.overrides]]
-module = [
-    "phasmid.ai_gate"
-]
-ignore_errors = true
-
 [tool.coverage.run]
 omit = [
     "src/phasmid/tui/*",
