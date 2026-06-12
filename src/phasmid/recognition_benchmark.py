@@ -1,4 +1,6 @@
 """
+Evaluation/benchmark component - not wired into runtime.
+
 Offline benchmark harness for object recognition evaluation (Issue #38).
 
 No camera is required.  Callers supply pre-captured BGR frames (numpy arrays).

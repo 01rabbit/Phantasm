@@ -1,4 +1,6 @@
 """
+Evaluation/benchmark component - not wired into runtime.
+
 Lightweight object matcher supporting ORB and AKAZE feature detectors.
 
 Both detectors use binary descriptors matched with BFMatcher(NORM_HAMMING).
