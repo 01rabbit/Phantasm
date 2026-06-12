@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import platformdirs
@@ -15,6 +16,7 @@ from ..models.profile import Profile  # noqa: F401 (re-exported)
 
 APP_NAME = "phasmid"
 APP_AUTHOR = "phasmid"
+LOG = logging.getLogger(__name__)
 
 
 def config_dir() -> Path:
@@ -29,8 +31,8 @@ def _ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
     try:
         path.chmod(0o700)
-    except OSError:
-        pass
+    except OSError as exc:
+        LOG.debug("profile directory permission update failed: %s", exc)
 
 
 def load_profile(name: str = "default") -> Profile:
@@ -41,7 +43,8 @@ def load_profile(name: str = "default") -> Profile:
         with open(path, "rb") as f:
             data = tomllib.load(f)
         return Profile.from_dict(data)
-    except Exception:
+    except Exception as exc:
+        LOG.debug("profile load failed: %s", exc)
         return Profile(name=name)
 
 
@@ -55,8 +58,8 @@ def save_profile(profile: Profile) -> None:
         tomli_w.dump(data, f)
     try:
         path.chmod(0o600)
-    except OSError:
-        pass
+    except OSError as exc:
+        LOG.debug("profile permission update failed: %s", exc)
 
 
 def list_profiles() -> list[str]:

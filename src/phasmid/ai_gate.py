@@ -59,8 +59,8 @@ class AIGate:
         os.makedirs(self.reference_dir, mode=0o700, exist_ok=True)
         try:
             os.chmod(self.reference_dir, 0o700)
-        except OSError:
-            pass
+        except OSError as exc:
+            LOG.debug("object cue directory permission update failed: %s", exc)
         self.state_blob_path = os.path.join(self.reference_dir, STATE_BLOB_NAME)
         self.state_key_path = os.path.join(self.reference_dir, STATE_KEY_NAME)
         self.state_cipher = LocalStateCipher(
@@ -319,7 +319,8 @@ class AIGate:
             updated_references = dict(self.reference_data)
             updated_references[mode] = candidate_state
             self.store.save(updated_references)
-        except OSError:
+        except OSError as exc:
+            LOG.debug("object cue reference save failed: %s", exc)
             return False, text.AI_GATE_SAVE_FAILED
 
         candidate_state["path"] = self.state_blob_path
@@ -387,7 +388,8 @@ class AIGate:
         empty = {mode: self._empty_reference() for mode in self.MODES}
         try:
             self.store.save(empty)
-        except OSError:
+        except OSError as exc:
+            LOG.debug("object cue reference clear failed: %s", exc)
             return False, text.AI_GATE_CLEAR_FAILED
 
         with self.lock:

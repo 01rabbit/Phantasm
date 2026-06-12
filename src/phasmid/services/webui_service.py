@@ -188,7 +188,8 @@ class WebUIService:
     def log_file(self) -> pathlib.Path:
         try:
             return pathlib.Path(state_dir()) / "webui.log"
-        except Exception:
+        except Exception as exc:
+            LOG.debug("webui log path resolution failed: %s", exc)
             return pathlib.Path("/tmp/phasmid-webui.log")
 
     @property
@@ -236,11 +237,12 @@ class WebUIService:
     def _terminate_pid(self, pid: int, sig: int = signal.SIGTERM) -> None:
         try:
             os.killpg(os.getpgid(pid), sig)
-        except Exception:
+        except Exception as exc:
+            LOG.debug("webui process group termination failed: %s", exc)
             try:
                 os.kill(pid, sig)
-            except Exception:
-                pass
+            except Exception as fallback_exc:
+                LOG.debug("webui process termination failed: %s", fallback_exc)
 
     def _write_pid(self, pid: int) -> None:
         self.pid_file.parent.mkdir(parents=True, exist_ok=True)
@@ -267,8 +269,8 @@ class WebUIService:
             self.pid_file.unlink()
         except FileNotFoundError:
             pass
-        except OSError:
-            pass
+        except OSError as exc:
+            LOG.debug("webui pid file cleanup failed: %s", exc)
 
     def _pid_is_alive(self, pid: int) -> bool:
         status_path = pathlib.Path(f"/proc/{pid}/stat")
@@ -278,8 +280,8 @@ class WebUIService:
                 parts = stat_text.split()
                 if len(parts) >= 3 and parts[2] == "Z":
                     return False
-            except Exception:
-                pass
+            except Exception as exc:
+                LOG.debug("webui process status probe failed: %s", exc)
         try:
             os.kill(pid, 0)
         except OSError:

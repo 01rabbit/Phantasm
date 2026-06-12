@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import stat
 import tempfile
@@ -24,6 +25,7 @@ from .config import ensure_state_dir, state_dir
 
 SCHEMA_VERSION = 1
 STATE_INDEX_NAME = "state_status.json"
+LOG = logging.getLogger(__name__)
 
 
 class StateStoreError(Exception):
@@ -153,8 +155,8 @@ class LocalStateStore:
         except Exception:
             try:
                 os.unlink(temp_path)
-            except OSError:
-                pass
+            except OSError as exc:
+                LOG.debug("state temp cleanup failed: %s", exc)
             raise
 
     def read_record(self, name: str = STATE_INDEX_NAME):
@@ -219,8 +221,8 @@ class LocalStateStore:
                 os.fsync(fd)
             finally:
                 os.close(fd)
-        except OSError:
-            pass
+        except OSError as exc:
+            LOG.debug("state directory sync failed: %s", exc)
 
 
 def _secure_mode(path: str, *, directory: bool):

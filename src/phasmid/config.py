@@ -1,4 +1,7 @@
+import logging
 import os
+
+LOG = logging.getLogger(__name__)
 
 DEFAULT_STATE_DIR = ".state"
 STATE_BLOB_NAME = "store.bin"
@@ -47,8 +50,8 @@ def ensure_state_dir(path: str | None = None) -> str:
     os.makedirs(resolved, mode=0o700, exist_ok=True)
     try:
         os.chmod(resolved, 0o700)
-    except OSError:
-        pass
+    except OSError as exc:
+        LOG.debug("state directory permission update failed: %s", exc)
     return resolved
 
 
