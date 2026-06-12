@@ -1,9 +1,12 @@
 import io
+import logging
 import os
 import re
 import struct
 import zipfile
 from typing import Optional
+
+LOG = logging.getLogger(__name__)
 
 METADATA_WARNING = (
     "This file may contain metadata that could reveal source, device, "
@@ -261,7 +264,8 @@ def _scrub_jpeg(data: bytes) -> Optional[bytes]:
         if not saw_terminal_marker:
             return None
         return bytes(out)
-    except Exception:
+    except (struct.error, ValueError) as exc:
+        LOG.debug("jpeg metadata reduction parse failed: %s", exc)
         return None
 
 
@@ -284,7 +288,8 @@ def _scrub_png(data: bytes) -> Optional[bytes]:
             if chunk_type == b"IEND":
                 break
         return bytes(out)
-    except Exception:
+    except (struct.error, ValueError) as exc:
+        LOG.debug("png metadata reduction parse failed: %s", exc)
         return None
 
 
@@ -304,7 +309,8 @@ def _scrub_office_zip(data: bytes) -> Optional[bytes]:
                     content = _APP_FIELDS_RE.sub(rb"\1\2", content)
                 zout.writestr(info.filename, content)
         return buf.getvalue()
-    except Exception:
+    except (OSError, RuntimeError, ValueError, zipfile.BadZipFile) as exc:
+        LOG.debug("office metadata reduction parse failed: %s", exc)
         return None
 
 

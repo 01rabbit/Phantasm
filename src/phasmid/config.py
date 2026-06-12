@@ -1,4 +1,7 @@
+import logging
 import os
+
+LOG = logging.getLogger(__name__)
 
 DEFAULT_STATE_DIR = ".state"
 STATE_BLOB_NAME = "store.bin"
@@ -40,6 +43,16 @@ def state_dir() -> str:
     if tmpfs:
         return tmpfs
     return env_text("PHASMID_STATE_DIR", DEFAULT_STATE_DIR)
+
+
+def ensure_state_dir(path: str | None = None) -> str:
+    resolved = path or state_dir()
+    os.makedirs(resolved, mode=0o700, exist_ok=True)
+    try:
+        os.chmod(resolved, 0o700)
+    except OSError as exc:
+        LOG.debug("state directory permission update failed: %s", exc)
+    return resolved
 
 
 def tmpfs_state_dir() -> str | None:

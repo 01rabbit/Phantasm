@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import io
+import logging
 import os
 from typing import Any, Callable
 
 import numpy as np
 
 from .local_state_crypto import LocalStateCipher
+
+LOG = logging.getLogger(__name__)
 
 
 class ObjectCueStore:
@@ -54,8 +57,8 @@ class ObjectCueStore:
             handle.write(encrypted)
         try:
             os.chmod(self.state_blob_path, 0o600)
-        except OSError:
-            pass
+        except OSError as exc:
+            LOG.debug("object cue state permission update failed: %s", exc)
 
     def load(self) -> dict[str, dict[str, object | None]]:
         references = {mode: self.empty_reference() for mode in self.modes}
@@ -79,7 +82,8 @@ class ObjectCueStore:
                         template[f"{mode}_kp"],
                         template[f"{mode}_shape"],
                     )
-        except Exception:
+        except Exception as exc:
+            LOG.debug("object cue state load failed: %s", exc)
             return {mode: self.empty_reference() for mode in self.modes}
 
         return references

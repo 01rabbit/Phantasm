@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time
 from datetime import datetime, timezone
@@ -10,21 +11,17 @@ from .config import (
     AUDIT_LOG_NAME,
     audit_enabled,
     audit_filename_mode,
+    ensure_state_dir,
     state_dir,
 )
 
 AUDIT_VERSION = "2.0"
 GENESIS_HASH = "sha256:GENESIS"
+LOG = logging.getLogger(__name__)
 
 
 def _state_dir():
-    path = state_dir()
-    os.makedirs(path, mode=0o700, exist_ok=True)
-    try:
-        os.chmod(path, 0o700)
-    except OSError:
-        pass
-    return path
+    return ensure_state_dir(state_dir())
 
 
 def audit_event(event, **fields):
@@ -52,8 +49,8 @@ def audit_event(event, **fields):
         )
     try:
         os.chmod(path, 0o600)
-    except OSError:
-        pass
+    except OSError as exc:
+        LOG.debug("audit log permission update failed: %s", exc)
 
 
 def verify_log_integrity(path=None, auth_path=None):
@@ -108,8 +105,8 @@ def _load_or_create_auth_material():
         handle.write(material)
     try:
         os.chmod(path, 0o600)
-    except OSError:
-        pass
+    except OSError as exc:
+        LOG.debug("audit verifier permission update failed: %s", exc)
     return material
 
 

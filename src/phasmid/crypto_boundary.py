@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import threading
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -14,19 +15,23 @@ class CryptoSelfTestError(RuntimeError):
 
 
 _SELF_TEST_PASSED = False
+_SELF_TEST_LOCK = threading.Lock()
 
 
 def ensure_crypto_self_tests():
     global _SELF_TEST_PASSED
     if _SELF_TEST_PASSED:
         return True
-    try:
-        _check_aes_gcm()
-        _check_hmac_sha256()
-        _check_random_bytes()
-    except Exception as exc:
-        raise CryptoSelfTestError("cryptographic self-test failed") from exc
-    _SELF_TEST_PASSED = True
+    with _SELF_TEST_LOCK:
+        if _SELF_TEST_PASSED:
+            return True
+        try:
+            _check_aes_gcm()
+            _check_hmac_sha256()
+            _check_random_bytes()
+        except Exception as exc:
+            raise CryptoSelfTestError("cryptographic self-test failed") from exc
+        _SELF_TEST_PASSED = True
     return True
 
 

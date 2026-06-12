@@ -5,8 +5,12 @@ from __future__ import annotations
 import inspect
 import signal
 import sys
+import tempfile
 import time
+import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 # ---------------------------------------------------------------------------
 # Banner
@@ -787,6 +791,48 @@ def test_inspection_no_recognized_header_for_random_data(tmp_path):
     header_field = next((f for f in result.fields if f.label == "Header"), None)
     assert header_field is not None
     assert "no recognized header" in header_field.value.lower()
+
+
+class VesselSummaryPanelEntropyCacheTests(unittest.TestCase):
+    def test_entropy_is_cached_until_vessel_stat_changes(self):
+        from src.phasmid.models.vessel import VesselMeta
+        from src.phasmid.tui.widgets.status_panel import VesselSummaryPanel
+
+        def inspection_result(value: str):
+            return SimpleNamespace(
+                ok=True,
+                fields=[
+                    SimpleNamespace(
+                        label="Entropy",
+                        value=value,
+                        note="7.99 bits/byte",
+                    )
+                ],
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "sample.vessel"
+            path.write_bytes(b"a" * 128)
+            vessel = VesselMeta(path=path)
+            panel = VesselSummaryPanel(vessel)
+
+            with mock.patch(
+                "src.phasmid.tui.widgets.status_panel.InspectionService"
+            ) as service_cls:
+                service_cls.return_value.inspect.side_effect = [
+                    inspection_result("high / random-like"),
+                    inspection_result("moderate"),
+                ]
+
+                first = panel._get_entropy(vessel)
+                second = panel._get_entropy(vessel)
+                path.write_bytes(b"b" * 256)
+                third = panel._get_entropy(vessel)
+
+        self.assertEqual(first, "high / random-like  [dim](7.99 bits/byte)[/dim]")
+        self.assertEqual(second, first)
+        self.assertEqual(third, "moderate  [dim](7.99 bits/byte)[/dim]")
+        self.assertEqual(service_cls.return_value.inspect.call_count, 2)
 
 
 # ---------------------------------------------------------------------------

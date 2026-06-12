@@ -199,7 +199,7 @@ Use this context for changes involving `main.py`, command syntax, CLI output, co
 Use this context for changes involving ORB matching, camera capture, object cue registration, match ambiguity, stable multi-frame matching, face template enrollment, or UI lock behavior:
 
 - `src/phasmid/ai_gate.py`
-- `src/phasmid/face_lock.py`
+- `src/phasmid/web_server.py` (UI face-lock session handling)
 - `docs/SPECIFICATION.md`, especially section 12
 - `docs/THREAT_MODEL.md`
 - related tests in `tests/`

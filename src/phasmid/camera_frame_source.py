@@ -26,7 +26,12 @@ class CameraRuntimeState:
 
 
 class CameraFrameSource:
-    """Camera capture wrapper with Picamera2-first backend selection."""
+    """Camera capture wrapper with Picamera2-first backend selection.
+
+    Backend open/read/release operations are serialized through an internal
+    re-entrant lock.  Runtime state is observational and should not be used as
+    a cross-thread synchronization primitive by callers.
+    """
 
     def __init__(self, *, frame_size: tuple[int, int], fps: int = 5) -> None:
         self.frame_size = frame_size

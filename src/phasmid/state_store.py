@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import stat
 import tempfile
@@ -20,10 +21,11 @@ class AttemptState:
         return asdict(self)
 
 
-from .config import state_dir
+from .config import ensure_state_dir, state_dir
 
 SCHEMA_VERSION = 1
 STATE_INDEX_NAME = "state_status.json"
+LOG = logging.getLogger(__name__)
 
 
 class StateStoreError(Exception):
@@ -119,11 +121,7 @@ class LocalStateStore:
         self.root = root or state_dir()
 
     def ensure_root(self):
-        os.makedirs(self.root, mode=0o700, exist_ok=True)
-        try:
-            os.chmod(self.root, 0o700)
-        except OSError:
-            pass
+        ensure_state_dir(self.root)
 
     def path_for(self, name: str):
         if os.path.basename(name) != name:
@@ -157,8 +155,8 @@ class LocalStateStore:
         except Exception:
             try:
                 os.unlink(temp_path)
-            except OSError:
-                pass
+            except OSError as exc:
+                LOG.debug("state temp cleanup failed: %s", exc)
             raise
 
     def read_record(self, name: str = STATE_INDEX_NAME):
@@ -223,8 +221,8 @@ class LocalStateStore:
                 os.fsync(fd)
             finally:
                 os.close(fd)
-        except OSError:
-            pass
+        except OSError as exc:
+            LOG.debug("state directory sync failed: %s", exc)
 
 
 def _secure_mode(path: str, *, directory: bool):
