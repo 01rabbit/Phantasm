@@ -45,7 +45,7 @@ class RecordCipher:
         key: bytes,
         mode: str,
         password_role: str,
-        filename: str = "payload.bin",
+        filename: str | None = "payload.bin",
         payload_len: int | None = None,
         created_at: int | None = None,
         salt: bytes | None = None,
