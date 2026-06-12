@@ -36,6 +36,8 @@ class VesselSummaryPanel(Widget):
     def __init__(self, vessel: VesselMeta | None = None, **kwargs):
         super().__init__(**kwargs)
         self._vessel = vessel
+        self._entropy_cache_key: tuple[str, int, int] | None = None
+        self._entropy_cache_value = ""
 
     def compose(self) -> ComposeResult:
         yield Static("VESSEL STATUS", classes="panel-title")
@@ -56,6 +58,9 @@ class VesselSummaryPanel(Widget):
                 )
 
     def update_vessel(self, vessel: VesselMeta | None) -> None:
+        if self._vessel is None or vessel is None or self._vessel.path != vessel.path:
+            self._entropy_cache_key = None
+            self._entropy_cache_value = ""
         self._vessel = vessel
         self.remove_children()
         for widget in self._build_children():
@@ -101,12 +106,25 @@ class VesselSummaryPanel(Widget):
 
     def _get_entropy(self, vessel: VesselMeta) -> str:
         try:
+            stat = vessel.path.stat()
+            cache_key = (str(vessel.path), stat.st_mtime_ns, stat.st_size)
+        except OSError:
+            cache_key = None
+        if cache_key is not None and cache_key == self._entropy_cache_key:
+            return self._entropy_cache_value
+
+        entropy_value = ""
+        try:
             result = InspectionService().inspect(vessel.path)
             if result.ok:
                 for field in result.fields:
                     if field.label == "Entropy":
                         note = f"  [dim]({field.note})[/dim]" if field.note else ""
-                        return f"{field.value}{note}"
+                        entropy_value = f"{field.value}{note}"
+                        break
         except Exception:
             pass
-        return ""
+        if cache_key is not None:
+            self._entropy_cache_key = cache_key
+            self._entropy_cache_value = entropy_value
+        return entropy_value
