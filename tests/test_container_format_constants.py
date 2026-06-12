@@ -20,11 +20,31 @@ class ContainerFormatConstantsTests(unittest.TestCase):
         self.assertEqual(RecordCipher.SLOT_ROLES, ("open", "purge"))
 
     def test_crypto_params_version_matches_record_cipher(self):
+        self.assertEqual(crypto_params.FORMAT_VERSION, 3)
         self.assertEqual(crypto_params.VAULT_FORMAT_VERSION, 3)
+        self.assertEqual(crypto_params.FORMAT_MARKER, "jes-v3")
+        self.assertEqual(crypto_params.SALT_SIZE, 16)
+        self.assertEqual(crypto_params.NONCE_SIZE, 12)
+        self.assertEqual(crypto_params.TAG_SIZE, 16)
+        self.assertEqual(crypto_params.RECORD_OVERHEAD, 44)
+        self.assertEqual(crypto_params.OPEN_ROLE, "open")
+        self.assertEqual(crypto_params.PURGE_ROLE, "purge")
+        self.assertEqual(crypto_params.SLOT_ROLES, ("open", "purge"))
         self.assertEqual(
             crypto_params.VAULT_FORMAT_VERSION,
             RecordCipher.FORMAT_VERSION,
         )
+        self.assertEqual(crypto_params.FORMAT_MARKER, RecordCipher.FORMAT_MARKER)
+        self.assertEqual(crypto_params.SALT_SIZE, RecordCipher.SALT_SIZE)
+        self.assertEqual(crypto_params.NONCE_SIZE, RecordCipher.NONCE_SIZE)
+        self.assertEqual(crypto_params.TAG_SIZE, RecordCipher.AESGCM_TAG_SIZE)
+        self.assertEqual(
+            crypto_params.RECORD_OVERHEAD,
+            RecordCipher.RECORD_OVERHEAD,
+        )
+        self.assertEqual(crypto_params.OPEN_ROLE, RecordCipher.OPEN_ROLE)
+        self.assertEqual(crypto_params.PURGE_ROLE, RecordCipher.PURGE_ROLE)
+        self.assertEqual(crypto_params.SLOT_ROLES, RecordCipher.SLOT_ROLES)
 
     def test_container_layout_capacity_uses_record_overhead(self):
         with tempfile.NamedTemporaryFile(delete=False) as handle:

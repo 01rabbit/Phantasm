@@ -43,6 +43,14 @@ AESGCM_TAG_SIZE: int = 16  # bytes (128 bits)
 
 # Per-record Argon2id salt (random, stored in plaintext alongside ciphertext).
 RECORD_SALT_SIZE: int = 16  # bytes (128 bits)
+SALT_SIZE: int = RECORD_SALT_SIZE
+NONCE_SIZE: int = AESGCM_NONCE_SIZE
+TAG_SIZE: int = AESGCM_TAG_SIZE
+RECORD_OVERHEAD: int = SALT_SIZE + NONCE_SIZE + TAG_SIZE
+FORMAT_MARKER: str = "jes-v3"
+OPEN_ROLE: str = "open"
+PURGE_ROLE: str = "purge"
+SLOT_ROLES: tuple[str, str] = (OPEN_ROLE, PURGE_ROLE)
 
 # ---------------------------------------------------------------------------
 # Access key — local key material mixed into Argon2id secret
@@ -67,3 +75,4 @@ PBKDF2_SALT_SIZE: int = 32  # bytes
 # Increment when any parameter above changes or the on-disk layout changes.
 # Old vaults at FORMAT_VERSION N cannot be opened by code expecting N+1.
 VAULT_FORMAT_VERSION: int = 3
+FORMAT_VERSION: int = VAULT_FORMAT_VERSION

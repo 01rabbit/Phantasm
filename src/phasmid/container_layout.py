@@ -1,5 +1,7 @@
 import os
 
+from .crypto_params import OPEN_ROLE, RECORD_OVERHEAD, SLOT_ROLES
+
 
 class ContainerLayout:
     MIN_CONTAINER_SIZE = 4096
@@ -26,10 +28,6 @@ class ContainerLayout:
 
     def get_slot_span(self, mode: str, password_role: str) -> tuple[int, int]:
         """Get the span for a slot within a mode"""
-        OPEN_ROLE = "open"
-        PURGE_ROLE = "purge"
-        SLOT_ROLES = (OPEN_ROLE, PURGE_ROLE)
-
         if password_role not in SLOT_ROLES:
             raise ValueError(f"unsupported password role: {password_role}")
         start, span_len = self.get_mode_span(mode)
@@ -40,7 +38,6 @@ class ContainerLayout:
 
     def get_plaintext_capacity(self, mode: str, password_role: str) -> int:
         """Calculate plaintext capacity for a specific slot"""
-        RECORD_OVERHEAD = 16 + 12 + 16  # SALT_SIZE + NONCE_SIZE + AESGCM_TAG_SIZE
         _start, span_len = self.get_slot_span(mode, password_role)
         capacity = span_len - RECORD_OVERHEAD
         if capacity <= 4:

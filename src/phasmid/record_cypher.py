@@ -5,17 +5,29 @@ import time
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+from .crypto_params import (
+    FORMAT_MARKER,
+    FORMAT_VERSION,
+    NONCE_SIZE,
+    OPEN_ROLE,
+    PURGE_ROLE,
+    RECORD_OVERHEAD,
+    SALT_SIZE,
+    SLOT_ROLES,
+    TAG_SIZE,
+)
+
 
 class RecordCipher:
-    FORMAT_VERSION = 3
-    FORMAT_MARKER = "jes-v3"
-    AESGCM_TAG_SIZE = 16
-    SALT_SIZE = 16
-    NONCE_SIZE = 12
-    RECORD_OVERHEAD = SALT_SIZE + NONCE_SIZE + AESGCM_TAG_SIZE
-    OPEN_ROLE = "open"
-    PURGE_ROLE = "purge"
-    SLOT_ROLES = (OPEN_ROLE, PURGE_ROLE)
+    FORMAT_VERSION = FORMAT_VERSION
+    FORMAT_MARKER = FORMAT_MARKER
+    AESGCM_TAG_SIZE = TAG_SIZE
+    SALT_SIZE = SALT_SIZE
+    NONCE_SIZE = NONCE_SIZE
+    RECORD_OVERHEAD = RECORD_OVERHEAD
+    OPEN_ROLE = OPEN_ROLE
+    PURGE_ROLE = PURGE_ROLE
+    SLOT_ROLES = SLOT_ROLES
 
     def __init__(self, container_path, container_size, container_layout):
         self.container_path = container_path
