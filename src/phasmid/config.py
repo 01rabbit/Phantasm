@@ -42,6 +42,16 @@ def state_dir() -> str:
     return env_text("PHASMID_STATE_DIR", DEFAULT_STATE_DIR)
 
 
+def ensure_state_dir(path: str | None = None) -> str:
+    resolved = path or state_dir()
+    os.makedirs(resolved, mode=0o700, exist_ok=True)
+    try:
+        os.chmod(resolved, 0o700)
+    except OSError:
+        pass
+    return resolved
+
+
 def tmpfs_state_dir() -> str | None:
     value = env_text("PHASMID_TMPFS_STATE", "").strip()
     return value or None

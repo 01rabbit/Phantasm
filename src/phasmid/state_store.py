@@ -20,7 +20,7 @@ class AttemptState:
         return asdict(self)
 
 
-from .config import state_dir
+from .config import ensure_state_dir, state_dir
 
 SCHEMA_VERSION = 1
 STATE_INDEX_NAME = "state_status.json"
@@ -119,11 +119,7 @@ class LocalStateStore:
         self.root = root or state_dir()
 
     def ensure_root(self):
-        os.makedirs(self.root, mode=0o700, exist_ok=True)
-        try:
-            os.chmod(self.root, 0o700)
-        except OSError:
-            pass
+        ensure_state_dir(self.root)
 
     def path_for(self, name: str):
         if os.path.basename(name) != name:

@@ -10,6 +10,7 @@ from .config import (
     AUDIT_LOG_NAME,
     audit_enabled,
     audit_filename_mode,
+    ensure_state_dir,
     state_dir,
 )
 
@@ -18,13 +19,7 @@ GENESIS_HASH = "sha256:GENESIS"
 
 
 def _state_dir():
-    path = state_dir()
-    os.makedirs(path, mode=0o700, exist_ok=True)
-    try:
-        os.chmod(path, 0o700)
-    except OSError:
-        pass
-    return path
+    return ensure_state_dir(state_dir())
 
 
 def audit_event(event, **fields):
