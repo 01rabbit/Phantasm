@@ -254,6 +254,37 @@ def _resolve_required_emergency_password(args) -> str:
     return password
 
 
+def _resolve_first_add_passwords(args) -> tuple[str, str]:
+    access_file = getattr(args, "passphrase_file", None)
+    emergency_file = getattr(args, "emergency_passphrase_file", None)
+    if access_file or emergency_file:
+        if not access_file or not emergency_file:
+            raise ValueError(
+                "first file add requires both --passphrase-file and "
+                "--emergency-passphrase-file"
+            )
+        access_password = _read_passphrase_file(access_file)
+        emergency_password = _read_passphrase_file(emergency_file)
+        if not access_password:
+            raise ValueError("access password must not be empty")
+        if not emergency_password:
+            raise ValueError("emergency destruction password must not be empty")
+        if access_password == emergency_password:
+            raise ValueError(
+                "access and emergency destruction passwords must be different"
+            )
+        return access_password, emergency_password
+    access_password = getpass.getpass("  Access password: ")
+    emergency_password = getpass.getpass("  Emergency destruction password: ")
+    if not access_password:
+        raise ValueError("access password must not be empty")
+    if not emergency_password:
+        raise ValueError("emergency destruction password must not be empty")
+    if access_password == emergency_password:
+        raise ValueError("access and emergency destruction passwords must be different")
+    return access_password, emergency_password
+
+
 def _resolve_retrieve_password(args) -> str:
     passphrase_file = getattr(args, "passphrase_file", None)
     if passphrase_file:
@@ -927,8 +958,13 @@ def _run_file_add_command(args) -> int:
                 error("Camera feed did not become available.")
                 return 1
         try:
-            pw = _resolve_access_password(args)
-            emergency_pw = _resolve_optional_emergency_password(args)
+            pw: str
+            emergency_pw: str | None
+            if svc.face_requires_initialization(args.vessel, args.face):
+                pw, emergency_pw = _resolve_first_add_passwords(args)
+            else:
+                pw = _resolve_access_password(args)
+                emergency_pw = _resolve_optional_emergency_password(args)
         except ValueError as exc:
             error(str(exc))
             return 1

@@ -60,6 +60,8 @@ def _default_face_record(face_id: str, label: str, selector: str) -> dict[str, o
         "file_count": 0,
         "status": "available",
         "selector": selector,
+        "credentials_initialized": False,
+        "object_binding_initialized": False,
         "dummy_profile": _default_dummy_profile_record(),
         "object_binding": {},
         "emergency_auth": {},
@@ -168,6 +170,10 @@ def _normalize_face_record(
         "file_count": _int_value(item.get("file_count", 0)),
         "status": str(item.get("status", "available")),
         "selector": str(item.get("selector", default_selector)),
+        "credentials_initialized": bool(item.get("credentials_initialized", False)),
+        "object_binding_initialized": bool(
+            item.get("object_binding_initialized", False)
+        ),
         "dummy_profile": _normalize_dummy_profile_record(item.get("dummy_profile", {})),
         "object_binding": _OBJECT_BINDING.normalize_record(
             item.get("object_binding", {})
@@ -374,11 +380,14 @@ def update_face_access(
     *,
     opened: bool = False,
     closed: bool = False,
+    status: str | None = None,
     occupancy: int | None = None,
     file_count: int | None = None,
     dummy_profile: dict[str, object] | None = None,
     object_binding: dict[str, object] | None = None,
     emergency_auth: dict[str, object] | None = None,
+    credentials_initialized: bool | None = None,
+    object_binding_initialized: bool | None = None,
 ) -> dict[str, object]:
     record = _update_registry_record(path)
     faces = _normalize_faces(record.get("faces", []))
@@ -390,12 +399,18 @@ def update_face_access(
         face["occupancy"] = occupancy
     if file_count is not None:
         face["file_count"] = file_count
+    if status is not None:
+        face["status"] = status
     if dummy_profile is not None:
         face["dummy_profile"] = _normalize_dummy_profile_record(dummy_profile)
     if object_binding is not None:
         face["object_binding"] = _OBJECT_BINDING.normalize_record(object_binding)
     if emergency_auth is not None:
         face["emergency_auth"] = _normalize_emergency_auth_record(emergency_auth)
+    if credentials_initialized is not None:
+        face["credentials_initialized"] = credentials_initialized
+    if object_binding_initialized is not None:
+        face["object_binding_initialized"] = object_binding_initialized
     if opened:
         face["last_accessed"] = _utc_now()
         face["status"] = "open"
@@ -492,6 +507,12 @@ def _meta_for(path: Path, record: dict[str, object] | None = None) -> VesselMeta
                 file_count=_int_value(face.get("file_count", 0)),
                 status=str(face.get("status", "available")),
                 selector=str(face.get("selector", "")),
+                credentials_initialized=bool(
+                    face.get("credentials_initialized", False)
+                ),
+                object_binding_initialized=bool(
+                    face.get("object_binding_initialized", False)
+                ),
                 dummy_profile=DummyProfileMeta(
                     dummy_file_count=_int_value(
                         _normalize_dummy_profile_record(
@@ -644,22 +665,28 @@ class VesselService:
         *,
         opened: bool = False,
         closed: bool = False,
+        status: str | None = None,
         occupancy: int | None = None,
         file_count: int | None = None,
         dummy_profile: dict[str, object] | None = None,
         object_binding: dict[str, object] | None = None,
         emergency_auth: dict[str, object] | None = None,
+        credentials_initialized: bool | None = None,
+        object_binding_initialized: bool | None = None,
     ) -> dict[str, object]:
         return update_face_access(
             path,
             face_id,
             opened=opened,
             closed=closed,
+            status=status,
             occupancy=occupancy,
             file_count=file_count,
             dummy_profile=dummy_profile,
             object_binding=object_binding,
             emergency_auth=emergency_auth,
+            credentials_initialized=credentials_initialized,
+            object_binding_initialized=object_binding_initialized,
         )
 
     def check_filename_warnings(self, path: str | Path) -> list[str]:

@@ -32,6 +32,8 @@ class FaceMeta:
     file_count: int = 0
     status: str = "available"
     selector: str = ""
+    credentials_initialized: bool = False
+    object_binding_initialized: bool = False
     dummy_profile: DummyProfileMeta = field(default_factory=DummyProfileMeta)
 
 

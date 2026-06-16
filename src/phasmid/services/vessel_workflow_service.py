@@ -259,6 +259,17 @@ class VesselWorkflowService:
                 )
         return {}
 
+    def _get_face_state_record(
+        self, path: str | Path, face_id: str
+    ) -> dict[str, object]:
+        record = self._vessels.get_record(path)
+        if not record:
+            return {}
+        for face in cast(list[dict[str, object]], record.get("faces", [])):
+            if str(face.get("face_id", "")) == face_id:
+                return face
+        return {}
+
     def _get_face_emergency_auth_record(
         self, path: str | Path, face_id: str
     ) -> dict[str, object]:
@@ -282,6 +293,7 @@ class VesselWorkflowService:
             path,
             face_id,
             object_binding=self._object_binding.normalize_record(binding_record),
+            object_binding_initialized=True,
         )
 
     def _set_face_emergency_password(
@@ -334,6 +346,18 @@ class VesselWorkflowService:
 
     def _binding_registered(self, binding_record: dict[str, object]) -> bool:
         return bool(binding_record.get("source_type"))
+
+    def _credentials_initialized(self, path: str | Path, face_id: str) -> bool:
+        face = self._get_face_state_record(path, face_id)
+        return bool(face.get("credentials_initialized", False))
+
+    def face_requires_initialization(
+        self, path: str | Path, selector: str = "face_a"
+    ) -> bool:
+        return not self._credentials_initialized(
+            Path(path).expanduser().resolve(),
+            self.resolve_face_id(selector),
+        )
 
     def _capture_camera_profile(self) -> ObjectBindingProfile:
         frame = self._access_cue.latest_frame_copy()
@@ -663,6 +687,7 @@ class VesselWorkflowService:
         cue_sequence: list[str],
     ) -> tuple[dict[str, object], str | None]:
         mode = self.resolve_mode(selector)
+        face_id = self.resolve_face_id(selector)
         vault = PhasmidVault(
             str(vessel_path), size_mb=vessel_path.stat().st_size / (1024 * 1024)
         )
@@ -672,8 +697,7 @@ class VesselWorkflowService:
             mode=mode,
         )
         if data is None:
-            face = self._get_face(self._get_meta(vessel_path), self.resolve_face_id(selector))
-            if face.file_count == 0 and face.occupancy == 0:
+            if not self._credentials_initialized(vessel_path, face_id):
                 return self._empty_namespace(), None
             raise ValueError("password mismatch")
         return self._decode_namespace(data, filename), filename
@@ -692,14 +716,23 @@ class VesselWorkflowService:
         vault = PhasmidVault(
             str(vessel_path), size_mb=vessel_path.stat().st_size / (1024 * 1024)
         )
-        vault.store(
-            open_passphrase,
-            encoded,
-            cue_sequence,
-            filename=filename,
-            mode=mode,
-            restricted_recovery_password=restricted_passphrase,
-        )
+        if restricted_passphrase is None:
+            vault.store_open_only(
+                open_passphrase,
+                encoded,
+                cue_sequence,
+                filename=filename,
+                mode=mode,
+            )
+        else:
+            vault.store(
+                open_passphrase,
+                encoded,
+                cue_sequence,
+                filename=filename,
+                mode=mode,
+                restricted_recovery_password=restricted_passphrase,
+            )
         files = self._namespace_file_records(namespace)
         dummy_profile = self._build_dummy_profile(vessel_path, namespace)
         self._vessels.touch_face(
@@ -829,10 +862,15 @@ class VesselWorkflowService:
         self._write_face_namespace(
             vessel,
             open_passphrase,
-            None,
+            emergency_password,
             selector,
             cue_sequence,
             namespace,
+        )
+        self._vessels.touch_face(
+            vessel,
+            self.resolve_face_id(selector),
+            credentials_initialized=True,
         )
         return StorePayloadResult(
             vessel_path=vessel,
@@ -853,6 +891,8 @@ class VesselWorkflowService:
         no_object_binding: bool = False,
     ) -> FaceFileListResult:
         vessel = Path(vessel_path).expanduser().resolve()
+        if not self._credentials_initialized(vessel, self.resolve_face_id(selector)):
+            raise ValueError("credentials not initialized")
         if use_attempt_limiter:
             limiter = FileAttemptLimiter()
             decision = limiter.check("cli-retrieve")
@@ -912,6 +952,8 @@ class VesselWorkflowService:
         no_object_binding: bool = False,
     ) -> FaceResult:
         vessel = Path(vessel_path).expanduser().resolve()
+        if not self._credentials_initialized(vessel, self.resolve_face_id(selector)):
+            raise ValueError("credentials not initialized")
         stored_binding = self._get_face_binding_record(
             vessel, self.resolve_face_id(selector)
         )
@@ -1084,6 +1126,8 @@ class VesselWorkflowService:
             raise ValueError("confirmation rejected")
         vessel = Path(vessel_path).expanduser().resolve()
         face_id = self.resolve_face_id(selector)
+        if not self._credentials_initialized(vessel, face_id):
+            raise ValueError("credentials not initialized")
         self._ensure_object_binding(
             vessel,
             selector,
@@ -1102,6 +1146,11 @@ class VesselWorkflowService:
             face_id,
             occupancy=0,
             file_count=0,
+            status="available",
+            credentials_initialized=False,
+            object_binding_initialized=False,
+            object_binding={},
+            emergency_auth={},
             dummy_profile={
                 "dummy_file_count": 0,
                 "dummy_total_size": 0,
@@ -1131,6 +1180,8 @@ class VesselWorkflowService:
             raise ValueError("confirmation rejected")
         vessel = Path(vessel_path).expanduser().resolve()
         face_id = self.resolve_face_id(selector)
+        if not self._credentials_initialized(vessel, face_id):
+            raise ValueError("credentials not initialized")
         self._ensure_object_binding(
             vessel,
             selector,
@@ -1193,6 +1244,10 @@ class VesselWorkflowService:
         vessel = Path(vessel_path).expanduser().resolve()
         if not vessel.exists():
             raise FileNotFoundError(f"vessel file not found: {vessel}")
+        if selector is not None and not self._credentials_initialized(
+            vessel, self.resolve_face_id(selector)
+        ):
+            raise ValueError("credentials not initialized")
 
         if use_attempt_limiter:
             limiter = FileAttemptLimiter()
@@ -1204,6 +1259,8 @@ class VesselWorkflowService:
         namespace = None
         accessed_selector = None
         for candidate in candidate_selectors:
+            if not self._credentials_initialized(vessel, self.resolve_face_id(str(candidate))):
+                continue
             try:
                 active_cue_sequence = cue_sequence
                 stored_binding = self._get_face_binding_record(

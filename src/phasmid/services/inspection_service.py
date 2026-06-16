@@ -111,10 +111,19 @@ def inspect_vessel(path: str | Path) -> InspectionResult:
             f"{face.dummy_profile.occupancy_ratio * 100:.1f}%"
             for face in vessel_meta.faces
         )
+        credential_summary = ", ".join(
+            f"{face.face_id}:credentials={'ready' if face.credentials_initialized else 'pending'}:"
+            f"object={'ready' if face.object_binding_initialized else 'pending'}"
+            for face in vessel_meta.faces
+        )
         fields.extend(
             [
                 InspectionField("Face Count", str(vessel_meta.face_count)),
                 InspectionField("Face Registry", face_summary or "not recorded"),
+                InspectionField(
+                    "Face Credential State",
+                    credential_summary or "not recorded",
+                ),
                 InspectionField(
                     "Plausibility Summary",
                     plausibility_summary or "not recorded",

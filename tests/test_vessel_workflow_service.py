@@ -66,6 +66,68 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                 self.assertEqual(recovered.bytes_retrieved, len(b"field note"))
                 self.assertEqual(output_path.read_text(encoding="utf-8"), "field note")
 
+    def test_first_add_initializes_face_a_credentials(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+            input_path = Path(tmpdir) / "note.txt"
+            image_path = Path(tmpdir) / "object-a.png"
+            input_path.write_text("field note", encoding="utf-8")
+            self._write_object_image(image_path, (20, 120, 220))
+
+            with mock.patch.dict(
+                os.environ,
+                {"PHASMID_STATE_DIR": str(state_dir)},
+                clear=False,
+            ), self._patch_registry_dir(tmpdir):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+                stored = svc.add_file(
+                    vessel_path,
+                    input_path,
+                    "access-pw",
+                    "emergency-pw",
+                    selector="face_a",
+                    object_image_path=str(image_path),
+                )
+                self.assertEqual(stored.bytes_stored, len(b"field note"))
+                inspection = InspectionService().inspect(vessel_path)
+                labels = {field.label: field.value for field in inspection.fields}
+                self.assertIn("face_a:credentials=ready:object=ready", labels["Face Credential State"])
+
+    def test_first_add_initializes_face_b_credentials(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+            input_path = Path(tmpdir) / "note.txt"
+            image_path = Path(tmpdir) / "object-b.png"
+            input_path.write_text("field note", encoding="utf-8")
+            self._write_object_image(image_path, (220, 40, 40))
+
+            with mock.patch.dict(
+                os.environ,
+                {"PHASMID_STATE_DIR": str(state_dir)},
+                clear=False,
+            ), self._patch_registry_dir(tmpdir):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+                stored = svc.add_file(
+                    vessel_path,
+                    input_path,
+                    "access-pw",
+                    "emergency-pw",
+                    selector="face_b",
+                    object_image_path=str(image_path),
+                )
+                self.assertEqual(stored.mode, "secret")
+                listing = svc.list_files(
+                    vessel_path,
+                    "access-pw",
+                    selector="face_b",
+                    object_image_path=str(image_path),
+                )
+                self.assertEqual([item.name for item in listing.files], ["note.txt"])
+
     def test_create_rejects_existing_vessel_without_overwrite(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             state_dir = Path(tmpdir) / "state"
@@ -231,14 +293,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                     selector="face_a",
                     cue_sequence=cue_a,
                 )
-                files_b = svc.list_files(
-                    vessel_path,
-                    "correct horse battery",
-                    selector="face_b",
-                    cue_sequence=cue_b,
-                )
                 self.assertEqual([file.name for file in files_a.files], ["x.txt"])
-                self.assertEqual(files_b.files, [])
+                with self.assertRaisesRegex(ValueError, "credentials not initialized"):
+                    svc.list_files(
+                        vessel_path,
+                        "correct horse battery",
+                        selector="face_b",
+                        cue_sequence=cue_b,
+                    )
 
                 svc.add_file(
                     vessel_path,
@@ -460,6 +522,85 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                 )
                 self.assertEqual([item.name for item in listing_after.files], ["note.txt"])
 
+    def test_second_add_wrong_access_password_fails(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+            first_file = Path(tmpdir) / "one.txt"
+            second_file = Path(tmpdir) / "two.txt"
+            image_path = Path(tmpdir) / "object-a.png"
+            first_file.write_text("alpha", encoding="utf-8")
+            second_file.write_text("bravo", encoding="utf-8")
+            self._write_object_image(image_path, (20, 120, 220))
+
+            with mock.patch.dict(
+                os.environ,
+                {"PHASMID_STATE_DIR": str(state_dir)},
+                clear=False,
+            ), self._patch_registry_dir(tmpdir):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+                svc.add_file(
+                    vessel_path,
+                    first_file,
+                    "access-pw",
+                    "emergency-pw",
+                    selector="face_a",
+                    object_image_path=str(image_path),
+                )
+                with self.assertRaisesRegex(ValueError, "password mismatch"):
+                    svc.add_file(
+                        vessel_path,
+                        second_file,
+                        "wrong-pw",
+                        None,
+                        selector="face_a",
+                        object_image_path=str(image_path),
+                    )
+
+    def test_second_add_preserves_emergency_credentials(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+            first_file = Path(tmpdir) / "one.txt"
+            second_file = Path(tmpdir) / "two.txt"
+            image_path = Path(tmpdir) / "object-a.png"
+            first_file.write_text("alpha", encoding="utf-8")
+            second_file.write_text("bravo", encoding="utf-8")
+            self._write_object_image(image_path, (20, 120, 220))
+
+            with mock.patch.dict(
+                os.environ,
+                {"PHASMID_STATE_DIR": str(state_dir)},
+                clear=False,
+            ), self._patch_registry_dir(tmpdir):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+                svc.add_file(
+                    vessel_path,
+                    first_file,
+                    "access-pw",
+                    "burn-pw",
+                    selector="face_a",
+                    object_image_path=str(image_path),
+                )
+                svc.add_file(
+                    vessel_path,
+                    second_file,
+                    "access-pw",
+                    None,
+                    selector="face_a",
+                    object_image_path=str(image_path),
+                )
+                result = svc.destroy_face(
+                    vessel_path,
+                    "burn-pw",
+                    selector="face_a",
+                    object_image_path=str(image_path),
+                    confirmation="DESTROY FACE",
+                )
+                self.assertEqual(result.face_id, "face_a")
+
     def test_emergency_password_does_not_trigger_normal_list_or_retrieve(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             state_dir = Path(tmpdir) / "state"
@@ -571,13 +712,13 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                     confirmation="DESTROY FACE",
                 )
                 self.assertEqual(result.face_id, "face_a")
-                files_a = svc.list_files(
-                    vessel_path,
-                    "access-pw",
-                    selector="face_a",
-                    object_image_path=str(image_a),
-                )
-                self.assertEqual(files_a.files, [])
+                with self.assertRaisesRegex(ValueError, "credentials not initialized"):
+                    svc.list_files(
+                        vessel_path,
+                        "access-pw",
+                        selector="face_a",
+                        object_image_path=str(image_a),
+                    )
                 files_b = svc.list_files(
                     vessel_path,
                     "access-pw",
@@ -585,6 +726,29 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                     object_image_path=str(image_b),
                 )
                 self.assertEqual([item.name for item in files_b.files], ["b.txt"])
+
+    def test_emergency_destroy_before_initialization_fails_clearly(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+            image_a = Path(tmpdir) / "object-a.png"
+            self._write_object_image(image_a, (20, 120, 220))
+
+            with mock.patch.dict(
+                os.environ,
+                {"PHASMID_STATE_DIR": str(state_dir)},
+                clear=False,
+            ), self._patch_registry_dir(tmpdir):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+                with self.assertRaisesRegex(ValueError, "credentials not initialized"):
+                    svc.destroy_face(
+                        vessel_path,
+                        "burn-a",
+                        selector="face_a",
+                        object_image_path=str(image_a),
+                        confirmation="DESTROY FACE",
+                    )
 
     def test_emergency_destroy_vessel_invalidates_all_faces(self):
         with tempfile.TemporaryDirectory() as tmpdir:

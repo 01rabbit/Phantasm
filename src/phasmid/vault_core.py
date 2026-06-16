@@ -122,6 +122,24 @@ class PhasmidVault:
         else:
             self._randomize_slot(mode, self.PURGE_ROLE)
 
+    def store_open_only(
+        self,
+        password: str,
+        data: bytes,
+        gesture_sequence: list[str],
+        filename: str | None = "payload.bin",
+        mode: str = "dummy",
+    ) -> None:
+        self.container_layout._require_container()
+        self._write_slot(
+            password,
+            data,
+            gesture_sequence,
+            filename=filename,
+            mode=mode,
+            password_role=self.OPEN_ROLE,
+        )
+
     def _write_slot(
         self,
         password: str,

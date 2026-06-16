@@ -304,6 +304,9 @@ class CLITests(unittest.TestCase):
         events = []
 
         class FakeWorkflowService:
+            def face_requires_initialization(self, _vessel, _face):
+                return False
+
             def wait_for_camera_frame(self):
                 return True
 
@@ -365,6 +368,9 @@ class CLITests(unittest.TestCase):
         events = []
 
         class FakeWorkflowService:
+            def face_requires_initialization(self, _vessel, _face):
+                return False
+
             def add_file(
                 self,
                 vessel,
@@ -434,7 +440,93 @@ class CLITests(unittest.TestCase):
 
         gate_start.assert_not_called()
         self.assertIn(
-            ("file_add", "travel.vessel", "note.txt", "face_b", False, "object.png", False, False, None),
+            (
+                "file_add",
+                "travel.vessel",
+                "note.txt",
+                "face_b",
+                False,
+                "object.png",
+                False,
+                False,
+                None,
+            ),
+            events,
+        )
+
+    def test_cli_file_add_first_use_prompts_access_and_emergency(self):
+        output = io.StringIO()
+        events = []
+
+        class FakeWorkflowService:
+            def face_requires_initialization(self, _vessel, _face):
+                return True
+
+            def add_file(
+                self,
+                vessel,
+                input_path,
+                open_passphrase,
+                restricted_passphrase,
+                selector="face_a",
+                cue_sequence=None,
+                capture_reference=False,
+                object_image_path=None,
+                camera_object=False,
+                no_object_binding=False,
+                emergency_password=None,
+            ):
+                events.append(
+                    (
+                        "file_add",
+                        vessel,
+                        open_passphrase,
+                        emergency_password,
+                        selector,
+                    )
+                )
+                return type(
+                    "Result", (), {"input_path": Path(input_path), "vessel_path": Path(vessel)}
+                )()
+
+        with (
+            unittest.mock.patch.object(
+                cli, "apply_process_hardening", return_value=None
+            ),
+            unittest.mock.patch.object(cli, "require_volatile_state", return_value=None),
+            unittest.mock.patch.object(cli, "_run_startup_checks", return_value=True),
+            unittest.mock.patch.object(
+                cli, "_resolve_first_add_passwords", return_value=("access", "emergency")
+            ),
+            unittest.mock.patch.object(
+                sys,
+                "argv",
+                [
+                    "phasmid",
+                    "file",
+                    "add",
+                    "travel.vessel",
+                    "--face",
+                    "face_a",
+                    "--input",
+                    "note.txt",
+                    "--object-image",
+                    "object.png",
+                ],
+            ),
+            unittest.mock.patch.object(
+                cli, "VesselWorkflowService", return_value=FakeWorkflowService()
+            ),
+            unittest.mock.patch.object(cli.gate, "start"),
+            unittest.mock.patch.object(cli.gate, "close"),
+            unittest.mock.patch.object(cli.EmergencyDaemon, "start"),
+            unittest.mock.patch.object(cli.EmergencyDaemon, "stop"),
+            contextlib.redirect_stdout(output),
+        ):
+            cli.main()
+
+        self.assertIn(
+            ("file_add", "travel.vessel", "access", "emergency", "face_a"),
             events,
         )
 
