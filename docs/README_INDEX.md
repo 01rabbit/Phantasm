@@ -56,6 +56,8 @@ Use this order when documents overlap:
 
 ## Submission assets
 
+- Black Hat Europe Arsenal submission-prep note: [`BLACKHAT_EUROPE_ARSENAL_DEMO.md`](BLACKHAT_EUROPE_ARSENAL_DEMO.md)
+- Implementation status: [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md)
 - Concept-track framing: [`CONCEPT_TRACKS.md`](CONCEPT_TRACKS.md)
 - Concept-only submission package: [`submissions/README.md`](submissions/README.md)
 

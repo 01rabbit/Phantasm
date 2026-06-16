@@ -52,7 +52,7 @@ class VesselTable(Widget):
 
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
-        table.add_columns("Name", "Path", "Posture")
+        table.add_columns("Name", "Path", "Posture", "State")
         self._populate_table(table)
 
     def _populate_table(self, table: DataTable) -> None:
@@ -65,6 +65,7 @@ class VesselTable(Widget):
                     v.name,
                     redact_path(v.path),
                     v.posture.value,
+                    "open" if v.is_open else "closed",
                     key=str(i),
                 )
 

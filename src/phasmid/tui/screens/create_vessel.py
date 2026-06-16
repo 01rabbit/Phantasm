@@ -7,6 +7,7 @@ from textual.binding import Binding
 from textual.widgets import Button, Footer, Input, Label, Select, Static
 
 from ...services.vessel_service import VesselService
+from ...services.vessel_workflow_service import VesselWorkflowService
 from .base import OperatorScreen
 
 _SIZE_OPTIONS = [
@@ -55,6 +56,7 @@ class CreateVesselScreen(OperatorScreen):
         super().__init__(**kwargs)
         self._initial_path = initial_path
         self._svc = VesselService()
+        self._workflow = VesselWorkflowService()
 
     def compose(self) -> ComposeResult:
         yield self.webui_warning_banner()
@@ -101,6 +103,7 @@ class CreateVesselScreen(OperatorScreen):
     def _attempt_create(self) -> None:
         path = self.query_one("#vessel-path", Input).value.strip()
         size = self.query_one("#vessel-size", Select).value
+        label = self.query_one("#vessel-label", Input).value.strip()
         if not path:
             self.query_one("#warning-area", Static).update(
                 "!  Vessel path is required."
@@ -108,15 +111,23 @@ class CreateVesselScreen(OperatorScreen):
             return
 
         p = Path(path).expanduser()
+        try:
+            result = self._workflow.create_vessel(str(p), str(size), label=label)
+        except FileExistsError:
+            self.query_one("#warning-area", Static).update(
+                "!  File already exists. Choose another path."
+            )
+            return
+        except (ValueError, OSError) as exc:
+            self.app.notify(str(exc), title="Create Vessel", severity="error")
+            return
 
+        self._svc.register(result.vessel_path)
         self.app.notify(
-            f"Vessel creation requires passphrase setup.\n"
-            f"Path: {path}\nSize: {size}\n\n"
-            f"Use 'phasmid init' or the core CLI to initialize the container.\n"
-            f"TUI vessel registration will be added once core create workflow is integrated.",
+            f"Local container initialized at {result.vessel_path.name} "
+            f"({result.size_bytes:,} bytes).",
             title="Create Vessel",
             severity="information",
-            timeout=8,
+            timeout=6,
         )
-        self._svc.register(p) if p.exists() else None
         self.dismiss()

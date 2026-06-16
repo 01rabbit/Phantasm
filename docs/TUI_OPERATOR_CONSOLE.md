@@ -106,6 +106,7 @@ src/phasmid/
 
   services/
     vessel_service.py       Vessel registration, listing, path redaction
+    vessel_workflow_service.py shared Vessel create/store/recover operations
     profile_service.py      platformdirs config paths, TOML save/load
     inspection_service.py   Entropy estimation, magic-byte detection
     doctor_service.py       Structured local environment checks
@@ -133,8 +134,25 @@ The TUI does not implement cryptographic operations directly.
 
 ```bash
 phasmid                    Open the Main Operator Console
-phasmid open <vessel>      Open a Vessel
-phasmid create <vessel>    Create a new Vessel
+phasmid open <vessel>      Open a Vessel in the TUI
+phasmid open <vessel> --no-tui --face face_a
+                           Mark a Vessel open directly from the CLI
+phasmid close <vessel>     Close a Vessel and preserve local metadata
+phasmid face create <vessel> --face face_b --label travel
+                           Create or update a local Face record
+phasmid file add <vessel> --face face_a --input note.txt
+                           Add a file to the selected Face
+phasmid file list <vessel> --face face_a
+                           List files in the selected Face
+phasmid file remove <vessel> --face face_a --name note.txt
+                           Remove a file from the selected Face
+phasmid create <vessel>    Open Vessel creation in the TUI
+phasmid create <vessel> --no-tui --size 512M
+                           Create a Vessel directly from the CLI
+phasmid store <vessel> --input path/to/file
+                           Store a local file in a Vessel
+phasmid retrieve <vessel> --out output.bin
+                           Recover a local file from a Vessel
 phasmid inspect <vessel>   Inspect a Vessel
 phasmid guided             Open Guided Workflows
 phasmid audit              Open Audit View
@@ -143,9 +161,8 @@ phasmid doctor --no-tui    Print doctor output without opening the TUI
 phasmid about              Open the About screen
 ```
 
-Legacy commands (`init`, `store`, `retrieve`, `brick`,
-`verify-state`, `verify-audit-log`, `export-redacted-log`) remain available for
-automation and advanced use.
+Legacy commands (`init`, `brick`, `verify-state`, `verify-audit-log`,
+`export-redacted-log`) remain available for compatibility and advanced use.
 
 ## Main Operator Console
 
@@ -159,6 +176,7 @@ Home screen with vessel list, vessel summary panel, event log, and operator shor
 | Key | Action |
 |---|---|
 | `o` | Open selected Vessel |
+| `x` | Close selected Vessel |
 | `c` | Create new Vessel |
 | `i` | Inspect selected Vessel |
 | `f` | Manage Faces |
@@ -192,6 +210,10 @@ The following screenshots are optional operator-reference views.
 ### Disclosure Face Manager
 
 ![TUI Face Manager screen](../images/TUI_FACE.png)
+
+The Face Manager uses the shared Vessel workflow backend. It creates or updates
+local Face records and displays face id, label, status, file count, occupancy,
+and most recent access time.
 
 ## WebUI Integration (Exposed Mode)
 

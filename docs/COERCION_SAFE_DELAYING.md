@@ -153,6 +153,9 @@ Built-in profiles:
 ## Coercion-Safe Recognition Fallback
 
 Recognition mode controls how the system responds to low-confidence or failed recognition.
+This is a prototype routing behavior implemented in the local object-cue path and
+covered by camera-independent tests. Live camera behavior still requires target
+hardware field validation.
 
 | Mode | Behavior |
 |---|---|
@@ -166,6 +169,8 @@ In `coercion_safe` mode:
   access-denied error.
 - Repeated recognition instability also routes to dummy disclosure.
 - The transition is natural and does not produce visible "access denied" loops.
+- This routing does not detect coercion, verify intent, or prove that the operator
+  is under pressure.
 
 Failure handling rules:
 

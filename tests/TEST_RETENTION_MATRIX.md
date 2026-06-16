@@ -13,6 +13,7 @@ These should remain in default CI because they verify active claims, threat-mode
 - `tests/test_kdf_engine.py`
 - `tests/test_kdf_subkeys.py`
 - `tests/test_config.py`
+- `tests/test_ai_gate_routing.py`
 - `tests/test_state_store.py`
 - `tests/test_volatile_state.py`
 - `tests/test_attempt_limiter.py`

@@ -5,13 +5,13 @@ A claim is listed with its source, verification method, and scope limitations.
 
 | Claim ID | Claim Text | Source | Verification | Scope |
 |---|---|---|---|---|
-| CLM-01 | Creates an encrypted `vault.bin` container. | README.md §What It Does | tests: `tests/test_vault_core.py` | Local runtime behavior |
-| CLM-02 | Mixes a local access key into recovery so `vault.bin` alone is not enough. | README.md §What It Does | tests: `tests/test_vault_core.py` | Recovery path with missing state |
-| CLM-03 | Metadata detection and reduction are best-effort. | README.md §What It Does | tests: `tests/test_metadata.py` | Supported metadata formats only |
-| CLM-04 | Phasmid does not promise perfect deniability. | README.md §What It Does | manual | Product claim boundary |
-| CLM-05 | The interface should report what the user needs to complete the current operation, but it should not reveal the internal disclosure model, storage structure, trial order, or restricted recovery behavior. | README.md §Philosophy | tests: `tests/test_terminology.py`, `tests/scenarios/test_field_mode_visibility.py` | Capture-visible surfaces |
-| CLM-06 | Field Mode reduces normal exposure in capture-visible workflows, but it is not a security boundary. | README.md §From Prototype to Solution | tests: `tests/scenarios/test_field_mode_visibility.py` | Field Mode enabled |
-| CLM-07 | Phasmid is not approved classified-data handling infrastructure. | README.md §Government and Organizational Use Boundary | manual | Governance/compliance boundary |
+| CLM-01 | Creates an encrypted `vault.bin` container. | README.md §What Phasmid does | tests: `tests/test_vault_core.py` | Local runtime behavior |
+| CLM-02 | Mixes a local access key into recovery so `vault.bin` alone is not enough. | README.md §What Phasmid does | tests: `tests/test_vault_core.py` | Recovery path with missing state |
+| CLM-03 | Metadata detection and reduction are best-effort. | README.md §What Phasmid does | tests: `tests/test_metadata.py` | Supported metadata formats only |
+| CLM-04 | Phasmid does not promise perfect deniability. | README.md §Not Anti-Forensics | manual | Product claim boundary |
+| CLM-05 | The interface should report what the user needs to complete the current operation, but it should not reveal the internal disclosure model, storage structure, trial order, or restricted recovery behavior. | docs/THREAT_MODEL.md §Capture-Visible Surface Rules | tests: `tests/test_terminology.py`, `tests/scenarios/test_field_mode_visibility.py` | Capture-visible surfaces |
+| CLM-06 | Field Mode reduces normal exposure in capture-visible workflows, but it is not a security boundary. | docs/THREAT_MODEL.md §Field Mode | tests: `tests/scenarios/test_field_mode_visibility.py` | Field Mode enabled |
+| CLM-07 | Phasmid is not approved classified-data handling infrastructure. | README.md §Not Anti-Forensics | manual | Governance/compliance boundary |
 | CLM-08 | The system is local-only by default. | AGENTS.md §Core Invariants | tests: `tests/test_web_server.py` | Default deployment profile |
 | CLM-09 | The WebUI binds to `127.0.0.1` by default. | AGENTS.md §Core Invariants | tests: `tests/test_web_server.py` | Default host config |
 | CLM-10 | Hidden routes are UX concealment only, not access control. | AGENTS.md §Core Invariants | tests: `tests/test_web_server.py` | WebUI navigation behavior |
@@ -26,21 +26,21 @@ A claim is listed with its source, verification method, and scope limitations.
 | CLM-19 | TUI reads passphrases interactively; they are not passed as CLI arguments. | docs/THREAT_MODEL.md TS-10 | tests: `tests/test_cli.py` | TUI/CLI operator flow |
 | CLM-20 | Store flow warns on metadata risk detection; best-effort scrubbing is available for supported file types. | docs/THREAT_MODEL.md TS-11 | tests: `tests/test_metadata.py`, `tests/test_web_server.py` | Metadata routes |
 | CLM-21 | WebUI rate limiter (`enforce_rate_limit()`) limits 20 requests/60 s per client; exceeded rate returns HTTP 429. | docs/THREAT_MODEL.md TS-12 | tests: `tests/test_web_server.py` | Web request rate limiting |
-| CLM-23 | Object matching is an operational access cue, not cryptographic key material. | AGENTS.md §Core Invariants | tests: `tests/test_ai_gate.py` | Access cue behavior |
+| CLM-23 | Object matching is an operational access cue, not cryptographic key material. | AGENTS.md §Core Invariants | tests: `tests/test_ai_gate_routing.py` | Access cue behavior |
 | CLM-24 | ORB descriptors, image coordinates, and camera frames must not be described as high-entropy secrets. | AGENTS.md §Core Invariants | manual | Documentation language |
 | CLM-25 | `vault.bin` alone should not be enough for normal recovery when required local state is absent. | AGENTS.md §Core Invariants | tests: `tests/test_vault_core.py` | Local state absent scenario |
 | CLM-26 | The local access key remains part of the recovery path unless a documented migration changes the container format. | AGENTS.md §Core Invariants | tests: `tests/test_kdf_engine.py` | Current format generation |
 | CLM-27 | The safest sensitive data is data not carried. | docs/SPECIFICATION.md §Retention principle | manual | Operational practice |
 | CLM-28 | This deployment plan reduces exposed services and local leakage for Raspberry Pi Zero 2 W class hardware. It does not provide physical tamper resistance, anti-forensic guarantees, or hardware-grade secure storage. | docs/RPI_ZERO_APPLIANCE_DEPLOYMENT.md §Intro | manual | Appliance deployment guidance |
 | CLM-29 | `PHASMID_AUDIT=1` enables optional audit logging. | docs/SPECIFICATION.md §Audit logging | tests: `tests/test_audit.py` | Runtime configuration |
-| CLM-30 | `PHASMID_FIELD_MODE=1` enables Field Mode. | README.md §From Prototype to Solution | tests: `tests/scenarios/test_field_mode_visibility.py` | Runtime configuration |
+| CLM-30 | `PHASMID_FIELD_MODE=1` enables Field Mode. | docs/CONFIGURATION.md | tests: `tests/scenarios/test_field_mode_visibility.py`, `tests/test_config.py` | Runtime configuration |
 | CLM-31 | `PHASMID_ACCESS_MAX_FAILURES` sets access failure threshold for lockout policy. | docs/SPECIFICATION.md §Attempt limiting | tests: `tests/test_attempt_limiter.py`, `tests/test_config.py` | Runtime configuration |
 | CLM-32 | `PHASMID_ACCESS_LOCKOUT_SECONDS` sets lockout duration. | docs/SPECIFICATION.md §Attempt limiting | tests: `tests/test_attempt_limiter.py`, `tests/test_config.py` | Runtime configuration |
 | CLM-33 | `PHASMID_MIN_PASSPHRASE_LENGTH` sets minimum passphrase length policy. | docs/SPECIFICATION.md §Passphrase policy | tests: `tests/test_passphrase_policy.py`, `tests/test_config.py` | Runtime configuration |
 | CLM-34 | No new network surfaces introduced for operator pages; routes are gated by web token and UI unlock checks. | docs/TUI_OPERATOR_CONSOLE.md §Security notes | tests: `tests/test_web_server.py` | Operator pages |
-| CLM-35 | Running `phasmid doctor` is diagnostic and does not certify the host as secure. | src/phasmid/models/doctor.py disclaimer | tests: `tests/test_tui.py`, `tests/test_doctor_m4.py` | Doctor output semantics |
+| CLM-35 | Running `phasmid doctor` is diagnostic and does not certify the host as secure. | src/phasmid/models/doctor.py disclaimer | tests: `tests/test_tui.py`, `tests/test_operations.py` | Doctor output semantics |
 | CLM-36 | Context profiles guide dummy generation and plausibility validation; built-in profiles are `travel`, `field_engineer`, `researcher`, `maintenance`, `archive`. | docs/COERCION_SAFE_DELAYING.md §Context Profile Templates | tests: `tests/test_context_profile.py` | Context profile schema |
 | CLM-37 | Dummy dataset plausibility report generates local-only advisory output: container size, dummy size, occupancy ratio, file count, file type distribution, and warnings. | docs/COERCION_SAFE_DELAYING.md §Plausible Dummy Dataset | tests: `tests/test_dummy_generator.py` | Dummy plausibility report |
 | CLM-38 | Silent Standby clears sensitive UI state on hotkey trigger; recovery requires re-authentication. | docs/COERCION_SAFE_DELAYING.md §Silent Standby | tests: `tests/test_standby_state.py` | Standby state transitions |
-| CLM-39 | Coercion-safe recognition mode routes low-confidence recognition to dummy disclosure path, not to an obvious access-denied response. | docs/COERCION_SAFE_DELAYING.md §Coercion-Safe Recognition Fallback | tests: `tests/test_recognition_routing.py` | Recognition mode routing |
+| CLM-39 | Coercion-safe recognition mode routes low-confidence recognition toward the controlled-disclosure path and avoids an obvious ambiguous-match response. | docs/COERCION_SAFE_DELAYING.md §Coercion-Safe Recognition Fallback | tests: `tests/test_ai_gate_routing.py`, `tests/test_scenarios.py`, `tests/test_web_server.py` | Prototype recognition mode routing |
 | CLM-40 | Dummy generator does not forge forensic artifacts, fake kernel logs, or perform timestamp forgery. | docs/COERCION_SAFE_DELAYING.md §Disallowed Behaviors | tests: `tests/test_dummy_generator.py` | Dummy generation restrictions |

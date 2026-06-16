@@ -1,0 +1,20 @@
+# Implementation Status
+
+This table maps Black Hat Europe Arsenal demo capabilities to the current repository state. Status labels are intentionally conservative: `Implemented` means code and default tests exist; `Prototype` means the behavior exists but still requires field validation or hardware-specific review; `Future work` means the repository contains planning or validation documents but not a completed implementation claim.
+
+| Capability | Status | Evidence |
+|---|---|---|
+| Local Vessel creation | Implemented / Prototype | `src/phasmid/vault_core.py`, `tests/test_vault_core.py`, `docs/TUI_OPERATOR_CONSOLE.md` |
+| Context profiles | Implemented | `src/phasmid/context_profile.py`, `tests/test_context_profile.py` |
+| Plausible dummy dataset generator | Implemented | `src/phasmid/dummy_generator.py`, `tests/test_dummy_generator.py` |
+| Dummy plausibility report | Implemented | `src/phasmid/dummy_profile_eval.py`, `tests/test_dummy_generator.py`, `tests/test_context_profile.py` |
+| Silent Standby state machine | Implemented | `src/phasmid/standby_state.py`, `tests/test_standby_state.py` |
+| Coercion-safe fallback / recognition routing | Prototype | `src/phasmid/ai_gate.py`, `src/phasmid/config.py`, `tests/test_ai_gate_routing.py`, `tests/test_scenarios.py`, `tests/test_web_server.py` |
+| Raspberry Pi Zero 2 W deployment | Prototype | `docs/RPI_ZERO_APPLIANCE_DEPLOYMENT.md`, `docs/RPI_ZERO_DEPLOYMENT.md`, `docs/FIELD_TEST_PROCEDURE.md` |
+| Human-operational evaluation | Future work | `docs/FIELD_TEST_PROCEDURE.md`, `docs/SEIZURE_REVIEW_CHECKLIST.md`, `docs/REVIEW_VALIDATION_RECORD.md` |
+
+## Notes
+
+- Recognition routing is implemented as prototype local object-cue routing and is covered by camera-independent tests. Live camera behavior still requires target-hardware field validation.
+- Dummy plausibility is advisory. It does not claim that generated content is indistinguishable under expert forensic analysis.
+- Silent Standby clears visible UI state and seals the session. It does not erase process memory.

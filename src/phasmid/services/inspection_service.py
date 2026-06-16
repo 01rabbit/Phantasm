@@ -4,6 +4,7 @@ import math
 from pathlib import Path
 
 from ..models.inspection import InspectionField, InspectionResult
+from .vessel_service import VesselService
 
 _SAMPLE_SIZE = 65536
 _COMMON_MAGIC = [
@@ -93,6 +94,42 @@ def inspect_vessel(path: str | Path) -> InspectionResult:
         InspectionField("Recognized Type", detected_type),
         InspectionField("Vessel Claim", "not asserted"),
     ]
+    vessel_meta = None
+    for candidate in VesselService().list_all():
+        if candidate.path.resolve() == p.resolve():
+            vessel_meta = candidate
+            break
+    if vessel_meta is not None:
+        face_summary = ", ".join(
+            f"{face.face_id}:{face.status}:{face.file_count} files:{face.occupancy} bytes:{face.last_accessed or '-'}"
+            for face in vessel_meta.faces
+        )
+        plausibility_summary = ", ".join(
+            f"{face.face_id}:{face.dummy_profile.plausibility_level}:"
+            f"{face.dummy_profile.plausibility_score}:"
+            f"{face.dummy_profile.dummy_file_count} files:"
+            f"{face.dummy_profile.occupancy_ratio * 100:.1f}%"
+            for face in vessel_meta.faces
+        )
+        credential_summary = ", ".join(
+            f"{face.face_id}:credentials={'ready' if face.credentials_initialized else 'pending'}:"
+            f"object={'ready' if face.object_binding_initialized else 'pending'}"
+            for face in vessel_meta.faces
+        )
+        fields.extend(
+            [
+                InspectionField("Face Count", str(vessel_meta.face_count)),
+                InspectionField("Face Registry", face_summary or "not recorded"),
+                InspectionField(
+                    "Face Credential State",
+                    credential_summary or "not recorded",
+                ),
+                InspectionField(
+                    "Plausibility Summary",
+                    plausibility_summary or "not recorded",
+                ),
+            ]
+        )
 
     notes = []
     if detected_type != "unknown":

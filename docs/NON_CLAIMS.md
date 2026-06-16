@@ -38,6 +38,12 @@ Each item includes a brief rationale to keep review and deployment decisions exp
 - Phasmid does not provide forensic-grade unverifiable deniability.  
   Rationale: host-level traces and operational artifacts can remain detectable under expert forensic analysis.
 
+- Phasmid does not bypass forensic tools or claim forensic invisibility.  
+  Rationale: the project controls local disclosure behavior; it does not interfere with analysis tools or make software artifacts disappear.
+
+- Phasmid does not hide processes or hide like malware.  
+  Rationale: malware-like concealment is outside scope and explicitly disallowed.
+
 - Phasmid does not provide protection in jurisdictions where key disclosure refusal is criminalized.  
   Rationale: legal coercion outcomes are determined by law and court process, not cryptographic design.
 

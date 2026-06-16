@@ -54,6 +54,9 @@ class AccessCueService:
     def clear_references(self):
         return self.gate.clear_references()
 
+    def start(self):
+        return self.gate.start()
+
     def generate_frames(self):
         return self.gate.generate_frames()
 
