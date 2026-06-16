@@ -27,11 +27,21 @@ Most encryption tools assume the user can safely refuse disclosure. In field con
 
 Phasmid treats coercion, inspection, and over-disclosure as first-class design constraints. It does not try to defeat all forensic analysis; it explores controlled disclosure behavior on local-only constrained devices under documented limits.
 
-## What Phasmid is not
+## Arsenal Demo Summary
+
+Phasmid is a local-only coercion-aware disclosure-control prototype for constrained devices.
+
+In an Arsenal demo, Phasmid demonstrates how encrypted local storage can separate coerced disclosure from true disclosure without claiming forensic invisibility or anti-forensic evasion.
+
+The demo flow shows creation of an encrypted local Vessel, selection of a context-consistent Disclosure Face, generation and evaluation of a plausible disclosure dataset, Silent Standby transition that removes sensitive UI state, coercion-safe fallback toward controlled disclosure, and explicit claims and non-claims.
+
+## Not Anti-Forensics
 
 Phasmid is research software. It is not a replacement for full-disk encryption, hardware-backed key storage, an audited classified-data handling system, or a complete solution to compelled disclosure.
 
-Phasmid does not claim anti-forensic evasion, law-enforcement bypass, perfect deniability, guaranteed secure deletion, remote wipe, or remote unlock.
+Phasmid is not an anti-forensics tool. It does not bypass forensic tools, forge timestamps, fabricate kernel logs, hide processes, hide like malware, claim forensic invisibility, claim guaranteed secure deletion on flash media, or claim permanent secrecy against unlimited analysis.
+
+The goal is to separate coerced disclosure from true disclosure and reduce unsafe fail-closed behavior under compelled-access conditions.
 
 **Who this is for:** security researchers, field-risk evaluators, and local-only disclosure-control experiments. It is not for casual file encryption.
 
@@ -47,7 +57,11 @@ For internal concept work, use two tracks without changing the technical core:
 - `privacy-and-research track`: emphasizes privacy-preserving disclosure, compelled-access safety, and explicit claims/non-claims transparency.
 - `field-operations track`: emphasizes constrained-device readiness, operational resilience, and safer disclosure behavior under inspection pressure.
 
-Internal draft assets: [`docs/CONCEPT_TRACKS.md`](docs/CONCEPT_TRACKS.md), [`docs/submissions/README.md`](docs/submissions/README.md).
+Internal draft assets: [`docs/CONCEPT_TRACKS.md`](docs/CONCEPT_TRACKS.md), [`docs/submissions/README.md`](docs/submissions/README.md), and the Europe submission-prep note [`docs/BLACKHAT_EUROPE_ARSENAL_DEMO.md`](docs/BLACKHAT_EUROPE_ARSENAL_DEMO.md).
+
+## Implementation Status
+
+Current implementation status and evidence paths are tracked in [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md).
 
 ## Requirements
 
@@ -158,6 +172,9 @@ source .venv/bin/activate
 
 ```bash
 phasmid                # open TUI Operator Console
+phasmid create ~/Documents/travel.vessel --no-tui --size 512M
+phasmid store ~/Documents/travel.vessel --input note.txt
+phasmid retrieve ~/Documents/travel.vessel --out recovered.bin
 phasmid doctor         # local environment checks
 phasmid guided         # guided workflows
 phasmid audit          # audit view
@@ -172,6 +189,7 @@ Primary entry points:
 - Threat model authority: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md)
 - Behavioral specification: [`docs/SPECIFICATION.md`](docs/SPECIFICATION.md)
 - Architecture overview: [`docs/PHASMID_ARCHITECTURE.md`](docs/PHASMID_ARCHITECTURE.md)
+- Black Hat Europe Arsenal submission-prep note: [`docs/BLACKHAT_EUROPE_ARSENAL_DEMO.md`](docs/BLACKHAT_EUROPE_ARSENAL_DEMO.md)
 
 ## Repository layout
 

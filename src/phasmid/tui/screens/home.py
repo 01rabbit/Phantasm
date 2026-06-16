@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 class HomeScreen(OperatorScreen):
     BINDINGS = [
         Binding("o", "open_vessel", "Open"),
+        Binding("x", "close_vessel", "Close"),
         Binding("c", "create_vessel", "Create"),
         Binding("i", "inspect_vessel", "Inspect"),
         Binding("f", "face_manager", "Faces"),
@@ -245,12 +246,44 @@ class HomeScreen(OperatorScreen):
 
         def _on_confirm(result: bool | None) -> None:
             if result:
-                self.app.push_screen(OpenVesselScreen(vessel_path=path))
+                self.app.push_screen(
+                    OpenVesselScreen(vessel_path=path), lambda _result: self._refresh_vessels()
+                )
 
         self.app.push_screen(
             ConfirmModal(
                 "VESSEL DISCLOSURE",
                 "You are about to disclose a vessel face.\nPassphrase will be required.",
+            ),
+            _on_confirm,
+        )
+
+    def action_close_vessel(self) -> None:
+        from ...services.vessel_workflow_service import VesselWorkflowService
+        from .confirm_modal import ConfirmModal
+
+        table = self.query_one(VesselTable)
+        vessel = table.selected_vessel
+        path = str(vessel.path) if vessel else ""
+        if not path:
+            self.app.notify("Select a Vessel first.", severity="warning")
+            return
+
+        def _on_confirm(result: bool | None) -> None:
+            if result:
+                try:
+                    closed = VesselWorkflowService().close_vessel(path)
+                except FileNotFoundError as exc:
+                    self.app.notify(str(exc), severity="error")
+                    return
+                self._refresh_vessels()
+                self._log(f"Vessel closed: {closed.vessel.name}", "info")
+                self.app.notify("Vessel closed.", severity="information")
+
+        self.app.push_screen(
+            ConfirmModal(
+                "CLOSE VESSEL",
+                "You are about to close the selected Vessel.\nThis preserves local metadata.",
             ),
             _on_confirm,
         )
@@ -261,7 +294,9 @@ class HomeScreen(OperatorScreen):
 
         def _on_confirm(result: bool | None) -> None:
             if result:
-                self.app.push_screen(CreateVesselScreen())
+                self.app.push_screen(
+                    CreateVesselScreen(), lambda _result: self._refresh_vessels()
+                )
 
         self.app.push_screen(
             ConfirmModal(
@@ -284,7 +319,7 @@ class HomeScreen(OperatorScreen):
 
         table = self.query_one(VesselTable)
         vessel = table.selected_vessel
-        self.app.push_screen(FaceManagerScreen(vessel=vessel))
+        self.app.push_screen(FaceManagerScreen(vessel=vessel), lambda _result: self._refresh_vessels())
 
     def action_guided(self) -> None:
         from .guided import GuidedScreen

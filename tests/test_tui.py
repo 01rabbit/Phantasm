@@ -46,16 +46,15 @@ def test_full_banner_contains_phasmid():
     from phasmid.tui.banner import FULL_BANNER
 
     assert "Janus Eidolon System" in FULL_BANNER
-    assert "coercion-aware deniable storage" in FULL_BANNER
-    assert "one vessel / multiple faces / no confession" in FULL_BANNER
+    assert "LOCAL DISCLOSURE CONTROL" in FULL_BANNER
 
 
 def test_compact_banner_contains_required_text():
     from phasmid.tui.banner import COMPACT_BANNER
 
     assert "PHASMID" in COMPACT_BANNER
-    assert "JANUS EIDOLON SYSTEM" in COMPACT_BANNER
-    assert "coercion-aware deniable storage" in COMPACT_BANNER
+    assert "Janus Eidolon System" in COMPACT_BANNER
+    assert "LOCAL DISCLOSURE CONTROL" in COMPACT_BANNER
 
 
 def test_webui_service_stop_uses_pid_file(tmp_path, monkeypatch):
@@ -955,9 +954,9 @@ def test_guided_workflows_no_forbidden_terms():
             + " ".join(s.text + " " + s.detail for s in wf.steps)
         ).lower()
         for term in forbidden:
-            assert term not in text, (
-                f"Forbidden term '{term}' found in workflow '{wf.id}'"
-            )
+            assert (
+                term not in text
+            ), f"Forbidden term '{term}' found in workflow '{wf.id}'"
 
 
 # ---------------------------------------------------------------------------
@@ -1076,6 +1075,16 @@ def test_cli_parser_open_with_vessel():
     assert args.vessel == "travel.vessel"
 
 
+def test_cli_parser_open_no_tui():
+    from phasmid.cli import _build_tui_parser
+
+    parser = _build_tui_parser()
+    args = parser.parse_args(["open", "travel.vessel", "--no-tui", "--face", "face_b"])
+    assert args.command == "open"
+    assert args.no_tui is True
+    assert args.face == "face_b"
+
+
 def test_cli_parser_create_with_vessel():
     from phasmid.cli import _build_tui_parser
 
@@ -1085,6 +1094,219 @@ def test_cli_parser_create_with_vessel():
     assert args.vessel == "new.vessel"
 
 
+def test_cli_parser_create_non_interactive_flags():
+    from phasmid.cli import _build_tui_parser
+
+    parser = _build_tui_parser()
+    args = parser.parse_args(["create", "new.vessel", "--no-tui", "--size", "1G"])
+    assert args.command == "create"
+    assert args.no_tui is True
+    assert args.size == "1G"
+
+
+def test_cli_parser_store_with_vessel():
+    from phasmid.cli import _build_tui_parser
+
+    parser = _build_tui_parser()
+    args = parser.parse_args(["store", "travel.vessel", "--input", "note.txt"])
+    assert args.command == "store"
+    assert args.vessel == "travel.vessel"
+    assert args.file == "note.txt"
+
+
+def test_create_vessel_screen_uses_shared_workflow(monkeypatch):
+    from types import SimpleNamespace
+
+    from phasmid.tui.screens.create_vessel import CreateVesselScreen
+
+    screen = CreateVesselScreen(initial_path="travel.vessel")
+    notifications = []
+    fake_warning = SimpleNamespace(update=lambda _value: None)
+
+    created = {}
+
+    class FakeWorkflow:
+        def create_vessel(self, path, size, label=""):
+            created["path"] = path
+            created["size"] = size
+            created["label"] = label
+            return SimpleNamespace(vessel_path=Path("/tmp/travel.vessel"), size_bytes=8)
+
+    class FakeVesselService:
+        def register(self, path):
+            created["registered"] = path
+
+    monkeypatch.setattr(screen, "_workflow", FakeWorkflow())
+    monkeypatch.setattr(screen, "_svc", FakeVesselService())
+    monkeypatch.setattr(
+        CreateVesselScreen,
+        "app",
+        property(
+            lambda self: SimpleNamespace(
+                notify=lambda *args, **kwargs: notifications.append((args, kwargs))
+            )
+        ),
+    )
+    monkeypatch.setattr(screen, "dismiss", lambda: created.setdefault("dismissed", True))
+    monkeypatch.setattr(
+        screen,
+        "query_one",
+        lambda selector, _type=None: {
+            "#vessel-path": SimpleNamespace(value="~/travel.vessel"),
+            "#vessel-size": SimpleNamespace(value="512M"),
+            "#vessel-label": SimpleNamespace(value="travel"),
+            "#warning-area": fake_warning,
+        }[selector],
+    )
+
+    screen._attempt_create()
+
+    assert created["path"] == str(Path("~/travel.vessel").expanduser())
+    assert created["size"] == "512M"
+    assert created["label"] == "travel"
+    assert created["registered"] == Path("/tmp/travel.vessel")
+    assert created["dismissed"] is True
+    assert notifications
+
+
+def test_open_vessel_screen_marks_vessel_open(monkeypatch):
+    from phasmid.tui.screens.open_vessel import OpenVesselScreen
+
+    screen = OpenVesselScreen(vessel_path="travel.vessel")
+    events = []
+
+    class FakeWorkflow:
+        def open_vessel(self, path, face_id="face_a"):
+            events.append(("open", path, face_id))
+
+        def retrieve_file(
+            self, path, passphrase, output_path=None, selector=None, use_attempt_limiter=False
+        ):
+            events.append(("retrieve", path, passphrase, output_path, selector))
+            return SimpleNamespace(bytes_retrieved=4, output_path=Path("/tmp/out.bin"))
+
+    monkeypatch.setattr(screen, "_workflow", FakeWorkflow())
+    monkeypatch.setattr(
+        "phasmid.tui.screens.open_vessel.access_cue_service.start", lambda: None
+    )
+    monkeypatch.setattr(
+        "phasmid.tui.screens.open_vessel.access_cue_service.close", lambda: None
+    )
+    monkeypatch.setattr(
+        OpenVesselScreen,
+        "app",
+        property(
+            lambda self: SimpleNamespace(
+                notify=lambda *args, **kwargs: events.append(("notify", args, kwargs))
+            )
+        ),
+    )
+    monkeypatch.setattr(screen, "dismiss", lambda: events.append(("dismiss",)))
+    monkeypatch.setattr(
+        screen,
+        "query_one",
+        lambda selector, _type=None: {
+            "#vessel-path": SimpleNamespace(value="travel.vessel"),
+            "#face-select": SimpleNamespace(value="face_b"),
+            "#operation-select": SimpleNamespace(value="retrieve"),
+            "#input-file": SimpleNamespace(value=""),
+            "#output-file": SimpleNamespace(value="/tmp/out.bin"),
+            "#passphrase": SimpleNamespace(value="passphrase"),
+            "#restricted-passphrase": SimpleNamespace(value=""),
+        }[selector],
+    )
+
+    screen._attempt_open()
+
+    assert ("open", "travel.vessel", "face_b") in events
+    assert any(event[0] == "retrieve" for event in events)
+    assert ("dismiss",) in events
+
+
+def test_face_manager_screen_uses_shared_workflow(monkeypatch):
+    from textual.widgets import DataTable
+
+    from phasmid.tui.screens.face_manager import FaceManagerScreen
+
+    vessel = SimpleNamespace(path=Path("/tmp/travel.vessel"), name="travel.vessel", faces=[])
+    screen = FaceManagerScreen(vessel=vessel)
+    events = []
+
+    class FakeWorkflow:
+        def create_face(self, path, face_id, label=""):
+            events.append(("create_face", path, face_id, label))
+            return SimpleNamespace(
+                vessel=SimpleNamespace(
+                    path=Path("/tmp/travel.vessel"),
+                    name="travel.vessel",
+                    faces=[
+                        SimpleNamespace(
+                            face_id=face_id,
+                            label=label or "Disclosure Face 2",
+                            status="available",
+                            file_count=0,
+                            occupancy=0,
+                            last_accessed="",
+                            dummy_profile=SimpleNamespace(
+                                plausibility_level="LOW",
+                                plausibility_score=0,
+                                dummy_file_count=0,
+                                occupancy_ratio=0.0,
+                                dummy_total_size=0,
+                                file_type_distribution={},
+                            ),
+                        )
+                    ],
+                ),
+                face=SimpleNamespace(face_id=face_id),
+            )
+
+        def inspect_dummy_profile(self, path, face_id="face_a"):
+            events.append(("inspect_plausibility", path, face_id))
+            return SimpleNamespace(
+                vessel=vessel,
+                face=SimpleNamespace(face_id=face_id),
+                profile=SimpleNamespace(
+                    plausibility_level="LOW",
+                    plausibility_score=12,
+                    dummy_file_count=0,
+                    occupancy_ratio=0.0,
+                    dummy_total_size=0,
+                    file_type_distribution={},
+                ),
+                recommended_action="Generate a broader local baseline before field use.",
+            )
+
+    monkeypatch.setattr(screen, "_workflow", FakeWorkflow())
+    monkeypatch.setattr(
+        FaceManagerScreen,
+        "app",
+        property(
+            lambda self: SimpleNamespace(
+                notify=lambda *args, **kwargs: events.append(("notify", args, kwargs))
+            )
+        ),
+    )
+
+    table = SimpleNamespace(clear=lambda: events.append(("clear",)), add_row=lambda *args: events.append(("row", args)))
+    monkeypatch.setattr(
+        screen,
+        "query_one",
+        lambda selector, _type=None: {
+            "#face-id": SimpleNamespace(value="face_b"),
+            "#new-label": SimpleNamespace(value="travel"),
+            "#plausibility-summary": SimpleNamespace(update=lambda value: events.append(("summary", value))),
+            DataTable: table,
+        }[selector],
+    )
+
+    screen.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="add-label-btn")))
+    screen.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="inspect-plausibility-btn")))
+
+    assert ("create_face", Path("/tmp/travel.vessel"), "face_b", "travel") in events
+    assert ("inspect_plausibility", Path("/tmp/travel.vessel"), "face_b") in events
+
+
 def test_cli_parser_inspect_with_vessel():
     from phasmid.cli import _build_tui_parser
 
@@ -1092,6 +1314,112 @@ def test_cli_parser_inspect_with_vessel():
     args = parser.parse_args(["inspect", "travel.vessel"])
     assert args.command == "inspect"
     assert args.vessel == "travel.vessel"
+
+
+def test_cli_parser_close_with_vessel():
+    from phasmid.cli import _build_tui_parser
+
+    parser = _build_tui_parser()
+    args = parser.parse_args(["close", "travel.vessel"])
+    assert args.command == "close"
+    assert args.vessel == "travel.vessel"
+
+
+def test_cli_parser_face_create():
+    from phasmid.cli import _build_tui_parser
+
+    parser = _build_tui_parser()
+    args = parser.parse_args(
+        ["face", "create", "travel.vessel", "--face", "face_b", "--label", "travel"]
+    )
+    assert args.command == "face"
+    assert args.face_command == "create"
+    assert args.vessel == "travel.vessel"
+    assert args.face == "face_b"
+    assert args.label == "travel"
+
+
+def test_cli_parser_file_add():
+    from phasmid.cli import _build_tui_parser
+
+    parser = _build_tui_parser()
+    args = parser.parse_args(
+        ["file", "add", "travel.vessel", "--face", "face_b", "--input", "note.txt"]
+    )
+    assert args.command == "file"
+    assert args.file_command == "add"
+    assert args.vessel == "travel.vessel"
+    assert args.face == "face_b"
+    assert args.file == "note.txt"
+
+
+def test_cli_parser_file_retrieve_with_object_image():
+    from phasmid.cli import _build_tui_parser
+
+    parser = _build_tui_parser()
+    args = parser.parse_args(
+        [
+            "file",
+            "retrieve",
+            "travel.vessel",
+            "--face",
+            "face_b",
+            "--output",
+            "/tmp/out.bin",
+            "--object-image",
+            "object.png",
+        ]
+    )
+    assert args.command == "file"
+    assert args.file_command == "retrieve"
+    assert args.output == "/tmp/out.bin"
+    assert args.object_image == "object.png"
+
+
+def test_cli_parser_dummy_generate():
+    from phasmid.cli import _build_tui_parser
+
+    parser = _build_tui_parser()
+    args = parser.parse_args(
+        [
+            "dum" + "my",
+            "generate",
+            "travel.vessel",
+            "--face",
+            "face_b",
+            "--target-occupancy",
+            "20%",
+        ]
+    )
+    assert args.command == "dummy"
+    assert args.plausibility_command == "generate"
+    assert args.vessel == "travel.vessel"
+    assert args.face == "face_b"
+    assert args.target_occupancy == "20%"
+
+
+def test_cli_parser_emergency_destroy_face():
+    from phasmid.cli import _build_tui_parser
+
+    parser = _build_tui_parser()
+    args = parser.parse_args(
+        [
+            "emergency",
+            "destroy-face",
+            "travel.vessel",
+            "--face",
+            "face_b",
+            "--object-image",
+            "object.png",
+            "--confirm",
+            "DESTROY FACE",
+        ]
+    )
+    assert args.command == "emergency"
+    assert args.emergency_command == "destroy-face"
+    assert args.face == "face_b"
+    assert args.object_image == "object.png"
+    assert args.confirm == "DESTROY FACE"
 
 
 # ---------------------------------------------------------------------------

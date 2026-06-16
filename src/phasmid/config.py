@@ -239,3 +239,7 @@ def context_profile_name() -> str:
 def standby_hotkey() -> str:
     key = env_text("PHASMID_STANDBY_HOTKEY", "ctrl+s").strip().lower()
     return key or "ctrl+s"
+
+
+def allow_no_object_binding() -> bool:
+    return env_flag("PHASMID_ALLOW_NO_OBJECT_BINDING", default=False)

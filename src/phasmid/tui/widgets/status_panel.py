@@ -80,8 +80,18 @@ class VesselSummaryPanel(Widget):
                 ("Header", v.header_status),
                 ("Magic Bytes", v.magic_bytes_status),
                 ("Faces", str(v.face_count) if v.face_count else "unknown"),
+                (
+                    "Face Files",
+                    str(sum(face.file_count for face in v.faces)) if v.faces else "0",
+                ),
                 ("Posture", v.posture.value),
+                ("Lifecycle", "open" if v.is_open else "closed"),
+                ("Open Count", str(v.open_count)),
             ]
+            if v.last_opened_at:
+                rows.append(("Last Opened", v.last_opened_at))
+            if v.last_closed_at:
+                rows.append(("Last Closed", v.last_closed_at))
 
             # WebUI Status
             webui_svc = getattr(self.app, "webui_svc", None)

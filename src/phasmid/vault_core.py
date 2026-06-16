@@ -167,6 +167,12 @@ class PhasmidVault:
         )
         return data, filename
 
+    def retrieve_open_only(
+        self, password: str, gesture_sequence: list[str], mode: str = "dummy"
+    ) -> tuple[bytes | None, str | None]:
+        self.container_layout._require_container()
+        return self._retrieve_slot(password, gesture_sequence, mode, self.OPEN_ROLE)
+
     def retrieve_with_policy(
         self, password: str, gesture_sequence: list[str], mode: str = "dummy"
     ) -> tuple[bytes | None, str | None, str | None]:

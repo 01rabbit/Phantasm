@@ -76,3 +76,6 @@ ignore_missing_imports = true
 omit = [
     "src/phasmid/tui/*",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

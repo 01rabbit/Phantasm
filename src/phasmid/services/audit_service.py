@@ -1,9 +1,30 @@
 from __future__ import annotations
 
 from ..models.audit import AuditEntry, AuditReport, AuditSection
+from .vessel_service import VesselService
 
 
 def build_audit_report() -> AuditReport:
+    vessels = VesselService().list_all()
+    tracked_faces = sum(len(vessel.faces) for vessel in vessels)
+    high = sum(
+        1
+        for vessel in vessels
+        for face in vessel.faces
+        if face.dummy_profile.plausibility_level == "HIGH"
+    )
+    medium = sum(
+        1
+        for vessel in vessels
+        for face in vessel.faces
+        if face.dummy_profile.plausibility_level == "MEDIUM"
+    )
+    low = sum(
+        1
+        for vessel in vessels
+        for face in vessel.faces
+        if face.dummy_profile.plausibility_level == "LOW"
+    )
     return AuditReport(
         sections=[
             AuditSection(
@@ -33,6 +54,16 @@ def build_audit_report() -> AuditReport:
                     AuditEntry("Destructive confirm", "required"),
                     AuditEntry("Profile stores secrets", "no"),
                     AuditEntry("Shell history risk", "visible in Doctor"),
+                ],
+            ),
+            AuditSection(
+                title="Plausibility Baseline",
+                entries=[
+                    AuditEntry("Tracked Vessels", str(len(vessels))),
+                    AuditEntry("Tracked Faces", str(tracked_faces)),
+                    AuditEntry("High baseline faces", str(high)),
+                    AuditEntry("Medium baseline faces", str(medium)),
+                    AuditEntry("Low baseline faces", str(low)),
                 ],
             ),
             AuditSection(

@@ -74,21 +74,30 @@ The container uses two fixed internal storage spans. The CLI keeps a compact `--
 
 ```bash
 phasmid init
+phasmid create /path/to/travel.vessel --no-tui --size 512M
 ```
 
-This rotates the local access key, overwrites `vault.bin` with random data, and leaves an empty container ready for new entries.
+`phasmid init` rotates the local access key, overwrites `vault.bin` with random
+data, and leaves an empty container ready for new entries.
+
+`phasmid create <vessel> --no-tui` initializes a Vessel file directly without
+opening the TUI. The command creates the Vessel path, formats the container
+with random data, rotates the local access key, and registers the Vessel for
+the operator console.
 
 ### Store
 
 ```bash
-phasmid store --entry a --file path/to/file
-phasmid store --entry b --file path/to/file
+phasmid store /path/to/travel.vessel --entry a --input path/to/file
+phasmid store /path/to/travel.vessel --entry b --input path/to/file
 ```
 
 Store flow:
 
 1. Start the camera gate.
-2. Prompt for normal access and restricted recovery passwords.
+2. Prompt for normal access and restricted recovery passwords, or read them
+   from local passphrase files when `--passphrase-file` and
+   `--restricted-passphrase-file` are provided.
 3. Reject empty, duplicate, short, or highly repetitive passphrases.
 4. Register the physical object cue for the selected internal entry.
 5. Read the input file.
@@ -98,13 +107,14 @@ Store flow:
 ### Retrieve
 
 ```bash
-phasmid retrieve --out output.bin
+phasmid retrieve /path/to/travel.vessel --out output.bin
 ```
 
 Retrieve flow:
 
 1. Start the camera gate.
-2. Prompt for the vault password.
+2. Prompt for the access password, or read it from a local passphrase file
+   when `--passphrase-file` is provided.
 3. Verify the registered physical object cue.
 4. Attempt recovery against internal candidates.
 5. Write or display the recovered payload if access succeeds.
@@ -115,6 +125,39 @@ These settings and passwords can cause data loss:
 - `PHASMID_PURGE_CONFIRMATION=0`
 - `PHASMID_DURESS_MODE=1`
 - restricted recovery passwords
+
+### Open / Close
+
+```bash
+phasmid open /path/to/travel.vessel --no-tui --face face_a
+phasmid close /path/to/travel.vessel
+phasmid face create /path/to/travel.vessel --face face_b --label travel
+```
+
+Open and close update only local, non-sensitive Vessel metadata used by the
+operator console. This metadata may include whether the Vessel is currently
+open, the number of times it has been opened, and the most recent open/close
+timestamps. It does not include passphrases, plaintext content, or object-cue
+material.
+
+Each Vessel keeps a local Face registry with at least two operational Faces.
+Each Face record stores a face id, local label, creation time, most recent
+access time, occupancy estimate, and current status. The same shared backend
+is used by CLI and TUI Face operations.
+
+### Face-Bound Storage
+
+Each Face owns an independent encrypted file namespace. Files stored under one
+Face do not appear in another Face.
+
+```bash
+phasmid file add /path/to/travel.vessel --face face_a --input note.txt
+phasmid file list /path/to/travel.vessel --face face_a
+phasmid file remove /path/to/travel.vessel --face face_a --name note.txt
+```
+
+Inspection reports Face count plus per-Face occupancy, file count, and most
+recent access time. It does not list cross-Face file contents.
 
 ### Clear Local Access Path
 
