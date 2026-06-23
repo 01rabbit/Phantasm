@@ -12,6 +12,7 @@ except ImportError:
 
 import tomli_w
 
+from ..config import config_dir_override
 from ..models.profile import Profile  # noqa: F401 (re-exported)
 
 APP_NAME = "phasmid"
@@ -20,6 +21,9 @@ LOG = logging.getLogger(__name__)
 
 
 def config_dir() -> Path:
+    override = config_dir_override()
+    if override:
+        return Path(override)
     return Path(platformdirs.user_config_dir(APP_NAME, APP_AUTHOR))
 
 

@@ -243,3 +243,7 @@ def standby_hotkey() -> str:
 
 def allow_no_object_binding() -> bool:
     return env_flag("PHASMID_ALLOW_NO_OBJECT_BINDING", default=False)
+
+
+def config_dir_override() -> str:
+    return env_text("PHASMID_CONFIG_DIR", "").strip()

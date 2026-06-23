@@ -450,6 +450,11 @@ def _build_tui_parser() -> argparse.ArgumentParser:
 
     inspect_p = subparsers.add_parser("inspect", help="Inspect a Vessel")
     inspect_p.add_argument("vessel", nargs="?", help="Path to Vessel file")
+    inspect_p.add_argument(
+        "--no-tui",
+        action="store_true",
+        help="Print Vessel status without opening the TUI",
+    )
 
     close_p = subparsers.add_parser("close", help="Close a Vessel")
     close_p.add_argument("vessel", nargs="?", help="Path to Vessel file")
@@ -683,6 +688,9 @@ def main():
 
     if args.command == "inspect":
         vessel = getattr(args, "vessel", None)
+        no_tui = getattr(args, "no_tui", False)
+        if no_tui or not sys.stdout.isatty():
+            return _run_inspect_command(args)
         from .tui.app import run_tui
 
         run_tui(initial_screen="inspect", vessel_path=vessel)
@@ -783,6 +791,32 @@ def _run_close_command(args) -> int:
         error(str(exc))
         return 1
     success(f"Vessel closed: [bold]{result.vessel.path}[/bold].")
+    return 0
+
+
+def _run_inspect_command(args) -> int:
+    vessel = getattr(args, "vessel", None)
+    if not vessel:
+        error("Vessel path is required for inspect.")
+        return 1
+
+    path = Path(vessel).expanduser().resolve()
+    if not path.exists():
+        error(f"vessel file not found: {path}")
+        return 1
+
+    svc = VesselWorkflowService()
+    try:
+        vessels = svc._vessels.list_all()
+        meta = next((item for item in vessels if item.path.resolve() == path), None)
+    except OSError as exc:
+        error(str(exc))
+        return 1
+
+    status_label = "open" if meta and meta.is_open else "closed"
+    open_count = meta.open_count if meta else 0
+    info(f"Vessel: {path.name}")
+    info(f"status: {status_label}  open count: {open_count}")
     return 0
 
 
@@ -1678,4 +1712,4 @@ def _run_legacy_command(args) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)

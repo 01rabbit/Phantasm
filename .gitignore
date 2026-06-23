@@ -7,6 +7,7 @@ __pycache__/
 .venv/
 venv/
 .claude/
+CLAUDE.md
 .coverage
 *.egg-info/
 
@@ -26,6 +27,9 @@ dump.txt
 *.bin
 models/object_gate/
 release/
+report.json
+refactor-instructions.md
+phasmid-autotest/
 
 !requirements.txt
 !MIO _Logo.png
