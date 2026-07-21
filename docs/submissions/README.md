@@ -9,10 +9,11 @@ Use these files to keep one technical core while adjusting audience framing:
 - [`TRACK_PRIVACY_RESEARCH.md`](TRACK_PRIVACY_RESEARCH.md): privacy-and-research framing package
 - [`TRACK_FIELD_OPERATIONS.md`](TRACK_FIELD_OPERATIONS.md): field-operations framing package
 
-Demo Labs presentation package (event-specific example built on the shared core):
+DEF CON Demo Labs package (event-specific example built on the shared core):
 
-- [`Phasmid_DEFCON_DemoLabs.pptx`](Phasmid_DEFCON_DemoLabs.pptx): 24-slide Demo Labs station deck (with speaker notes)
+- [`DEFCON_DEMO_LABS_RUNBOOK.md`](DEFCON_DEMO_LABS_RUNBOOK.md): operator demo runbook — demo profile with purpose, modes, pre-demo checklist, step-by-step sequence, talk track, and failure fallback
 - [`DEFCON_DEMO_LABS_SCRIPT.md`](DEFCON_DEMO_LABS_SCRIPT.md): companion speaker script (talk track + staging cues)
+- [`Phasmid_DEFCON_DemoLabs.pptx`](Phasmid_DEFCON_DemoLabs.pptx): 24-slide Demo Labs station deck (with speaker notes)
 
 ## Regional Mapping Guidance
 
