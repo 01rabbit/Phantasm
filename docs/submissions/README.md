@@ -11,9 +11,9 @@ Use these files to keep one technical core while adjusting audience framing:
 
 DEF CON Demo Labs package (event-specific example built on the shared core):
 
-- [`DEFCON_DEMO_LABS_RUNBOOK.md`](DEFCON_DEMO_LABS_RUNBOOK.md): operator demo runbook — demo profile with purpose, modes, pre-demo checklist, step-by-step sequence, talk track, and failure fallback
-- [`DEFCON_DEMO_LABS_SCRIPT.md`](DEFCON_DEMO_LABS_SCRIPT.md): companion speaker script (talk track + staging cues)
-- [`Phasmid_DEFCON_DemoLabs.pptx`](Phasmid_DEFCON_DemoLabs.pptx): 24-slide Demo Labs station deck (with speaker notes)
+- [`Phasmid_Talk_Script_30min.md`](Phasmid_Talk_Script_30min.md): 30-minute talk script (26 slides, `[MM:SS]` timing map, Q&A funnel, contingency)
+- [`Phasmid_Demo_Runbook.md`](Phasmid_Demo_Runbook.md): live-demo runbook — ~7-minute, 8-step sequence (Step 0–7) with pre-flight, per-step fallbacks, safety, and teardown
+- [`Phasmid_DEFCON_DemoLabs.pptx`](Phasmid_DEFCON_DemoLabs.pptx): 26-slide Demo Labs deck (talk track embedded as speaker notes)
 
 ## Regional Mapping Guidance
 
