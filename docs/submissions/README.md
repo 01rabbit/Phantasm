@@ -9,6 +9,12 @@ Use these files to keep one technical core while adjusting audience framing:
 - [`TRACK_PRIVACY_RESEARCH.md`](TRACK_PRIVACY_RESEARCH.md): privacy-and-research framing package
 - [`TRACK_FIELD_OPERATIONS.md`](TRACK_FIELD_OPERATIONS.md): field-operations framing package
 
+DEF CON Demo Labs package (event-specific example built on the shared core):
+
+- [`Phasmid_Talk_Script_30min.md`](Phasmid_Talk_Script_30min.md): 30-minute talk script (26 slides, `[MM:SS]` timing map, Q&A funnel, contingency)
+- [`Phasmid_Demo_Runbook.md`](Phasmid_Demo_Runbook.md): live-demo runbook — ~7-minute, 8-step sequence (Step 0–7) with pre-flight, per-step fallbacks, safety, and teardown
+- [`Phasmid_DEFCON_DemoLabs.pptx`](Phasmid_DEFCON_DemoLabs.pptx): 26-slide Demo Labs deck (talk track embedded as speaker notes)
+
 ## Regional Mapping Guidance
 
 Use the same technical core and demo order for every region, then adjust framing only:
