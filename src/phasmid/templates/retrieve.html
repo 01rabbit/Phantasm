@@ -1,57 +1,71 @@
 {% extends "base.html" %}
 {% import "_components.html" as ui %}
-{% block title %}Phasmid | Retrieve{% endblock %}
+{% block title %}Phasmid | Open a Protected File{% endblock %}
+
+{% block head %}
+<style>
+    .nav a[href="/maintenance"], .nav .operator, .nav-sep { display: none; }
+    .retrieve-shell { max-width: 980px; margin: 0 auto; }
+    .retrieve-grid { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(320px,.95fr); gap:18px; }
+    .retrieve-step { margin-bottom:14px; padding:16px; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--bg-surface); }
+    .retrieve-step h3 { margin:0 0 6px; font-size:17px; }
+    .retrieve-step p { margin:0 0 12px; color:var(--text-secondary); }
+    .result-panel { display:none; }
+    .result-panel.is-visible { display:block; }
+    @media (max-width:800px) { .retrieve-grid { grid-template-columns:1fr; } }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="grid">
-    {{ ui.camera_preview() }}
+<div class="retrieve-shell">
     <section class="panel hero-panel">
-        <div class="panel-kicker">
-            <span class="eyebrow">Open Disclosure Face</span>
-        </div>
+        <div class="panel-kicker"><span class="eyebrow">Open</span></div>
         <div class="panel-head">
-            <h2>Unlock Local Entry</h2>
-            <span class="badge neutral">Retrieve</span>
+            <h2>Open a Protected File</h2>
+            <span class="badge neutral">Local-only</span>
         </div>
-        <p class="copy hero-copy">Present the bound object and enter the passphrase. Only a successful result is returned.</p>
-        {{ ui.hero_metrics([
-            {"label": "Required", "value": "Password plus object cue"},
-            {"label": "Result", "value": "Single local download"},
-            {"label": "Behavior", "value": "Quiet on failure"}
-        ]) }}
-        <form id="retrieveForm">
-            {{ ui.password_field("password", "Passphrase", "Required") }}
-            <div class="actions">
-                <button type="submit">Unlock</button>
-                <button type="reset" class="secondary">Reset</button>
+        <p class="copy hero-copy">Use the same physical access object and password that were used when the file was protected.</p>
+
+        <div class="retrieve-grid">
+            <div>
+                <section class="retrieve-step">
+                    <h3>1. Show the access object</h3>
+                    <p>Hold the object in view until the status reports a stable match.</p>
+                    {{ ui.camera_preview() }}
+                </section>
             </div>
-        </form>
-        <section id="downloadPanel" class="result-panel panel panel--neutral" style="margin-top: 16px;">
-            <div class="panel-head">
-                <h2>Download Result</h2>
-                <span class="badge active">
-                    <span class="led led--active"></span>
-                    Ready
-                </span>
+            <div>
+                <section class="retrieve-step">
+                    <h3>2. Enter the password</h3>
+                    <p>Phasmid will return a file only when both checks succeed.</p>
+                    <form id="retrieveForm">
+                        {{ ui.password_field("password", "Access password", "Required") }}
+                        <div class="actions">
+                            <button type="submit">Open protected file</button>
+                            <a class="button secondary small" href="/">Cancel</a>
+                        </div>
+                    </form>
+                </section>
+
+                <section id="downloadPanel" class="result-panel panel panel--neutral" style="margin-top:16px;">
+                    <div class="panel-head">
+                        <h2>File ready</h2>
+                        <span class="badge good"><span class="led led--ready"></span>Access granted</span>
+                    </div>
+                    <p id="downloadName" class="copy">Protected file is ready to download.</p>
+                    <div class="actions">
+                        <button type="button" id="downloadButton">Download file</button>
+                        <button type="button" class="secondary" id="clearSession">Finish and clear</button>
+                    </div>
+                </section>
+
+                <details style="margin-top:14px;">
+                    <summary>Why might access fail?</summary>
+                    <div class="detail-body">
+                        <p class="copy">Check that the camera can clearly see the same physical object and that the password is correct. Phasmid intentionally provides limited detail on failed access attempts.</p>
+                    </div>
+                </details>
             </div>
-            <div class="result-summary">
-                <div class="result-summary__row">
-                    <span class="section-label">Package</span>
-                    <strong id="downloadName">Access granted.</strong>
-                </div>
-            </div>
-            <div class="actions">
-                <button type="button" id="downloadButton">Download</button>
-                <button type="button" class="secondary" id="clearSession">Clear session</button>
-            </div>
-        </section>
-        <div class="action-group">
-            <span class="section-label">Retrieve Flow</span>
-            <ol class="flow-list">
-                <li><span class="copy">Place the bound object within the live preview until the cue is stable.</span></li>
-                <li><span class="copy">Enter the passphrase and unlock the local entry.</span></li>
-                <li><span class="copy">Download the result, then clear the local session if the device is shared.</span></li>
-            </ol>
         </div>
     </section>
 </div>
@@ -60,7 +74,7 @@
 {% block scripts %}
 <script>
     let pendingDownload = null;
-    let pendingFilename = 'protected-entry.bin';
+    let pendingFilename = 'protected-file.bin';
 
     document.getElementById('retrieveForm').addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -68,27 +82,21 @@
         const res = await apiFetch('/retrieve', { method: 'POST', body: formData });
         if (res.ok && res.headers.get('content-type') === 'application/octet-stream') {
             pendingDownload = await res.blob();
-            pendingFilename = 'protected-entry.bin';
-            const headerFilename = res.headers.get('X-Result-Filename');
-            if (headerFilename) pendingFilename = decodeURIComponent(headerFilename);
-            document.getElementById('downloadName').textContent = `Access granted: ${pendingFilename}`;
+            pendingFilename = decodeURIComponent(res.headers.get('X-Result-Filename') || 'protected-file.bin');
+            document.getElementById('downloadName').textContent = `Ready: ${pendingFilename}`;
             document.getElementById('downloadPanel').classList.add('is-visible');
-            toast('Access granted.');
+            toast('Protected file opened.');
             return;
         }
         const data = await res.json();
-        toast(data.error || 'No valid entry found.', 'error');
+        toast(data.error || 'Access was not granted. Check the object and password.', 'error');
     });
 
     document.getElementById('downloadButton').addEventListener('click', () => {
         if (!pendingDownload) return;
         const url = window.URL.createObjectURL(pendingDownload);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = pendingFilename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        a.href = url; a.download = pendingFilename; document.body.appendChild(a); a.click(); a.remove();
         window.URL.revokeObjectURL(url);
     });
 

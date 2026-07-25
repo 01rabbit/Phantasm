@@ -4,14 +4,43 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.widgets import Footer, ListItem, ListView, RichLog, Static
 
-from ...services.guided_service import GuidedService, GuidedWorkflow
+from ...services.guided_service import GuidedService, GuidedStep, GuidedWorkflow
 from .base import OperatorScreen
+
+
+def _quick_start_workflows() -> list[GuidedWorkflow]:
+    return [
+        GuidedWorkflow(
+            id="quick_protect",
+            title="Protect a File",
+            description="Normal-use steps for protecting content without needing expert terminology.",
+            steps=[
+                GuidedStep(1, "Create or select protected storage."),
+                GuidedStep(2, "Choose the file you need to protect."),
+                GuidedStep(3, "Set the access password."),
+                GuidedStep(4, "Present and bind the physical access object."),
+                GuidedStep(5, "Confirm the result and close the storage when finished."),
+            ],
+        ),
+        GuidedWorkflow(
+            id="quick_open",
+            title="Open a Protected File",
+            description="Normal-use steps for opening content that was protected earlier.",
+            steps=[
+                GuidedStep(1, "Select the protected storage you need."),
+                GuidedStep(2, "Present the physical access object and wait for a stable match."),
+                GuidedStep(3, "Enter the access password."),
+                GuidedStep(4, "Retrieve only the file you need."),
+                GuidedStep(5, "Close the storage when finished."),
+            ],
+        ),
+    ]
 
 
 class GuidedScreen(OperatorScreen):
     BINDINGS = [
         Binding("escape", "back_or_dismiss", "Back"),
-        Binding("q", "dismiss", "Quit"),
+        Binding("q", "dismiss", "Back"),
     ]
 
     DEFAULT_CSS = """
@@ -23,14 +52,19 @@ class GuidedScreen(OperatorScreen):
         text-style: bold;
         color: $primary;
         text-align: center;
-        padding: 0 0 1 0;
+        height: 2;
+    }
+    GuidedScreen #guided-help {
+        color: $text-muted;
+        text-align: center;
+        height: 2;
     }
     GuidedScreen #layout {
         height: 1fr;
         layout: horizontal;
     }
     GuidedScreen #workflow-list-container {
-        width: 34;
+        width: 38;
     }
     GuidedScreen #workflow-list {
         width: 100%;
@@ -48,7 +82,10 @@ class GuidedScreen(OperatorScreen):
     def __init__(self, start_workflow: str | None = None, **kwargs):
         super().__init__(**kwargs)
         self._svc = GuidedService()
-        self._workflows = self._svc.get_workflows()
+        expert = self._svc.get_workflows()
+        for workflow in expert:
+            workflow.title = f"Expert: {workflow.title}"
+        self._workflows = _quick_start_workflows() + expert
         self._start_workflow = start_workflow
         self._selected_idx = 0
 
@@ -56,7 +93,11 @@ class GuidedScreen(OperatorScreen):
         from textual.containers import Container, Horizontal
 
         yield self.webui_warning_banner()
-        yield Static("OPERATOR WORKFLOWS", id="guided-title")
+        yield Static("GUIDED HELP", id="guided-title")
+        yield Static(
+            "Start with Protect a File or Open a Protected File. Expert walkthroughs are optional.",
+            id="guided-help",
+        )
         with Horizontal(id="layout"):
             with Container(id="workflow-list-container"):
                 yield ListView(
@@ -96,7 +137,7 @@ class GuidedScreen(OperatorScreen):
         log.write(f"[dim]{wf.description}[/]\n")
         log.write("")
         for step in wf.steps:
-            log.write(f"[bold]\\[{step.number}][/bold] {step.text}")
+            log.write(f"[bold]Step {step.number}[/bold]  {step.text}")
             if step.detail:
                 log.write(f"    [dim]{step.detail}[/dim]")
             log.write("")

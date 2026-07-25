@@ -7,7 +7,7 @@ from textual.events import Key
 from ..config import standby_hotkey
 from ..services.webui_service import WebUIService
 from ..standby_state import StandbyStateMachine
-from .screens.home import HomeScreen
+from .screens.simple_home import SimpleHomeScreen
 from .theme import PHASMID_DARK, PHASMID_LIGHT
 
 
@@ -133,54 +133,54 @@ class PhasmidApp(App):
                 screen.refresh_webui_status()
 
     def _push_home(self) -> None:
-        self.push_screen(HomeScreen(initial_vessel_path=self._vessel_path))
+        self.push_screen(SimpleHomeScreen(initial_vessel_path=self._vessel_path))
 
     def _push_guided(self) -> None:
         from .screens.guided import GuidedScreen
 
-        self.push_screen(HomeScreen())
+        self.push_screen(SimpleHomeScreen())
         self.push_screen(GuidedScreen())
 
     def _push_audit(self) -> None:
         from .screens.audit import AuditScreen
 
-        self.push_screen(HomeScreen())
+        self.push_screen(SimpleHomeScreen())
         self.push_screen(AuditScreen())
 
     def _push_doctor(self) -> None:
         from .screens.doctor import DoctorScreen
 
-        self.push_screen(HomeScreen())
+        self.push_screen(SimpleHomeScreen())
         self.push_screen(DoctorScreen())
 
     def _push_inspect(self) -> None:
         from .screens.inspect_vessel import InspectVesselScreen
 
-        self.push_screen(HomeScreen())
+        self.push_screen(SimpleHomeScreen())
         self.push_screen(InspectVesselScreen(vessel_path=self._vessel_path))
 
     def _push_create(self) -> None:
         from .screens.create_vessel import CreateVesselScreen
 
-        self.push_screen(HomeScreen())
+        self.push_screen(SimpleHomeScreen())
         self.push_screen(CreateVesselScreen(initial_path=self._vessel_path or ""))
 
     def _push_open(self) -> None:
         from .screens.open_vessel import OpenVesselScreen
 
-        self.push_screen(HomeScreen())
+        self.push_screen(SimpleHomeScreen())
         self.push_screen(OpenVesselScreen(vessel_path=self._vessel_path or ""))
 
     def _push_about(self) -> None:
         from .screens.about import AboutScreen
 
-        self.push_screen(HomeScreen())
+        self.push_screen(SimpleHomeScreen())
         self.push_screen(AboutScreen())
 
     def _push_luks(self) -> None:
         from .screens.luks_screen import LuksScreen
 
-        self.push_screen(HomeScreen())
+        self.push_screen(SimpleHomeScreen())
         self.push_screen(LuksScreen())
 
     def action_trigger_standby(self) -> None:

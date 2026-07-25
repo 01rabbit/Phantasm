@@ -2,53 +2,89 @@
 {% import "_components.html" as ui %}
 {% block title %}Phasmid | Home{% endblock %}
 
-{% block content %}
-<section class="status-grid">
-    {{ ui.status_card("Device Status",  "deviceState",    "Ready") }}
-    {{ ui.status_card("Camera Status",  "cameraState",    "Checking") }}
-    {{ ui.status_card("Object State",   "objectState",    "Unavailable") }}
-    {{ ui.status_card("Operation Mode", "operationMode",  "Local-only") }}
-</section>
+{% block head %}
+<style>
+    /* Simple Operator Mode: keep expert navigation available only from Advanced. */
+    .nav a[href="/maintenance"], .nav .operator, .nav-sep { display: none; }
+    .simple-home { max-width: 860px; margin: 0 auto; }
+    .simple-status {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        margin-bottom: 18px; padding: 12px 14px; border: 1px solid var(--border);
+        border-left: 2px solid var(--status-ready); border-radius: var(--r-md);
+        background: var(--bg-surface);
+    }
+    .simple-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px; }
+    .simple-action {
+        display: block; min-height: 150px; padding: 22px; border: 1px solid var(--border);
+        border-left: 3px solid var(--accent); border-radius: var(--r-lg); background: var(--bg-surface);
+        transition: border-color var(--t-fast), transform var(--t-fast), background var(--t-fast);
+    }
+    .simple-action:hover { border-color: var(--accent-dim); background: var(--bg-raised); transform: translateY(-1px); }
+    .simple-action h3 { margin: 0 0 8px; font-size: 20px; }
+    .simple-action p { margin: 0; color: var(--text-secondary); }
+    .guided-card { margin-top: 14px; padding: 16px 18px; }
+    .advanced-home { margin-top: 18px; }
+    .advanced-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    @media (max-width: 700px) { .simple-actions { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
 
-<div class="grid">
-    {{ ui.camera_preview() }}
-    <section class="panel hero-panel">
-        <div class="panel-kicker">
-            <span class="eyebrow">Janus Eidolon System</span>
+{% block content %}
+<div class="simple-home">
+    <section class="simple-status" aria-live="polite">
+        <div>
+            <span class="section-label">Device</span>
+            <strong id="deviceState" style="display:block; margin-top:3px;">Ready</strong>
         </div>
+        <span class="badge good"><span class="led led--ready" id="deviceStateLed"></span>Ready for local use</span>
+    </section>
+
+    <section class="panel hero-panel">
+        <div class="panel-kicker"><span class="eyebrow">Phasmid</span></div>
         <div class="panel-head">
-            <h2>Protected Entry Console</h2>
-            <span class="badge active">
-                <span class="led led--active"></span>
-                <span class="badge-text">Local-only</span>
-            </span>
+            <h2>What would you like to do?</h2>
+            <span class="badge active"><span class="led led--active"></span>Local-only</span>
         </div>
         <p class="copy hero-copy">
-            Create or unlock a Disclosure Face using a passphrase and a bound object cue.
-            This interface is designed for localhost or USB gadget access.
+            Protect a file or open one you protected earlier. Phasmid keeps the technical controls out of the way until you need them.
         </p>
-        {{ ui.hero_metrics([
-            {"label": "Access cue", "value": "Physical object"},
-            {"label": "Recovery path", "value": "Password plus local state"},
-            {"label": "Surface", "value": "Quiet by default"}
-        ]) }}
-        <div class="actions">
-            <a class="button" href="/store">Store</a>
-            <a class="button secondary" href="/retrieve">Retrieve</a>
-            <a class="button secondary" href="/maintenance">Maintenance</a>
+
+        <div class="simple-actions">
+            <a class="simple-action" href="/store">
+                <span class="section-label">Protect</span>
+                <h3>Protect a File</h3>
+                <p>Choose a file, create a password, and bind a physical access object.</p>
+            </a>
+            <a class="simple-action" href="/retrieve">
+                <span class="section-label">Open</span>
+                <h3>Open a Protected File</h3>
+                <p>Show the access object, enter the password, and download the protected file.</p>
+            </a>
         </div>
-        <div class="action-group">
-            <span class="section-label">Normal Flow</span>
-            <ol class="flow-list">
-                <li><span class="copy">Store a Disclosure Face with a passphrase and bound object cue.</span></li>
-                <li><span class="copy">Retrieve only after a matching local object cue and password are both present.</span></li>
-                <li><span class="copy">Use Maintenance for local diagnostics and controlled updates.</span></li>
-            </ol>
-        </div>
-        <div class="action-group">
-            <span class="section-label">Recent Local Event</span>
-            <p class="copy">Waiting for a local operation.</p>
-        </div>
+
+        <section class="panel panel--neutral guided-card">
+            <div class="panel-head">
+                <div>
+                    <span class="section-label">Not sure where to start?</span>
+                    <h3 style="margin:4px 0 0;">Guided Mode</h3>
+                </div>
+                <a class="button secondary" href="/operator/guided">Start guided help</a>
+            </div>
+            <p class="copy">Use a short step-by-step workflow without learning Phasmid terminology first.</p>
+        </section>
+
+        <details class="advanced-home">
+            <summary>Advanced tools</summary>
+            <div class="detail-body">
+                <p class="copy">Diagnostics, audit data, storage inspection, and maintenance are intended for experienced operators.</p>
+                <div class="advanced-links">
+                    <a class="button secondary small" href="/maintenance">Maintenance</a>
+                    <a class="button secondary small" href="/operator/doctor">Diagnostics</a>
+                    <a class="button secondary small" href="/operator/audit">Audit</a>
+                    <a class="button secondary small" href="/operator/inspect">Inspect</a>
+                </div>
+            </div>
+        </details>
     </section>
 </div>
 {% endblock %}

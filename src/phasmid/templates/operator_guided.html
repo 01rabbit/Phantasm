@@ -1,40 +1,78 @@
 {% extends "base.html" %}
-{% block title %}Phasmid | Operator Workflows{% endblock %}
+{% block title %}Phasmid | Guided Help{% endblock %}
+
+{% block head %}
+<style>
+    .nav a[href="/maintenance"], .nav .operator, .nav-sep { display: none; }
+    .guided-shell { max-width: 980px; margin: 0 auto; }
+    .guided-list li { min-height: 44px; display:flex; align-items:center; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="grid-single">
+<div class="grid-single guided-shell">
     <section class="panel hero-panel">
-        <div class="panel-kicker">
-            <span class="eyebrow">Procedural Guidance</span>
-        </div>
+        <div class="panel-kicker"><span class="eyebrow">Guided Help</span></div>
         <div class="panel-head">
-            <h2>Operator Workflows</h2>
-            <span class="badge neutral">Reference</span>
+            <h2>Choose what you need to do</h2>
+            <span class="badge neutral">Step by step</span>
         </div>
         <p class="copy hero-copy">
-            Step-by-step operational walkthroughs for common scenarios.
-            Select a workflow to view its steps.
+            Start with Protect a File or Open a Protected File. Expert walkthroughs explain research and diagnostic concepts and are optional for normal use.
         </p>
+        <div class="actions"><a class="button secondary small" href="/">Back to Home</a></div>
     </section>
 
     <div class="guided-layout">
-        <section class="panel" style="padding: 14px;">
-            <span class="section-label" style="display:block;margin-bottom:10px;">Workflows</span>
-            <ul class="guided-list" id="workflowList">
-                {% for wf in workflows %}
-                <li data-id="{{ wf.id }}" onclick="selectWorkflow('{{ wf.id }}')">{{ wf.title }}</li>
-                {% endfor %}
-            </ul>
+        <section class="panel" style="padding:14px;">
+            <span class="section-label" style="display:block;margin-bottom:10px;">Help topics</span>
+            <ul class="guided-list" id="workflowList"></ul>
         </section>
 
-        <section class="panel" id="workflowDetail">
-            <p class="copy" style="color:var(--text-muted);">Select a workflow from the list.</p>
+        <section class="panel" id="workflowDetail" aria-live="polite">
+            <p class="copy" style="color:var(--text-muted);">Select a help topic from the list.</p>
         </section>
     </div>
 </div>
 
 <script>
-    const workflows = {{ workflows | tojson }};
+    const expertWorkflows = {{ workflows | tojson }}.map(wf => ({ ...wf, title: `Expert: ${wf.title}` }));
+    const workflows = [
+        {
+            id: 'quick_protect',
+            title: 'Protect a File',
+            description: 'Normal-use steps for protecting a file without learning Phasmid internals first.',
+            steps: [
+                {number: 1, text: 'Choose the file you need to protect.', detail: ''},
+                {number: 2, text: 'Create the access password.', detail: 'Keep the password private and do not place it in command-line arguments.'},
+                {number: 3, text: 'Present the physical access object.', detail: 'Use an object you can present consistently to the local camera.'},
+                {number: 4, text: 'Capture the object and protect the file.', detail: ''},
+                {number: 5, text: 'Finish the session when the operation is complete.', detail: ''}
+            ]
+        },
+        {
+            id: 'quick_open',
+            title: 'Open a Protected File',
+            description: 'Normal-use steps for accessing content that was protected earlier.',
+            steps: [
+                {number: 1, text: 'Show the same physical access object.', detail: 'Wait until the local camera reports a stable match.'},
+                {number: 2, text: 'Enter the access password.', detail: ''},
+                {number: 3, text: 'Open the protected file.', detail: 'Phasmid returns content only when the required checks succeed.'},
+                {number: 4, text: 'Download only what you need.', detail: ''},
+                {number: 5, text: 'Finish and clear the local session.', detail: ''}
+            ]
+        },
+        ...expertWorkflows
+    ];
+
+    const workflowList = document.getElementById('workflowList');
+    workflows.forEach(wf => {
+        const item = document.createElement('li');
+        item.dataset.id = wf.id;
+        item.textContent = wf.title;
+        item.addEventListener('click', () => selectWorkflow(wf.id));
+        workflowList.appendChild(item);
+    });
 
     function selectWorkflow(id) {
         document.querySelectorAll('.guided-list li').forEach(li => {
@@ -48,8 +86,8 @@
         html += '<div style="margin-top:16px;">';
         wf.steps.forEach(step => {
             html += `<div class="guided-step">
-                <div class="guided-step-num">[${String(step.number).padStart(2,'0')}]</div>
-                <p class="copy" style="margin-bottom:4px;">${step.text}</p>
+                <div class="guided-step-num">${String(step.number)}</div>
+                <p class="copy" style="margin-bottom:4px;"><strong>Step ${step.number}.</strong> ${step.text}</p>
                 ${step.detail ? `<p class="microcopy">${step.detail}</p>` : ''}
             </div>`;
         });
@@ -57,7 +95,6 @@
         detail.innerHTML = html;
     }
 
-    // Auto-select first workflow
     const first = document.querySelector('.guided-list li');
     if (first) selectWorkflow(first.dataset.id);
 </script>
