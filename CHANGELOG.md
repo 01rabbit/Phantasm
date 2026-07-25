@@ -7,7 +7,16 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
-No unreleased entries.
+### Added
+
+- WebUI object-cue registration from a local image file: `/register_key` now accepts an optional `reference_image` upload, and the Local Entry Maintenance page provides a file picker next to the existing camera rebind flow. Registration from a file derives the same encrypted feature template as camera capture and keeps the size-limited upload handling used by other WebUI uploads.
+- `AIGate.register_reference_from_image_bytes` for camera-independent reference registration, with decoding guards, downscaling of large images toward the camera frame scale, and the existing cue-similarity checks.
+- Client-side preview of the selected reference image on the Local Entry Maintenance page (browser-only object URL; the file is never persisted server-side).
+- Default-profile tests covering image-file registration (gate-level decode/downscale/similarity/persistence paths and WebUI routing, upload-size and replace-confirmation guards).
+
+### Security
+
+- Image-file binding failures on `/register_key` are masked to a neutral message, matching the camera path: only the pre-comparison decode error is surfaced, so binding responses cannot be used as a matching oracle against the other entry's stored cue template. A regression test asserts the failure responses are indistinguishable.
 
 ## [0.1.5] - 2026-05-11
 

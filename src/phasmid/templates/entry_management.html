@@ -112,6 +112,13 @@
                 {% endfor %}
             </select>
         </label>
+        <label class="field" style="margin-top: 12px;">
+            <span>Reference image (optional)</span>
+            <input type="file" id="referenceImageInput" accept="image/*">
+        </label>
+        <img id="referenceImagePreview" alt="Selected reference image preview"
+             style="display: none; max-width: 180px; max-height: 135px; border-radius: 8px; margin-top: 8px;">
+        <p class="copy">Choose an image file to bind from it. Leave empty to capture from the camera. The preview stays in this browser only; the file is not stored.</p>
         <div class="actions">
             <button type="button" id="rebindButton">Rebind object</button>
             <button type="button" class="secondary" id="testButton">Test matching</button>
@@ -158,16 +165,48 @@
         document.getElementById('entryOutput').textContent = `${data.label}: ${state}. ${match}.`;
     }
 
+    const referenceImageInput = document.getElementById('referenceImageInput');
+    const referenceImagePreview = document.getElementById('referenceImagePreview');
+    let referencePreviewUrl = null;
+
+    function clearReferencePreview() {
+        if (referencePreviewUrl) {
+            URL.revokeObjectURL(referencePreviewUrl);
+            referencePreviewUrl = null;
+        }
+        if (referenceImagePreview) {
+            referenceImagePreview.removeAttribute('src');
+            referenceImagePreview.style.display = 'none';
+        }
+    }
+
+    if (referenceImageInput) referenceImageInput.addEventListener('change', () => {
+        clearReferencePreview();
+        if (!referenceImagePreview || referenceImageInput.files.length === 0) return;
+        referencePreviewUrl = URL.createObjectURL(referenceImageInput.files[0]);
+        referenceImagePreview.src = referencePreviewUrl;
+        referenceImagePreview.style.display = 'block';
+    });
+
     const rebindButton = document.getElementById('rebindButton');
     if (rebindButton) rebindButton.addEventListener('click', async () => {
         const confirmed = await ensureRestrictedConfirmation();
         if (!confirmed) return;
         const entry = document.getElementById('entrySelect').value;
-        const body = new URLSearchParams({ entry_hint: entry, replace: 'true' });
+        const body = new FormData();
+        body.append('entry_hint', entry);
+        body.append('replace', 'true');
+        if (referenceImageInput && referenceImageInput.files.length > 0) {
+            body.append('reference_image', referenceImageInput.files[0]);
+        }
         const res = await apiFetch('/register_key', { method: 'POST', body });
         const data = await res.json();
         toast(data.status || data.error || 'Rebind operation finished.');
         setEntryActionResult(data.status || data.error || 'Rebind operation finished.', data.status ? 'success' : 'error');
+        if (data.status && referenceImageInput) {
+            referenceImageInput.value = '';
+            clearReferencePreview();
+        }
         refreshEntryStatus();
     });
 

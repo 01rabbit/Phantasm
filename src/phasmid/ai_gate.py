@@ -342,6 +342,62 @@ class AIGate:
         if candidate_state is None:
             return False, text.AI_GATE_IMAGE_TOO_SIMPLE
 
+        return self._commit_reference(mode, candidate_state)
+
+    def register_reference_from_image_bytes(
+        self, mode: str, payload: bytes
+    ) -> tuple[bool, str]:
+        """Register an object-cue reference from an encoded image file payload.
+
+        The image is decoded locally and never persisted; only the derived
+        feature template is stored, matching the camera-capture path.
+        """
+        self._validate_mode(mode)
+        image = self._decode_reference_image(payload)
+        if image is None:
+            return False, text.AI_GATE_IMAGE_UNREADABLE
+
+        candidate_state = self._reference_state_from_image(
+            self._scale_reference_image(image)
+        )
+        if candidate_state is None:
+            return False, text.AI_GATE_IMAGE_TOO_SIMPLE
+
+        return self._commit_reference(mode, candidate_state)
+
+    def _decode_reference_image(self, payload: bytes) -> Any | None:
+        if not payload:
+            return None
+        try:
+            buffer = np.frombuffer(payload, dtype=np.uint8)
+            image = cv2.imdecode(buffer, cv2.IMREAD_COLOR)
+        except (cv2.error, ValueError) as exc:
+            LOG.debug("reference image decode failed: %s", exc)
+            return None
+        if image is None or image.size == 0:
+            return None
+        return image
+
+    def _scale_reference_image(self, image: Any) -> Any:
+        """Downscale large images toward the camera frame scale.
+
+        References registered from files must live at a scale comparable to
+        the live camera frames they are later matched against; keypoints from
+        a full-resolution photo would not correspond to the 320x240 stream.
+        """
+        height, width = image.shape[:2]
+        if height <= 0 or width <= 0:
+            return image
+        frame_width, frame_height = self.FRAME_SIZE
+        scale = min(frame_width / width, frame_height / height)
+        if scale >= 1.0:
+            return image
+        new_size = (max(1, round(width * scale)), max(1, round(height * scale)))
+        return cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
+
+    def _commit_reference(
+        self, mode: str, candidate_state: dict[str, Any]
+    ) -> tuple[bool, str]:
         if self._references_too_similar(mode, candidate_state):
             return (
                 False,
