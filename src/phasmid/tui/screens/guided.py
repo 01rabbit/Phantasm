@@ -11,7 +11,7 @@ from .base import OperatorScreen
 class GuidedScreen(OperatorScreen):
     BINDINGS = [
         Binding("escape", "back_or_dismiss", "Back"),
-        Binding("q", "dismiss", "Quit"),
+        Binding("q", "dismiss", "Back"),
     ]
 
     DEFAULT_CSS = """
@@ -23,14 +23,19 @@ class GuidedScreen(OperatorScreen):
         text-style: bold;
         color: $primary;
         text-align: center;
-        padding: 0 0 1 0;
+        height: 2;
+    }
+    GuidedScreen #guided-help {
+        color: $text-muted;
+        text-align: center;
+        height: 2;
     }
     GuidedScreen #layout {
         height: 1fr;
         layout: horizontal;
     }
     GuidedScreen #workflow-list-container {
-        width: 34;
+        width: 38;
     }
     GuidedScreen #workflow-list {
         width: 100%;
@@ -56,7 +61,11 @@ class GuidedScreen(OperatorScreen):
         from textual.containers import Container, Horizontal
 
         yield self.webui_warning_banner()
-        yield Static("OPERATOR WORKFLOWS", id="guided-title")
+        yield Static("GUIDED HELP", id="guided-title")
+        yield Static(
+            "Start with Protect a File or Open a Protected File. Expert walkthroughs are optional.",
+            id="guided-help",
+        )
         with Horizontal(id="layout"):
             with Container(id="workflow-list-container"):
                 yield ListView(
@@ -96,7 +105,7 @@ class GuidedScreen(OperatorScreen):
         log.write(f"[dim]{wf.description}[/]\n")
         log.write("")
         for step in wf.steps:
-            log.write(f"[bold]\\[{step.number}][/bold] {step.text}")
+            log.write(f"[bold]Step {step.number}[/bold]  {step.text}")
             if step.detail:
                 log.write(f"    [dim]{step.detail}[/dim]")
             log.write("")
