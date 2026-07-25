@@ -89,11 +89,11 @@
                         <small>Stored locally. Avoid sensitive identifying text.</small>
                     </label>
                     <div class="action-group">
-                        <span class="section-label">Metadata</span>
+                        <span class="section-label">Metadata Risk</span>
                         <p class="copy">Inspect the selected file for common metadata before protection, or create a best-effort metadata-reduced copy.</p>
                         <div class="actions tight">
-                            <button type="button" class="secondary small" id="metadataCheckButton">Check metadata</button>
-                            <button type="button" class="secondary small" id="metadataScrubButton">Create reduced copy</button>
+                            <button type="button" class="secondary small" id="metadataCheckButton">Check metadata risk</button>
+                            <button type="button" class="secondary small" id="metadataScrubButton">Download metadata-reduced copy</button>
                         </div>
                     </div>
                     <div class="action-group">
@@ -109,9 +109,9 @@
         </form>
 
         <section id="metadataPanel" class="panel panel--neutral hidden" style="margin-top:16px;">
-            <h2>Metadata review</h2>
+            <h2>Metadata Risk</h2>
             <p id="metadataOutput" class="copy">No metadata check has been run.</p>
-            <p class="copy">Metadata detection and reduction are best-effort and cannot guarantee removal of every embedded identifier.</p>
+            <p class="copy">Metadata detection and reduction are best-effort. They cannot guarantee removal of every embedded identifier.</p>
         </section>
 
         <section id="overwritePanel" class="panel panel--caution hidden" style="margin-top:16px;">
