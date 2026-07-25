@@ -4,8 +4,37 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.widgets import Footer, ListItem, ListView, RichLog, Static
 
-from ...services.guided_service import GuidedService, GuidedWorkflow
+from ...services.guided_service import GuidedService, GuidedStep, GuidedWorkflow
 from .base import OperatorScreen
+
+
+def _quick_start_workflows() -> list[GuidedWorkflow]:
+    return [
+        GuidedWorkflow(
+            id="quick_protect",
+            title="Protect a File",
+            description="Normal-use steps for protecting content without needing expert terminology.",
+            steps=[
+                GuidedStep(1, "Create or select protected storage."),
+                GuidedStep(2, "Choose the file you need to protect."),
+                GuidedStep(3, "Set the access password."),
+                GuidedStep(4, "Present and bind the physical access object."),
+                GuidedStep(5, "Confirm the result and close the storage when finished."),
+            ],
+        ),
+        GuidedWorkflow(
+            id="quick_open",
+            title="Open a Protected File",
+            description="Normal-use steps for opening content that was protected earlier.",
+            steps=[
+                GuidedStep(1, "Select the protected storage you need."),
+                GuidedStep(2, "Present the physical access object and wait for a stable match."),
+                GuidedStep(3, "Enter the access password."),
+                GuidedStep(4, "Retrieve only the file you need."),
+                GuidedStep(5, "Close the storage when finished."),
+            ],
+        ),
+    ]
 
 
 class GuidedScreen(OperatorScreen):
@@ -53,7 +82,10 @@ class GuidedScreen(OperatorScreen):
     def __init__(self, start_workflow: str | None = None, **kwargs):
         super().__init__(**kwargs)
         self._svc = GuidedService()
-        self._workflows = self._svc.get_workflows()
+        expert = self._svc.get_workflows()
+        for workflow in expert:
+            workflow.title = f"Expert: {workflow.title}"
+        self._workflows = _quick_start_workflows() + expert
         self._start_workflow = start_workflow
         self._selected_idx = 0
 
