@@ -95,14 +95,8 @@ class PhasmidApp(App):
             )
         else:
             if self.webui_svc.start():
-                access_url = self.webui_svc.access_url()
-                success_message = (
-                    f"WebUI active at {access_url}"
-                    if access_url
-                    else "WebUI active on 0.0.0.0:8000. Access via the USB gadget IP."
-                )
                 self.notify(
-                    success_message,
+                    f"WebUI active at {self.webui_svc.access_url()}",
                     title="WEBUI EXPOSED",
                     severity="information",
                     timeout=10,

@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-HOST="${PHASMID_WEBUI_HOST:-0.0.0.0}"
+HOST="${PHASMID_WEBUI_HOST:-127.0.0.1}"
 PORT="${PHASMID_WEBUI_PORT:-8000}"
 STATUS_URL="http://127.0.0.1:${PORT}/status"
 FEED_URL="http://127.0.0.1:${PORT}/video_feed"
@@ -115,10 +115,14 @@ stage_c_webui_start() {
     return
   fi
 
-  if ss -ltnp 2>/dev/null | grep -q "0.0.0.0:${PORT}"; then
-    record_pass "WebUI listener on 0.0.0.0:${PORT}"
+  if ss -ltnp 2>/dev/null | grep -q "${HOST}:${PORT}"; then
+    record_pass "WebUI listener on ${HOST}:${PORT}"
   else
-    record_fail "WebUI listener on 0.0.0.0:${PORT}"
+    record_fail "WebUI listener on ${HOST}:${PORT}"
+  fi
+
+  if [ "$HOST" != "0.0.0.0" ] && ss -ltnp 2>/dev/null | grep -q "0.0.0.0:${PORT}"; then
+    record_fail "WebUI must not listen on all interfaces (0.0.0.0:${PORT})"
   fi
 }
 

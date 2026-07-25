@@ -66,7 +66,7 @@ For the full non-claim inventory and rationale, see `docs/NON_CLAIMS.md`.
 - The host operating system account is trusted while Phasmid is running.
 - Attackers may obtain a copy of `vault.bin`.
 - Attackers may observe or copy files in the project directory if OS permissions are weak.
-- The Web UI is intended for local use through `127.0.0.1` or USB gadget networking.
+- The Web UI is intended for local use through `127.0.0.1` or USB gadget networking. Any party able to reach the bind address is treated as an operator: page HTML is served unauthenticated, the mutation token is embedded in it, and restricted-action confirmation phrases are public constants. Reachability, not in-app authentication, is what bounds the WebUI.
 - Camera matching is an operational gate, not a cryptographic biometric factor.
 - Experimental object-model output, if enabled, is an operational cue only and must never influence key derivation or container layout.
 - Device capture is realistic, so rendered UI and documentation should avoid explaining the internal disclosure model during normal use.
@@ -112,9 +112,37 @@ These surfaces should not reveal the internal disclosure model, internal trial o
 
 ### WebUI Surface
 
-- HTTP endpoints served on `127.0.0.1` (default) or a configured bind address.
+- HTTP endpoints served on `127.0.0.1` (default) or a configured bind address. See [WebUI Bind Address](#webui-bind-address) for the resolution order.
 - Mutation endpoints require `X-Phasmid-Token`; restricted action endpoints additionally require a live restricted confirmation session.
 - Response headers, `Content-Disposition` filename, and HTTP status codes are normalized to avoid leaking slot or mode information.
+
+### WebUI Bind Address
+
+The bind address is the WebUI's primary containment boundary, so it is resolved
+by one documented order in `WebUIService.resolve_bind_host()`. Every start path,
+including the TUI `w` key, uses it.
+
+1. If `PHASMID_HOST` is set to a non-empty value, that value is used. This is the
+   only way to reach a wildcard bind such as `0.0.0.0`, and it is an explicit
+   operator decision.
+2. Otherwise, if `PHASMID_WEBUI_EXPOSE_GADGET` is enabled, the WebUI binds to the
+   address of the USB Ethernet gadget interface (`usb0`, or an `enx*` interface).
+   It binds to that one address, not to all interfaces. If no gadget address is
+   detected, it falls back to loopback and logs a warning.
+3. Otherwise, the WebUI binds to `127.0.0.1`.
+
+Because the WebUI does not authenticate page access, moving off loopback moves
+every other WebUI weakness from local to remote:
+
+- `_ui_unlocked()` in `src/phasmid/web_server.py` returns `True` unconditionally.
+- The mutation token is rendered into unauthenticated page HTML.
+- Restricted-action confirmation phrases are public constants in
+  `src/phasmid/restricted_actions.py`.
+- `/video_feed` has no authentication.
+
+Treat `PHASMID_WEBUI_EXPOSE_GADGET` as extending operator trust to whatever is on
+the other end of the USB cable, and `PHASMID_HOST=0.0.0.0` as extending it to
+every network the device is attached to.
 
 ### CLI Surface
 
@@ -171,7 +199,7 @@ Each scenario is tagged with applicable [STRIDE](https://learn.microsoft.com/en-
 
 **Scenario:** Attacker observes or captures `X-Phasmid-Token` from a local session and replays it to perform vault operations.
 
-**Mitigation:** Token is per-process; rotation available via restricted action endpoint. WebUI binds to `127.0.0.1` by default, limiting token exposure to the local session.
+**Mitigation:** Token is per-process; rotation available via restricted action endpoint. WebUI binds to `127.0.0.1` by default, limiting token exposure to the local session. The mutation token is rendered into page HTML that is served without authentication, so anyone who can reach the bind address can read it; this is why the bind address is the primary containment boundary and why gadget exposure is opt-in.
 
 **Residual risk:** Token is valid for the process lifetime; a compromised local session can replay it until process restart or explicit rotation.
 
@@ -384,7 +412,7 @@ Phasmid explicitly does not aim to provide:
 - Access recovery flows count repeated local failures and apply a bounded temporary lockout. WebUI limiting is process-local; CLI limiting is stored in local state.
 - Web responses include no-store cache headers, frame denial, MIME-sniffing protection, no-referrer policy, constrained browser permissions, and a local-only content security policy. These reduce browser residue and common Web embedding risks but do not make the WebUI safe for untrusted networks.
 - Sensitive Web actions require a fresh restricted confirmation session in addition to the Web token. Restricted action pages and entry maintenance details are withheld until that confirmation is active.
-- The Web server binds to `127.0.0.1` by default.
+- The Web server binds to `127.0.0.1` by default, including when started from the TUI with `w`. See [WebUI Bind Address](#webui-bind-address).
 - **Inactivity Auto-Kill**: When managed via the TUI, the WebUI server is
   automatically terminated after 10 minutes of operator inactivity to minimize
   exposure time and return the system to a stealth state.
@@ -491,6 +519,7 @@ For full architectural documentation see `docs/COERCION_SAFE_DELAYING.md`.
 ## Operational Guidance
 
 - Keep `PHASMID_HOST` at the default `127.0.0.1` unless the host is otherwise protected.
+- Use `PHASMID_WEBUI_EXPOSE_GADGET=1` rather than `PHASMID_HOST=0.0.0.0` when the operator interface must be reachable over the USB gadget link; it binds the gadget address only.
 - Do not expose the WebUI to an untrusted network.
 - Set `PHASMID_WEB_TOKEN` explicitly for repeatable controlled sessions.
 - Prefer `PHASMID_HARDWARE_SECRET_FILE` or `PHASMID_HARDWARE_SECRET_PROMPT=1` over long-lived environment variables when adding an external device value.

@@ -62,8 +62,8 @@ In `/boot/cmdline.txt`, add `consoleblank=0 loglevel=1 quiet` and remove `consol
 
 ## Local-Only Network Posture
 
-- Bind the WebUI to `127.0.0.1` by default.
-- Use USB Ethernet gadget access for local operator access when required.
+- Bind the WebUI to `127.0.0.1` by default, including when it is started from the TUI with `w`.
+- Use USB Ethernet gadget access for local operator access when required. Set `PHASMID_WEBUI_EXPOSE_GADGET=1`, which binds the gadget interface address (`usb0` or `enx*`) and nothing else. Do not use `PHASMID_HOST=0.0.0.0` for this.
 - Disable SSH after provisioning unless a controlled maintenance window requires it.
 - Disable Wi-Fi unless explicitly needed.
 - Disable Bluetooth.
@@ -82,6 +82,8 @@ PHASMID_HOST=127.0.0.1
 PHASMID_PORT=8000
 PHASMID_STATE_DIR=/var/lib/phasmid
 ```
+
+Leave `PHASMID_WEBUI_EXPOSE_GADGET` unset unless the operator interface is reached from a USB-tethered host. When it is set, everything on the other end of the USB link is trusted as an operator: the WebUI serves its pages, its mutation token, and `/video_feed` without authentication.
 
 For high-risk deployments, do not store all recovery conditions on the same physical medium. Phasmid is strongest when the encrypted container, local state, memorized password, physical-object cue, and optional external key material are separated.
 

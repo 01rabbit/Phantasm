@@ -130,6 +130,9 @@ def test_webui_service_start_uses_uvicorn_command_and_env(tmp_path, monkeypatch)
     from phasmid.services.webui_service import WebUIService
 
     monkeypatch.setattr(config, "DEFAULT_STATE_DIR", str(tmp_path))
+    monkeypatch.delenv("PHASMID_HOST", raising=False)
+    monkeypatch.delenv("PHASMID_PORT", raising=False)
+    monkeypatch.delenv("PHASMID_WEBUI_EXPOSE_GADGET", raising=False)
     WebUIService._instance = None
     svc = WebUIService()
 
@@ -159,12 +162,12 @@ def test_webui_service_start_uses_uvicorn_command_and_env(tmp_path, monkeypatch)
         "uvicorn",
         "phasmid.web_server:app",
         "--host",
-        "0.0.0.0",
+        "127.0.0.1",
         "--port",
         "8000",
     ]
     env = captured["env"]
-    assert env["PHASMID_HOST"] == "0.0.0.0"
+    assert env["PHASMID_HOST"] == "127.0.0.1"
     assert env["PHASMID_PORT"] == "8000"
 
 
@@ -258,21 +261,85 @@ def test_webui_service_startup_wait_default_is_hardware_safe():
     assert defaults[0] >= 10.0
 
 
-def test_webui_service_start_default_host_is_gadget_exposed():
+def _bind_host_service(tmp_path, monkeypatch):
+    """Build a fresh WebUIService with a clean bind-host environment."""
+    from phasmid import config
     from phasmid.services.webui_service import WebUIService
 
-    defaults = WebUIService.start.__defaults__
-    assert defaults is not None
-    assert defaults[0] == "0.0.0.0"
+    monkeypatch.setattr(config, "DEFAULT_STATE_DIR", str(tmp_path))
+    monkeypatch.delenv("PHASMID_HOST", raising=False)
+    monkeypatch.delenv("PHASMID_PORT", raising=False)
+    monkeypatch.delenv("PHASMID_WEBUI_EXPOSE_GADGET", raising=False)
+    WebUIService._instance = None
+    return WebUIService()
 
 
-def test_tui_success_notification_mentions_gadget_ip_guidance(monkeypatch):
+def test_webui_service_resolves_loopback_by_default(tmp_path, monkeypatch):
+    svc = _bind_host_service(tmp_path, monkeypatch)
+    monkeypatch.setattr(svc, "_detect_usb_gadget_ipv4", lambda: "10.55.0.10")
+
+    assert svc.resolve_bind_host() == "127.0.0.1"
+
+
+def test_webui_service_gadget_opt_in_binds_interface_address_not_all_interfaces(
+    tmp_path, monkeypatch
+):
+    svc = _bind_host_service(tmp_path, monkeypatch)
+    monkeypatch.setenv("PHASMID_WEBUI_EXPOSE_GADGET", "1")
+    monkeypatch.setattr(svc, "_detect_usb_gadget_ipv4", lambda: "10.55.0.10")
+
+    assert svc.resolve_bind_host() == "10.55.0.10"
+
+
+def test_webui_service_gadget_opt_in_falls_back_to_loopback_without_gadget(
+    tmp_path, monkeypatch
+):
+    svc = _bind_host_service(tmp_path, monkeypatch)
+    monkeypatch.setenv("PHASMID_WEBUI_EXPOSE_GADGET", "1")
+    monkeypatch.setattr(svc, "_detect_usb_gadget_ipv4", lambda: None)
+
+    assert svc.resolve_bind_host() == "127.0.0.1"
+
+
+def test_webui_service_explicit_host_env_wins(tmp_path, monkeypatch):
+    svc = _bind_host_service(tmp_path, monkeypatch)
+    monkeypatch.setenv("PHASMID_HOST", "10.55.0.1")
+    monkeypatch.setenv("PHASMID_WEBUI_EXPOSE_GADGET", "1")
+    monkeypatch.setattr(svc, "_detect_usb_gadget_ipv4", lambda: "10.55.0.10")
+
+    assert svc.resolve_bind_host() == "10.55.0.1"
+
+
+def test_tui_toggle_webui_binds_loopback_not_all_interfaces(tmp_path, monkeypatch):
+    """Regression: the `w` key must not expose the WebUI on every interface.
+
+    This drives the real TUI control path (`action_toggle_webui` ->
+    `WebUIService.start()` with no arguments) and asserts the host handed to
+    uvicorn, because that is the bind address operators actually get.
+    """
     from phasmid.tui.app import PhasmidApp
 
+    svc = _bind_host_service(tmp_path, monkeypatch)
+    captured: dict[str, object] = {}
+
+    class FakeProcess:
+        pid = 7003
+
+        def poll(self):
+            return None
+
+    def fake_popen(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["env"] = kwargs["env"]
+        return FakeProcess()
+
+    monkeypatch.setattr("subprocess.Popen", fake_popen)
+    monkeypatch.setattr(svc, "is_running", lambda: False)
+    monkeypatch.setattr(svc, "_wait_for_startup", lambda timeout=10.0: True)
+    monkeypatch.setattr(svc, "reset_timer", lambda: None)
+
     app = PhasmidApp()
-    monkeypatch.setattr(app.webui_svc, "is_running", lambda: False)
-    monkeypatch.setattr(app.webui_svc, "start", lambda: True)
-    monkeypatch.setattr(app.webui_svc, "access_url", lambda: None)
+    assert app.webui_svc is svc
     notified: list[str] = []
     monkeypatch.setattr(
         app, "notify", lambda message, **kwargs: notified.append(message)
@@ -281,21 +348,22 @@ def test_tui_success_notification_mentions_gadget_ip_guidance(monkeypatch):
 
     app.action_toggle_webui()
 
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("--host") + 1] == "127.0.0.1"
+    assert "0.0.0.0" not in cmd
+    assert captured["env"]["PHASMID_HOST"] == "127.0.0.1"
     assert notified
-    assert "0.0.0.0:8000" in notified[0]
-    assert "USB gadget IP" in notified[0]
-    assert "127.0.0.1" not in notified[0]
+    assert "http://127.0.0.1:8000" in notified[0]
+    assert "0.0.0.0" not in notified[0]
 
 
-def test_webui_service_access_url_uses_detected_usb_ip(tmp_path, monkeypatch):
-    from phasmid import config
-    from phasmid.services.webui_service import WebUIService
-
-    monkeypatch.setattr(config, "DEFAULT_STATE_DIR", str(tmp_path))
-    WebUIService._instance = None
-    svc = WebUIService()
+def test_webui_service_access_url_reports_bound_host(tmp_path, monkeypatch):
+    svc = _bind_host_service(tmp_path, monkeypatch)
     monkeypatch.setattr(svc, "_detect_usb_gadget_ipv4", lambda: "10.55.0.10")
 
+    assert svc.access_url() == "http://127.0.0.1:8000"
+
+    svc._host = "10.55.0.10"
     assert svc.access_url() == "http://10.55.0.10:8000"
 
 

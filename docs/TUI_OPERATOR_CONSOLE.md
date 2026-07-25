@@ -194,8 +194,11 @@ the normal Protect/Open flow.
 
 Phasmid provides a local WebUI for operators who require a graphical interface
 for certain tasks. This interface is considered "exposed" as it opens a network
-port. The default bind address is `127.0.0.1:8000`; deployment configuration
-may set a different host only when the access path is otherwise protected.
+port. The default bind address is `127.0.0.1:8000`, and `w` uses that default;
+deployment configuration may set a different host only when the access path is
+otherwise protected. Set `PHASMID_WEBUI_EXPOSE_GADGET=1` to bind the USB gadget
+interface address instead, or `PHASMID_HOST` to choose a bind address directly.
+The exposure banner and the start notification show the address actually bound.
 
 ### WebUI Control
 

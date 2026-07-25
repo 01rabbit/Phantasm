@@ -14,8 +14,17 @@ and this project follows SemVer-style release intent for documented interfaces.
 - Client-side preview of the selected reference image on the Local Entry Maintenance page (browser-only object URL; the file is never persisted server-side).
 - Default-profile tests covering image-file registration (gate-level decode/downscale/similarity/persistence paths and WebUI routing, upload-size and replace-confirmation guards).
 
+### Changed
+
+- WebUI bind address is now resolved in one place, `WebUIService.resolve_bind_host()`, used by every start path. Order: explicit `PHASMID_HOST`, then opt-in USB gadget exposure, then `127.0.0.1`.
+- `WebUIService.start()` takes `host=None`/`port=None` and resolves them from configuration, so `PHASMID_PORT` is now honoured on the TUI path as well.
+- `WebUIService.access_url()` reports the address actually bound instead of probing for a USB gadget address, and no longer returns `None`. The TUI start notification and exposure banner show that address.
+
 ### Security
 
+- **The TUI `w` key no longer binds the WebUI to `0.0.0.0`.** It binds `127.0.0.1`, restoring the documented default that `docs/THREAT_MODEL.md`, `docs/RPI_ZERO_DEPLOYMENT.md`, and the Core Invariants had always stated. This reverses the change made under 0.1.4. Because the WebUI serves page HTML, the embedded mutation token, and `/video_feed` without authentication, and `_ui_unlocked()` returns `True` unconditionally, the wildcard bind made every one of those weaknesses reachable from any attached network.
+- Added `PHASMID_WEBUI_EXPOSE_GADGET` for the USB gadget use case. It binds the gadget interface address (`usb0` or `enx*`) only, never all interfaces, and falls back to loopback with a warning when no gadget address is present. A wildcard bind now requires setting `PHASMID_HOST=0.0.0.0` deliberately.
+- Regression test `tests/test_tui.py::test_tui_toggle_webui_binds_loopback_not_all_interfaces` drives `action_toggle_webui` and asserts the host handed to uvicorn.
 - Image-file binding failures on `/register_key` are masked to a neutral message, matching the camera path: only the pre-comparison decode error is surfaced, so binding responses cannot be used as a matching oracle against the other entry's stored cue template. A regression test asserts the failure responses are indistinguishable.
 
 ## [0.1.5] - 2026-05-11

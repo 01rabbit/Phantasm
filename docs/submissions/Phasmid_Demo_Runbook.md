@@ -85,9 +85,9 @@
 
 ### Step 5 — Local WebUI（0:50｜ローカル境界）
 - **操作:** **`w` (WebUI)** で 127.0.0.1 起動 → 画面提示（任意でブラウザ側に切替）。
-- **発話（EN）:** "The same controls are available over a **local WebUI** — bound to 127.0.0.1, reached over USB. It never touches a network."
+- **発話（EN）:** "The same controls are available over a **local WebUI** — bound to 127.0.0.1 by default. Reaching it from a tethered laptop over USB is an explicit opt-in that binds only the USB interface. It never touches a network."
 - **画面期待:** WebUI 起動通知／localhost URL。TUIには露出バナー等 〔要確認〕。
-- **注意:** ブラウザに切替える場合は**事前にタブ用意**。切替に手間取るならTUI内表示のみで可。
+- **注意:** ブラウザに切替える場合は**事前にタブ用意**。切替に手間取るならTUI内表示のみで可。ノートPCのブラウザからUSB経由で開く場合は、事前に `PHASMID_WEBUI_EXPOSE_GADGET=1` を設定しておくこと（既定はloopbackのみでノートPCからは到達不可）。TUIバナーには実際のbindアドレスが表示される。
 - **失敗時:** 起動が遅ければ口頭説明に留め、TUIへ戻る（時間優先）。
 
 ### Step 6 — Silent Standby → dummy_disclosure（1:00｜★Disclose 山場）

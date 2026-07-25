@@ -184,7 +184,7 @@ To start the server manually:
 PYTHONPATH=src python3 -m phasmid.web_server
 ```
 
-The default bind address is `127.0.0.1:8000`.
+The default bind address is `127.0.0.1:8000`, for both this command and the TUI `w` key. Binding the USB Ethernet gadget interface instead requires `PHASMID_WEBUI_EXPOSE_GADGET=1`; a wildcard bind requires setting `PHASMID_HOST` explicitly.
 
 WebUI v2 is server-rendered with lightweight JavaScript. It preserves the internal two-slot model while presenting normal operations as protected-entry workflows.
 
@@ -246,7 +246,7 @@ The normal UI must not display internal entry labels, internal retrieval order, 
 
 Detailed maintenance diagnostics may include neutral hardware-binding availability fields after restricted confirmation or when Field Mode is not suppressing detail.
 
-WebUI exposure is bounded by explicit operator start from the TUI, local-only binding to `127.0.0.1` by default, and TUI-managed auto-kill on inactivity.
+WebUI exposure is bounded by explicit operator start from the TUI, local-only binding to `127.0.0.1` by default, opt-in and single-interface USB gadget binding, and TUI-managed auto-kill on inactivity.
 
 ## 8. Capture-Visible Surface Rule
 
@@ -366,7 +366,8 @@ An experimental policy-layer prototype can evaluate neutral frame signals (for e
 | `PHASMID_PURGE_CONFIRMATION` | Require explicit confirmation for configured recovery behavior | `1` |
 | `PHASMID_DURESS_MODE` | Enable opt-in access-triggered local-state update | `0` |
 | `PHASMID_WEB_TOKEN` | Web mutation token | random at start |
-| `PHASMID_HOST` | Web bind host | `127.0.0.1` |
+| `PHASMID_HOST` | Web bind host; overrides gadget exposure when set | `127.0.0.1` |
+| `PHASMID_WEBUI_EXPOSE_GADGET` | Bind the USB gadget interface address instead of loopback | `0` |
 | `PHASMID_PORT` | Web bind port | `8000` |
 | `PHASMID_MAX_UPLOAD_BYTES` | Web upload limit | `26214400` |
 | `PHASMID_RESTRICTED_SESSION_SECONDS` | Restricted confirmation lifetime | `120` |
