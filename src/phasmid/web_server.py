@@ -413,6 +413,20 @@ def _capture_entry_binding(mode):
     return True, message
 
 
+def _image_entry_binding(mode, payload):
+    """Bind from an uploaded image, masking gate internals like the camera path.
+
+    Only the decode failure may pass through: it is decided before any
+    comparison against stored references, so it reveals nothing about them.
+    """
+    success, message = access_cue_service.register_reference_from_image_bytes(
+        mode, payload
+    )
+    if not success and message != text.AI_GATE_IMAGE_UNREADABLE:
+        return False, "Object binding failed. Retry with a different image."
+    return success, message
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     guard = _guard_page(request)
@@ -582,6 +596,7 @@ async def register_key(
     request: Request,
     entry_hint: str = Form(default=""),
     replace: bool = Form(False),
+    reference_image: UploadFile | None = File(default=None),
 ):
     enforce_rate_limit(request)
     if replace and not _restricted_session_valid(request):
@@ -606,9 +621,20 @@ async def register_key(
     ):
         return {"error": text.ENTRY_ALREADY_BOUND}
 
-    success, message = _capture_entry_binding(mode)
+    if reference_image is not None and reference_image.filename:
+        payload = await read_limited_upload(reference_image)
+        success, message = _image_entry_binding(mode, payload)
+        binding_source = "image_file"
+    else:
+        success, message = _capture_entry_binding(mode)
+        binding_source = "camera"
     if success:
-        audit_event("image_key_registered", entry="local_entry", source="web")
+        audit_event(
+            "image_key_registered",
+            entry="local_entry",
+            source="web",
+            binding_source=binding_source,
+        )
         return {
             "status": text.OBJECT_BOUND_TO_ENTRY,
             "entry_state": "updated" if replace else "created",

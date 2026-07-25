@@ -216,7 +216,7 @@ WebUI responses include conservative browser hardening headers such as no-store 
 | `GET` | `/video_feed` | Camera stream for the active local WebUI session |
 | `GET` | `/status` | Neutral device/object status |
 | `POST` | `/restricted/confirm` | Short-lived restricted confirmation |
-| `POST` | `/register_key` | Bind or rebind a physical object |
+| `POST` | `/register_key` | Bind or rebind a physical object (camera capture or an optional uploaded reference image) |
 | `POST` | `/store` | Store a protected entry |
 | `POST` | `/metadata/check` | Local metadata risk check |
 | `POST` | `/metadata/scrub` | Best-effort local metadata reduction |

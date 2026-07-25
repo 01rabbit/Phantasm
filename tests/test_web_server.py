@@ -893,6 +893,219 @@ class WebServerBoundaryTests(unittest.TestCase):
 
         asyncio.run(run())
 
+    def _register_key_request(self):
+        return SimpleNamespace(
+            client=SimpleNamespace(host="127.0.0.1"),
+            url=SimpleNamespace(path="/register_key"),
+        )
+
+    def test_register_key_with_image_file_uses_image_binding(self):
+        async def run():
+            upload = UploadFile(filename="cue.png", file=_BytesFile(b"png-bytes"))
+            with (
+                mock.patch.object(
+                    web_server,
+                    "_raw_gate_status",
+                    return_value={
+                        "registered_modes": {"dummy": False, "secret": False}
+                    },
+                ),
+                mock.patch.object(
+                    web_server.access_cue_service,
+                    "register_reference_from_image_bytes",
+                    return_value=(True, "bound"),
+                ) as register_mock,
+                mock.patch.object(web_server, "_capture_entry_binding") as capture_mock,
+                mock.patch.object(web_server, "audit_event") as audit_mock,
+            ):
+                response = await web_server.register_key(
+                    self._register_key_request(),
+                    entry_hint="entry_1",
+                    replace=False,
+                    reference_image=upload,
+                )
+            self.assertEqual(response["status"], web_server.text.OBJECT_BOUND_TO_ENTRY)
+            register_mock.assert_called_once_with(
+                web_server.ENTRY_TO_MODE["entry_1"], b"png-bytes"
+            )
+            capture_mock.assert_not_called()
+            audit_mock.assert_called_once_with(
+                "image_key_registered",
+                entry="local_entry",
+                source="web",
+                binding_source="image_file",
+            )
+
+        asyncio.run(run())
+
+    def test_register_key_without_image_uses_camera_capture(self):
+        async def run():
+            with (
+                mock.patch.object(
+                    web_server,
+                    "_raw_gate_status",
+                    return_value={
+                        "registered_modes": {"dummy": False, "secret": False}
+                    },
+                ),
+                mock.patch.object(
+                    web_server.access_cue_service,
+                    "register_reference_from_image_bytes",
+                ) as register_mock,
+                mock.patch.object(
+                    web_server,
+                    "_capture_entry_binding",
+                    return_value=(True, "bound"),
+                ) as capture_mock,
+                mock.patch.object(web_server, "audit_event") as audit_mock,
+            ):
+                response = await web_server.register_key(
+                    self._register_key_request(),
+                    entry_hint="entry_1",
+                    replace=False,
+                    reference_image=None,
+                )
+            self.assertEqual(response["status"], web_server.text.OBJECT_BOUND_TO_ENTRY)
+            capture_mock.assert_called_once_with(web_server.ENTRY_TO_MODE["entry_1"])
+            register_mock.assert_not_called()
+            audit_mock.assert_called_once_with(
+                "image_key_registered",
+                entry="local_entry",
+                source="web",
+                binding_source="camera",
+            )
+
+        asyncio.run(run())
+
+    def test_register_key_surfaces_unreadable_image_error(self):
+        async def run():
+            upload = UploadFile(filename="cue.png", file=_BytesFile(b"junk"))
+            with (
+                mock.patch.object(
+                    web_server,
+                    "_raw_gate_status",
+                    return_value={
+                        "registered_modes": {"dummy": False, "secret": False}
+                    },
+                ),
+                mock.patch.object(
+                    web_server.access_cue_service,
+                    "register_reference_from_image_bytes",
+                    return_value=(False, web_server.text.AI_GATE_IMAGE_UNREADABLE),
+                ),
+                mock.patch.object(web_server, "audit_event") as audit_mock,
+            ):
+                response = await web_server.register_key(
+                    self._register_key_request(),
+                    entry_hint="entry_1",
+                    replace=False,
+                    reference_image=upload,
+                )
+            self.assertEqual(
+                response["error"], web_server.text.AI_GATE_IMAGE_UNREADABLE
+            )
+            audit_mock.assert_not_called()
+
+        asyncio.run(run())
+
+    def test_register_key_masks_image_binding_failure_reasons(self):
+        async def run():
+            gate_messages = (
+                web_server.text.AI_GATE_IMAGE_TOO_SIMPLE,
+                web_server.text.AI_GATE_CUES_TOO_SIMILAR,
+                web_server.text.AI_GATE_SAVE_FAILED,
+            )
+            responses = []
+            for gate_message in gate_messages:
+                upload = UploadFile(filename="cue.png", file=_BytesFile(b"png"))
+                with (
+                    mock.patch.object(
+                        web_server,
+                        "_raw_gate_status",
+                        return_value={
+                            "registered_modes": {"dummy": False, "secret": False}
+                        },
+                    ),
+                    mock.patch.object(
+                        web_server.access_cue_service,
+                        "register_reference_from_image_bytes",
+                        return_value=(False, gate_message),
+                    ),
+                ):
+                    responses.append(
+                        await web_server.register_key(
+                            self._register_key_request(),
+                            entry_hint="entry_1",
+                            replace=False,
+                            reference_image=upload,
+                        )
+                    )
+                web_server._rate_limit.clear()
+            bodies = {tuple(sorted(response.items())) for response in responses}
+            self.assertEqual(len(bodies), 1)
+            error_message = responses[0]["error"]
+            self.assertNotIn(error_message, gate_messages)
+
+        asyncio.run(run())
+
+    def test_register_key_rejects_oversized_image_upload(self):
+        async def run():
+            oversized = b"x" * (web_server.MAX_UPLOAD_BYTES + 1)
+            upload = UploadFile(filename="cue.png", file=_BytesFile(oversized))
+            with (
+                mock.patch.object(
+                    web_server,
+                    "_raw_gate_status",
+                    return_value={
+                        "registered_modes": {"dummy": False, "secret": False}
+                    },
+                ),
+                mock.patch.object(
+                    web_server.access_cue_service,
+                    "register_reference_from_image_bytes",
+                ) as register_mock,
+            ):
+                with self.assertRaises(HTTPException) as ctx:
+                    await web_server.register_key(
+                        self._register_key_request(),
+                        entry_hint="entry_1",
+                        replace=False,
+                        reference_image=upload,
+                    )
+            self.assertEqual(ctx.exception.status_code, 413)
+            register_mock.assert_not_called()
+
+        asyncio.run(run())
+
+    def test_register_key_with_image_still_requires_replace_for_bound_entry(self):
+        async def run():
+            upload = UploadFile(filename="cue.png", file=_BytesFile(b"png-bytes"))
+            registered = {
+                "registered_modes": {
+                    web_server.ENTRY_TO_MODE["entry_1"]: True,
+                    web_server.ENTRY_TO_MODE["entry_2"]: False,
+                }
+            }
+            with (
+                mock.patch.object(
+                    web_server, "_raw_gate_status", return_value=registered
+                ),
+                mock.patch.object(
+                    web_server.access_cue_service,
+                    "register_reference_from_image_bytes",
+                ) as register_mock,
+            ):
+                response = await web_server.register_key(
+                    self._register_key_request(),
+                    entry_hint="entry_1",
+                    replace=False,
+                    reference_image=upload,
+                )
+            self.assertEqual(response["error"], web_server.text.ENTRY_ALREADY_BOUND)
+            register_mock.assert_not_called()
+
+        asyncio.run(run())
+
 
 class _BytesFile:
     def __init__(self, content):

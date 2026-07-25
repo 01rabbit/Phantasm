@@ -51,6 +51,9 @@ class AccessCueService:
     def capture_reference(self, mode):
         return self.gate.capture_reference(mode)
 
+    def register_reference_from_image_bytes(self, mode, payload):
+        return self.gate.register_reference_from_image_bytes(mode, payload)
+
     def clear_references(self):
         return self.gate.clear_references()
 
