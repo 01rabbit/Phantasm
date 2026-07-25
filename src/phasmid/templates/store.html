@@ -65,7 +65,7 @@
             <section class="step-card">
                 <div class="step-head">
                     <span class="step-number">✓</span>
-                    <div><h3>Protect the file</h3><p class="step-help">The button becomes available after the access object is captured.</p></div>
+                    <div><h3>Protect the file</h3><p class="step-help">The button becomes available when the file, password, and access object are all ready.</p></div>
                 </div>
                 <div class="ready-summary" aria-live="polite">
                     <div class="ready-row"><span>File</span><strong id="selectedFileName">Not selected</strong></div>
@@ -95,6 +95,10 @@
                             <button type="button" class="secondary small" id="metadataCheckButton">Check metadata</button>
                             <button type="button" class="secondary small" id="metadataScrubButton">Create reduced copy</button>
                         </div>
+                    </div>
+                    <div class="action-group">
+                        <span class="section-label">Data minimization</span>
+                        <p class="copy">Protect only what you need. Keep unrelated identities, evidence, notes, and operational context separate when practical.</p>
                     </div>
                 </div>
             </details>
@@ -126,20 +130,26 @@
 <script>
     const protectFile = document.getElementById('protectFile');
     const passwordInput = document.querySelector('input[name="password"]');
+    const saveButton = document.getElementById('saveButton');
+    let accessObjectCaptured = false;
 
     function updateReadiness() {
+        const fileReady = Boolean(protectFile.files[0]);
+        const passwordReady = Boolean(passwordInput.value);
+        const ready = fileReady && passwordReady && accessObjectCaptured;
         document.getElementById('selectedFileName').textContent = protectFile.files[0]?.name || 'Not selected';
-        document.getElementById('passwordState').textContent = passwordInput.value ? 'Set' : 'Not set';
+        document.getElementById('passwordState').textContent = passwordReady ? 'Set' : 'Not set';
+        document.getElementById('captureState').textContent = accessObjectCaptured ? 'Captured' : 'Not captured';
+        saveButton.disabled = !ready;
+        saveButton.classList.toggle('secondary', !ready);
     }
 
     protectFile.addEventListener('change', updateReadiness);
     passwordInput.addEventListener('input', updateReadiness);
 
     function activateSaveButton() {
-        const btn = document.getElementById('saveButton');
-        btn.disabled = false;
-        btn.classList.remove('secondary');
-        document.getElementById('captureState').textContent = 'Captured';
+        accessObjectCaptured = true;
+        updateReadiness();
     }
 
     document.getElementById('captureButton').addEventListener('click', async () => {
@@ -210,12 +220,12 @@
         if (data.overwrite_required) document.getElementById('overwritePanel').classList.remove('hidden');
         if (data.success) {
             form.reset();
-            document.getElementById('saveButton').disabled = true;
-            document.getElementById('saveButton').classList.add('secondary');
-            document.getElementById('captureState').textContent = 'Not captured';
+            accessObjectCaptured = false;
             updateReadiness();
         }
         toast(data.message || data.error || 'Protection operation finished.', data.error ? 'error' : '');
     });
+
+    updateReadiness();
 </script>
 {% endblock %}
