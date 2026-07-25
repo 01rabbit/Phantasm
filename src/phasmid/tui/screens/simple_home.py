@@ -5,6 +5,7 @@ from textual.binding import Binding
 from textual.widgets import DataTable, Footer, Static
 
 from ...models.vessel import VesselMeta
+from ...services.profile_service import load_profile
 from ...services.vessel_service import VesselService
 from .base import OperatorScreen
 
@@ -41,10 +42,11 @@ class SimpleHomeScreen(OperatorScreen):
     }
     SimpleHomeScreen #health {
         height: 3;
-        border: solid $success 40%;
+        border: solid $primary 30%;
         padding: 0 2;
         margin: 1 0;
         content-align: left middle;
+        color: $text-muted;
     }
     SimpleHomeScreen #storage-label {
         color: $text-muted;
@@ -68,6 +70,7 @@ class SimpleHomeScreen(OperatorScreen):
     def __init__(self, initial_vessel_path: str | None = None, **kwargs):
         super().__init__(**kwargs)
         self._svc = VesselService()
+        self._profile = load_profile()
         self._vessels: list[VesselMeta] = []
         self._initial_vessel_path = initial_vessel_path
 
@@ -79,7 +82,9 @@ class SimpleHomeScreen(OperatorScreen):
             id="simple-subtitle",
         )
         yield Static(
-            "[green]✓[/green] Device ready for local use", id="health", markup=True
+            "Normal controls are ready. Press [e] Expert for diagnostics and technical detail.",
+            id="health",
+            markup=True,
         )
         yield Static("PROTECTED STORAGE", id="storage-label")
         yield DataTable(id="storage-table", cursor_type="row", zebra_stripes=True)
@@ -101,10 +106,12 @@ class SimpleHomeScreen(OperatorScreen):
         super().refresh_webui_status()
 
     def _refresh_table(self) -> None:
-        self._vessels = self._svc.list_all(None)
+        default_dir = self._profile.default_vessel_dir if self._profile else None
+        self._vessels = self._svc.list_all(default_dir or None)
         table = self.query_one("#storage-table", DataTable)
         table.clear()
-        for vessel in self._vessels:
+        initial_row = None
+        for index, vessel in enumerate(self._vessels):
             file_count = (
                 sum(face.file_count for face in vessel.faces) if vessel.faces else 0
             )
@@ -114,6 +121,10 @@ class SimpleHomeScreen(OperatorScreen):
                 vessel.size_human,
                 str(file_count),
             )
+            if self._initial_vessel_path and str(vessel.path) == self._initial_vessel_path:
+                initial_row = index
+        if initial_row is not None:
+            table.move_cursor(row=initial_row)
         if not self._vessels:
             self.query_one("#next-step", Static).update(
                 "[bold]No protected storage found.[/bold]\n"
@@ -161,6 +172,7 @@ class SimpleHomeScreen(OperatorScreen):
         self.app.push_screen(AboutScreen())
 
     def action_refresh(self) -> None:
+        self._profile = load_profile()
         self._refresh_table()
         self.app.notify("Protected storage list refreshed.", severity="information")
 
