@@ -21,146 +21,77 @@ class GuidedWorkflow:
 def get_workflows() -> list[GuidedWorkflow]:
     return [
         GuidedWorkflow(
-            id="coerced_disclosure",
-            title="Coerced Disclosure Walkthrough",
-            description=(
-                "Step through a scenario in which an operator is compelled to "
-                "disclose the contents of a Vessel. Demonstrates how the system "
-                "avoids confirming or denying the existence of other disclosure faces."
-            ),
+            id="protect_file",
+            title="Protect a File",
+            description="The normal path for placing a file into protected local storage.",
             steps=[
-                GuidedStep(
-                    1,
-                    "A storage object is inspected.",
-                    "An observer examines the file. No header or vault signature is present.",
-                ),
-                GuidedStep(
-                    2,
-                    "No obvious header or vault structure is asserted.",
-                    "The file carries no magic bytes or recognized container metadata.",
-                ),
-                GuidedStep(
-                    3,
-                    "A disclosure face is opened under pressure.",
-                    "The operator provides credentials for one disclosure face. "
-                    "The system opens that face without revealing others.",
-                ),
-                GuidedStep(
-                    4,
-                    'The system does not label another face as "truth".',
-                    "No UI element identifies which face is primary. "
-                    "Both faces are disclosure faces.",
-                ),
-                GuidedStep(
-                    5,
-                    "The operator reviews limitations and residual risks.",
-                    "Deniability is procedural and depends on operational context. "
-                    "Host compromise, OS artifacts, and metadata may undermine deniability.",
-                ),
+                GuidedStep(1, "Choose or create protected storage.", "Use New from the Simple Operator screen when no storage exists yet."),
+                GuidedStep(2, "Choose the file you want to protect.", "Keep unrelated files separate so disclosure remains easier to reason about."),
+                GuidedStep(3, "Set the access password.", "Do not pass sensitive passwords as command-line arguments."),
+                GuidedStep(4, "Bind the physical access object.", "Use an object that can be presented consistently to the local camera."),
+                GuidedStep(5, "Confirm the result, then close the storage when finished.", "Closing preserves the protected state and reduces accidental exposure."),
             ],
         ),
         GuidedWorkflow(
-            id="headerless_inspection",
-            title="Headerless Vessel Inspection",
-            description=(
-                "Demonstrate what an external observer sees when inspecting a Vessel. "
-                "No recognized header, no obvious magic bytes, high entropy."
-            ),
+            id="open_file",
+            title="Open a Protected File",
+            description="The normal path for accessing previously protected content.",
             steps=[
-                GuidedStep(
-                    1, "Select a Vessel file.", "Choose any Vessel from the list."
-                ),
-                GuidedStep(
-                    2,
-                    "Run inspection.",
-                    "The inspection service reads the file without decrypting it.",
-                ),
-                GuidedStep(
-                    3,
-                    "Review inspection output.",
-                    "Expected output: no recognized header detected, "
-                    "no obvious magic bytes detected, high / random-like entropy.",
-                ),
-                GuidedStep(
-                    4,
-                    "Note: inspection does not confirm deniability.",
-                    "An absent header reduces obvious signals. "
-                    "It does not remove all forensic traces.",
-                ),
-            ],
-        ),
-        GuidedWorkflow(
-            id="multiple_faces",
-            title="Multiple Disclosure Faces",
-            description=(
-                "Walk through the concept of multiple disclosure faces within a Vessel. "
-                "Shows how different credentials access different content "
-                "without revealing which face is active."
-            ),
-            steps=[
-                GuidedStep(
-                    1,
-                    "A Vessel carries more than one disclosure face.",
-                    "Each face is accessed by different credentials. "
-                    "The Vessel does not record which face is primary.",
-                ),
-                GuidedStep(
-                    2,
-                    "Face labels are neutral.",
-                    "Labels such as Disclosure Face 1 and Disclosure Face 2 "
-                    "do not indicate which is primary.",
-                ),
-                GuidedStep(
-                    3,
-                    "Opening a face does not expose others.",
-                    "Accessing one face provides no information about other faces.",
-                ),
-                GuidedStep(
-                    4,
-                    "Deniability is procedural.",
-                    "Whether disclosure is plausible depends on operational context, "
-                    "not only on the system's technical design.",
-                ),
+                GuidedStep(1, "Select the protected storage you need.", "Use the Simple Operator list rather than inspection tools."),
+                GuidedStep(2, "Present the physical access object.", "Wait for a stable local match before continuing."),
+                GuidedStep(3, "Enter the access password.", "Both the object and password are required for the normal access path."),
+                GuidedStep(4, "Retrieve only the file you need.", "Avoid copying protected content into broadly readable locations."),
+                GuidedStep(5, "Close the storage when finished.", "Clear temporary output when appropriate for the operating environment."),
             ],
         ),
         GuidedWorkflow(
             id="safety_checklist",
-            title="Operator Safety Checklist",
+            title="Safety Checklist",
+            description="Review important operational controls before sensitive use.",
+            steps=[
+                GuidedStep(1, "Check device health.", "Use Diagnostics from Expert mode if the Simple Operator screen reports a problem."),
+                GuidedStep(2, "Keep passwords out of shell history.", "Prefer the TUI or WebUI for interactive password entry."),
+                GuidedStep(3, "Check output location permissions.", "Retrieved files should not be written to world-readable locations."),
+                GuidedStep(4, "Keep the WebUI closed when it is not needed.", "An active WebUI increases the exposed local interface."),
+                GuidedStep(5, "Remember the limits of the system.", "Host compromise, OS artifacts, observation, and operational mistakes can undermine protection."),
+            ],
+        ),
+        GuidedWorkflow(
+            id="coerced_disclosure",
+            title="Expert: Coerced Disclosure Walkthrough",
             description=(
-                "Review operational controls and known risks before sensitive use."
+                "Step through a scenario in which an operator is compelled to "
+                "disclose protected contents without the interface asserting the existence "
+                "or role of other disclosure faces."
             ),
             steps=[
-                GuidedStep(
-                    1,
-                    "Run Doctor to check local configuration.",
-                    "Doctor checks configuration directory permissions, "
-                    "temporary directory, shell history, and debug logging.",
-                ),
-                GuidedStep(
-                    2,
-                    "Review shell history policy.",
-                    "Avoid passing passphrases as CLI arguments. "
-                    "Use the TUI for interactive workflows.",
-                ),
-                GuidedStep(
-                    3,
-                    "Check output directory permissions.",
-                    "Extracted files should be written to a restricted directory. "
-                    "Avoid world-readable locations.",
-                ),
-                GuidedStep(
-                    4,
-                    "Review Audit View.",
-                    "Confirm system position, cryptographic controls, "
-                    "and known limitations are understood.",
-                ),
-                GuidedStep(
-                    5,
-                    "Acknowledge limitations.",
-                    "Host compromise may defeat confidentiality. "
-                    "OS artifacts may reveal usage. "
-                    "Deniability is procedural, not absolute.",
-                ),
+                GuidedStep(1, "A storage object is inspected.", "An observer examines the file. No header or vault signature is present."),
+                GuidedStep(2, "No obvious header or vault structure is asserted.", "The file carries no magic bytes or recognized container metadata."),
+                GuidedStep(3, "One disclosure face is opened under pressure.", "The operator provides credentials for one disclosure face. The system opens that face without revealing others."),
+                GuidedStep(4, 'The system does not label another face as "truth".', "No UI element identifies which face is primary. Both faces are disclosure faces."),
+                GuidedStep(5, "The operator reviews limitations and residual risks.", "Deniability is procedural and depends on operational context. Host compromise, OS artifacts, and metadata may undermine deniability."),
+            ],
+        ),
+        GuidedWorkflow(
+            id="headerless_inspection",
+            title="Expert: Headerless Storage Inspection",
+            description="Demonstrate what an external observer sees when inspecting protected storage.",
+            steps=[
+                GuidedStep(1, "Select a protected storage file.", "Choose any Vessel from Expert mode."),
+                GuidedStep(2, "Run inspection.", "The inspection service reads the file without decrypting it."),
+                GuidedStep(3, "Review inspection output.", "Expected output: no recognized header, no obvious magic bytes, and random-like entropy."),
+                GuidedStep(4, "Do not treat inspection as proof of deniability.", "An absent header reduces obvious signals but does not remove every forensic trace."),
+            ],
+        ),
+        GuidedWorkflow(
+            id="multiple_faces",
+            title="Expert: Multiple Disclosure Faces",
+            description="Review how different credentials can access different disclosure faces without identifying one as primary.",
+            steps=[
+                GuidedStep(1, "A Vessel may carry more than one disclosure face.", "Each face uses different credentials. The Vessel does not record which face is primary."),
+                GuidedStep(2, "Face labels stay neutral.", "Neutral labels avoid indicating which disclosure face is primary."),
+                GuidedStep(3, "Opening one face does not expose the others.", "Normal access to one face provides no UI information about other faces."),
+                GuidedStep(4, "Deniability remains procedural.", "Plausibility depends on operating context, not only on the technical design."),
             ],
         ),
     ]
