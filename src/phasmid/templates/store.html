@@ -1,144 +1,159 @@
 {% extends "base.html" %}
 {% import "_components.html" as ui %}
-{% block title %}Phasmid | Store{% endblock %}
+{% block title %}Phasmid | Protect a File{% endblock %}
+
+{% block head %}
+<style>
+    .nav a[href="/maintenance"], .nav .operator, .nav-sep { display: none; }
+    .protect-shell { max-width: 980px; margin: 0 auto; }
+    .step-card { margin-bottom: 14px; padding: 18px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg-surface); }
+    .step-head { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+    .step-number { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:999px; border:1px solid var(--accent-dim); color:var(--accent-bright); font-weight:700; }
+    .step-head h3 { margin:0; font-size:17px; }
+    .step-help { margin: 4px 0 0; color: var(--text-secondary); }
+    .ready-summary { display:grid; gap:8px; margin:12px 0 16px; }
+    .ready-row { display:flex; justify-content:space-between; gap:16px; padding:9px 0; border-bottom:1px solid var(--border-soft); }
+    .advanced-store { margin-top:16px; }
+    .camera-step .camera-panel { margin:0; }
+    .camera-step .panel-kicker { display:none; }
+    .camera-step .camera-panel > .panel-head h2 { font-size:16px; }
+    .camera-step .camera-frame { max-height:330px; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="grid">
-    {{ ui.camera_preview() }}
+<div class="protect-shell">
     <section class="panel hero-panel">
-        <div class="panel-kicker">
-            <span class="eyebrow">Create Disclosure Face</span>
-        </div>
+        <div class="panel-kicker"><span class="eyebrow">Protect a File</span></div>
         <div class="panel-head">
-            <h2>Create Disclosure Face</h2>
-            <span class="badge neutral">Store</span>
+            <h2>Protect a File</h2>
+            <span class="badge neutral">Local-only</span>
         </div>
-        <p class="copy hero-copy">
-            Select a file, enter a passphrase, and present a physical object cue to bind as an access cue.
-            If the object already matches a local entry, that entry is updated.
-        </p>
-        {{ ui.hero_metrics([
-            {"label": "Primary factor", "value": "Passphrase"},
-            {"label": "Local cue", "value": "Object binding"},
-            {"label": "Processing", "value": "Local-only"}
-        ]) }}
+        <p class="copy hero-copy">Complete the three steps below. Advanced security options stay hidden unless you need them.</p>
+
         <form id="storeForm">
-            <div class="action-group">
-                <span class="section-label">Payload</span>
-            <label class="field">
-                <span>File to protect</span>
-                <input type="file" name="file" required>
-                <small>Choose only the file needed for this local entry.</small>
-            </label>
-            </div>
-            <div class="action-group">
-                <span class="section-label">Access Control</span>
-            {{ ui.password_field("password", "Passphrase", "Required") }}
-            <div class="surface-note">
-                <p class="copy">Capture the object cue before saving so the entry can be bound to the current local frame.</p>
-                <div class="actions tight">
-                    <button type="button" class="secondary" id="captureButton">Capture object</button>
+            <section class="step-card">
+                <div class="step-head">
+                    <span class="step-number">1</span>
+                    <div><h3>Choose the file</h3><p class="step-help">Select the one file you want Phasmid to protect.</p></div>
                 </div>
-            </div>
-            </div>
-            <details>
-                <summary>Advanced</summary>
+                <label class="field">
+                    <span>File</span>
+                    <input type="file" name="file" id="protectFile" required>
+                </label>
+            </section>
+
+            <section class="step-card">
+                <div class="step-head">
+                    <span class="step-number">2</span>
+                    <div><h3>Create the access password</h3><p class="step-help">You will need this password together with the physical access object.</p></div>
+                </div>
+                {{ ui.password_field("password", "Access password", "Required") }}
+            </section>
+
+            <section class="step-card camera-step">
+                <div class="step-head">
+                    <span class="step-number">3</span>
+                    <div><h3>Set the physical access object</h3><p class="step-help">Place the object clearly in view, then capture it. Use an object you can reliably present again.</p></div>
+                </div>
+                {{ ui.camera_preview() }}
+                <div class="actions" style="margin-top:14px;">
+                    <button type="button" class="secondary" id="captureButton">Capture access object</button>
+                </div>
+            </section>
+
+            <section class="step-card">
+                <div class="step-head">
+                    <span class="step-number">✓</span>
+                    <div><h3>Protect the file</h3><p class="step-help">The button becomes available after the access object is captured.</p></div>
+                </div>
+                <div class="ready-summary" aria-live="polite">
+                    <div class="ready-row"><span>File</span><strong id="selectedFileName">Not selected</strong></div>
+                    <div class="ready-row"><span>Password</span><strong id="passwordState">Not set</strong></div>
+                    <div class="ready-row"><span>Access object</span><strong id="captureState">Not captured</strong></div>
+                </div>
+                <div class="actions">
+                    <button type="submit" id="saveButton" class="secondary" disabled>Protect file</button>
+                    <a class="button secondary small" href="/">Cancel</a>
+                </div>
+            </section>
+
+            <details class="advanced-store">
+                <summary>Advanced security options</summary>
                 <div class="detail-body">
-                    {{ ui.password_field("secondary_passphrase", "Optional secondary passphrase", "May update local state after successful recovery", False) }}
+                    <p class="copy">These controls are optional and intended for experienced operators.</p>
+                    {{ ui.password_field("secondary_passphrase", "Restricted recovery password", "Optional", False) }}
                     <label class="field">
-                        <span>Local note label</span>
+                        <span>Local note</span>
                         <input type="text" name="local_note_label" placeholder="Optional local label">
-                        <small>This label is local-only and intended to stay neutral.</small>
+                        <small>Stored locally. Avoid sensitive identifying text.</small>
                     </label>
-                    <p class="copy">Restricted recovery behavior may cause irreversible local data loss after successful access.</p>
-                    <p class="copy">Audit preference is controlled by local environment settings.</p>
+                    <div class="action-group">
+                        <span class="section-label">Metadata</span>
+                        <p class="copy">Inspect the selected file for common metadata before protection, or create a best-effort metadata-reduced copy.</p>
+                        <div class="actions tight">
+                            <button type="button" class="secondary small" id="metadataCheckButton">Check metadata</button>
+                            <button type="button" class="secondary small" id="metadataScrubButton">Create reduced copy</button>
+                        </div>
+                    </div>
                 </div>
             </details>
-            <div class="action-group">
-                <span class="section-label">Metadata Review</span>
-                <p class="copy">Check for local metadata risk before the payload is sealed into the Disclosure Face.</p>
-                <div class="actions tight">
-                <button type="button" class="secondary small" id="metadataCheckButton">Check metadata risk</button>
-                <button type="button" class="secondary small" id="metadataScrubButton">Download metadata-reduced copy</button>
-                </div>
-            </div>
-            <details>
-                <summary>Data minimization</summary>
-                <div class="detail-body">
-                    <p class="copy">Store only what you need to carry. Separate identities, evidence, notes, and operational context when possible.</p>
-                </div>
-            </details>
+
             <input type="hidden" name="entry_hint" id="entryHint">
             <input type="hidden" name="overwrite" id="overwriteFlag" value="false">
             <input type="hidden" name="overwrite_confirmation" id="overwriteConfirmation">
-            <div class="actions">
-                <button type="submit" id="saveButton" class="secondary" disabled>Save entry</button>
-                <a class="button secondary small" href="/">Cancel</a>
-            </div>
         </form>
-        <section id="metadataPanel" class="panel panel--neutral hidden" style="margin-top: 16px;">
-            <h2>Metadata Risk</h2>
+
+        <section id="metadataPanel" class="panel panel--neutral hidden" style="margin-top:16px;">
+            <h2>Metadata review</h2>
             <p id="metadataOutput" class="copy">No metadata check has been run.</p>
-            <p class="copy">Metadata detection and reduction are best-effort. Metadata removal may not remove every embedded identifier from every file format.</p>
+            <p class="copy">Metadata detection and reduction are best-effort and cannot guarantee removal of every embedded identifier.</p>
         </section>
-        <section id="overwritePanel" class="panel panel--caution hidden" style="margin-top: 16px;">
-            <h2>Replace Local Entry</h2>
-            <p class="copy">No open local entry is available. Select a local entry label and confirm replacement.</p>
-            <label class="field">
-                <span>Local entry label</span>
-                <select id="overwriteEntry">
-                    {% for entry in entries %}
-                    <option value="{{ entry.id }}">{{ entry.label }}</option>
-                    {% endfor %}
-                </select>
-            </label>
-            <label class="field">
-                <span>Restricted confirmation</span>
-                <input type="text" id="overwritePhrase" placeholder="{{ restricted_confirmation_phrase }}">
-            </label>
-            <label class="field">
-                <span>Replacement phrase</span>
-                <input type="text" id="overwriteConfirmationPhrase" placeholder="{{ overwrite_confirmation_phrase }}">
-            </label>
-            <button type="button" class="danger" id="confirmOverwrite">Replace selected local entry</button>
+
+        <section id="overwritePanel" class="panel panel--caution hidden" style="margin-top:16px;">
+            <div class="panel-head"><h2>Advanced: replace an existing protected space</h2><span class="badge warn">Risk of data loss</span></div>
+            <p class="copy">No unused local space is available. Replacement can permanently remove an existing local entry. Continue only if you understand which entry will be replaced.</p>
+            <label class="field"><span>Protected space</span><select id="overwriteEntry">{% for entry in entries %}<option value="{{ entry.id }}">{{ entry.label }}</option>{% endfor %}</select></label>
+            <label class="field"><span>Restricted confirmation</span><input type="text" id="overwritePhrase" placeholder="{{ restricted_confirmation_phrase }}"></label>
+            <label class="field"><span>Replacement phrase</span><input type="text" id="overwriteConfirmationPhrase" placeholder="{{ overwrite_confirmation_phrase }}"></label>
+            <button type="button" class="danger" id="confirmOverwrite">Confirm replacement</button>
         </section>
-        <div class="action-group">
-            <span class="section-label">Store Flow</span>
-            <ol class="flow-list">
-                <li><span class="copy">Select the file and set the passphrase.</span></li>
-                <li><span class="copy">Capture a stable object cue from the local camera preview.</span></li>
-                <li><span class="copy">Review metadata risk only when needed, then save the local entry.</span></li>
-            </ol>
-        </div>
     </section>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    const protectFile = document.getElementById('protectFile');
+    const passwordInput = document.querySelector('input[name="password"]');
+
+    function updateReadiness() {
+        document.getElementById('selectedFileName').textContent = protectFile.files[0]?.name || 'Not selected';
+        document.getElementById('passwordState').textContent = passwordInput.value ? 'Set' : 'Not set';
+    }
+
+    protectFile.addEventListener('change', updateReadiness);
+    passwordInput.addEventListener('input', updateReadiness);
+
     function activateSaveButton() {
         const btn = document.getElementById('saveButton');
         btn.disabled = false;
         btn.classList.remove('secondary');
+        document.getElementById('captureState').textContent = 'Captured';
     }
 
     document.getElementById('captureButton').addEventListener('click', async () => {
         const body = new URLSearchParams({ replace: 'false' });
         const res = await apiFetch('/register_key', { method: 'POST', body });
         const data = await res.json();
-        if (data.overwrite_required) {
-            document.getElementById('overwritePanel').classList.remove('hidden');
-        }
+        if (data.overwrite_required) document.getElementById('overwritePanel').classList.remove('hidden');
         if (!data.error) activateSaveButton();
-        toast(data.status || data.error || 'Object capture finished.');
+        toast(data.status || data.error || 'Access object capture finished.', data.error ? 'error' : '');
     });
 
     async function selectedFileFormData() {
-        const file = document.querySelector('input[name="file"]').files[0];
-        if (!file) {
-            toast('Select a file first.');
-            return null;
-        }
+        const file = protectFile.files[0];
+        if (!file) { toast('Choose a file first.', 'error'); return null; }
         const formData = new FormData();
         formData.append('file', file);
         return formData;
@@ -160,20 +175,14 @@
         const res = await apiFetch('/metadata/scrub', { method: 'POST', body: formData });
         if (!res.ok) {
             const data = await res.json();
-            toast(data.error || 'Metadata removal is not supported for this file type.');
+            toast(data.error || 'Metadata reduction is not supported for this file type.', 'error');
             return;
         }
         const blob = await res.blob();
         const name = decodeURIComponent(res.headers.get('X-Result-Filename') || 'metadata_reduced_payload.bin');
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        toast('Best-effort metadata removal completed.');
+        const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+        toast('Best-effort metadata reduction completed.');
     });
 
     document.getElementById('confirmOverwrite').addEventListener('click', () => {
@@ -183,7 +192,7 @@
             document.getElementById('overwriteFlag').value = 'true';
             document.getElementById('overwriteConfirmation').value = document.getElementById('overwriteConfirmationPhrase').value;
             document.getElementById('overwritePanel').classList.add('hidden');
-            toast('Replacement confirmed for the next save.');
+            toast('Replacement confirmed for the next protection operation.');
         });
     });
 
@@ -192,28 +201,21 @@
         const form = event.currentTarget;
         const formData = new FormData(form);
         const upload = formData.get('file');
-        if (upload && upload.size > maxUploadBytes) {
-            toast('Selected file exceeds the local upload limit.', 'error');
-            return;
-        }
+        if (upload && upload.size > maxUploadBytes) { toast('Selected file exceeds the local upload limit.', 'error'); return; }
         const accessPassword = formData.get('password') || '';
         const restrictedPassword = formData.get('secondary_passphrase') || '';
-        if (restrictedPassword && restrictedPassword === accessPassword) {
-            toast('Access and restricted recovery passwords must be different.', 'error');
-            return;
-        }
+        if (restrictedPassword && restrictedPassword === accessPassword) { toast('Access and restricted recovery passwords must be different.', 'error'); return; }
         const res = await apiFetch('/store', { method: 'POST', body: formData });
         const data = await res.json();
-        if (data.overwrite_required) {
-            document.getElementById('overwritePanel').classList.remove('hidden');
-        }
+        if (data.overwrite_required) document.getElementById('overwritePanel').classList.remove('hidden');
         if (data.success) {
             form.reset();
-            const btn = document.getElementById('saveButton');
-            btn.disabled = true;
-            btn.classList.add('secondary');
+            document.getElementById('saveButton').disabled = true;
+            document.getElementById('saveButton').classList.add('secondary');
+            document.getElementById('captureState').textContent = 'Not captured';
+            updateReadiness();
         }
-        toast(data.message || data.error || 'Store operation finished.');
+        toast(data.message || data.error || 'Protection operation finished.', data.error ? 'error' : '');
     });
 </script>
 {% endblock %}
