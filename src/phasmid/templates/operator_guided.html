@@ -1,25 +1,31 @@
 {% extends "base.html" %}
-{% block title %}Phasmid | Operator Workflows{% endblock %}
+{% block title %}Phasmid | Guided Help{% endblock %}
+
+{% block head %}
+<style>
+    .nav a[href="/maintenance"], .nav .operator, .nav-sep { display: none; }
+    .guided-shell { max-width: 980px; margin: 0 auto; }
+    .guided-list li { min-height: 44px; display:flex; align-items:center; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="grid-single">
+<div class="grid-single guided-shell">
     <section class="panel hero-panel">
-        <div class="panel-kicker">
-            <span class="eyebrow">Procedural Guidance</span>
-        </div>
+        <div class="panel-kicker"><span class="eyebrow">Guided Help</span></div>
         <div class="panel-head">
-            <h2>Operator Workflows</h2>
-            <span class="badge neutral">Reference</span>
+            <h2>Choose what you need to do</h2>
+            <span class="badge neutral">Step by step</span>
         </div>
         <p class="copy hero-copy">
-            Step-by-step operational walkthroughs for common scenarios.
-            Select a workflow to view its steps.
+            Start with Protect a File or Open a Protected File. The Expert walkthroughs explain research and diagnostic concepts and are optional for normal use.
         </p>
+        <div class="actions"><a class="button secondary small" href="/">Back to Home</a></div>
     </section>
 
     <div class="guided-layout">
-        <section class="panel" style="padding: 14px;">
-            <span class="section-label" style="display:block;margin-bottom:10px;">Workflows</span>
+        <section class="panel" style="padding:14px;">
+            <span class="section-label" style="display:block;margin-bottom:10px;">Help topics</span>
             <ul class="guided-list" id="workflowList">
                 {% for wf in workflows %}
                 <li data-id="{{ wf.id }}" onclick="selectWorkflow('{{ wf.id }}')">{{ wf.title }}</li>
@@ -27,8 +33,8 @@
             </ul>
         </section>
 
-        <section class="panel" id="workflowDetail">
-            <p class="copy" style="color:var(--text-muted);">Select a workflow from the list.</p>
+        <section class="panel" id="workflowDetail" aria-live="polite">
+            <p class="copy" style="color:var(--text-muted);">Select a help topic from the list.</p>
         </section>
     </div>
 </div>
@@ -48,8 +54,8 @@
         html += '<div style="margin-top:16px;">';
         wf.steps.forEach(step => {
             html += `<div class="guided-step">
-                <div class="guided-step-num">[${String(step.number).padStart(2,'0')}]</div>
-                <p class="copy" style="margin-bottom:4px;">${step.text}</p>
+                <div class="guided-step-num">${String(step.number)}</div>
+                <p class="copy" style="margin-bottom:4px;"><strong>Step ${step.number}.</strong> ${step.text}</p>
                 ${step.detail ? `<p class="microcopy">${step.detail}</p>` : ''}
             </div>`;
         });
@@ -57,7 +63,6 @@
         detail.innerHTML = html;
     }
 
-    // Auto-select first workflow
     const first = document.querySelector('.guided-list li');
     if (first) selectWorkflow(first.dataset.id);
 </script>
