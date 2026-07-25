@@ -25,9 +25,7 @@ class OperatorScreen(Screen):
     }
     """
 
-    _WEBUI_WARNING_FALLBACK = (
-        "WEBUI ACTIVE ON 0.0.0.0:8000 - ACCESS VIA USB GADGET IP - PRESS [w] TO RETRACT"
-    )
+    _WEBUI_WARNING_FALLBACK = "WEBUI ACTIVE - PRESS [w] TO RETRACT"
 
     def webui_warning_banner(self) -> Static:
         return Static(

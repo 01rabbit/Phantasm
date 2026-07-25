@@ -12,7 +12,13 @@ import threading
 import time
 from typing import Callable
 
-from ..config import state_dir
+from ..config import (
+    state_dir,
+    web_host,
+    web_host_is_explicit,
+    web_port,
+    webui_gadget_exposure_enabled,
+)
 
 LOG = logging.getLogger(__name__)
 
@@ -41,8 +47,8 @@ class WebUIService:
         self._timeout_seconds = 600  # 10 minutes
         self._on_timeout_cb: Callable[[], None] | None = None
         self._start_time: float | None = None
-        self._host = "0.0.0.0"
-        self._port = 8000
+        self._host = self.resolve_bind_host()
+        self._port = web_port()
         self._startup_failure_reason: str | None = None
         self._last_start_command: list[str] = []
         self._last_returncode: int | None = None
@@ -75,8 +81,36 @@ class WebUIService:
 
         return True
 
-    def start(self, host: str = "0.0.0.0", port: int = 8000) -> bool:
-        """Start the WebUI subprocess."""
+    def resolve_bind_host(self) -> str:
+        """Return the host the WebUI should bind to.
+
+        Loopback is the default, so the TUI control path never opens the WebUI
+        to a network by itself.  USB gadget access is opt-in and resolves to the
+        gadget interface address, never to all interfaces.  An explicit
+        `PHASMID_HOST` always wins, including an operator-chosen `0.0.0.0`.
+        """
+        if web_host_is_explicit():
+            return web_host()
+        if webui_gadget_exposure_enabled():
+            gadget_ip = self._detect_usb_gadget_ipv4()
+            if gadget_ip is not None:
+                return gadget_ip
+            LOG.warning(
+                "PHASMID_WEBUI_EXPOSE_GADGET is set but no USB gadget address "
+                "was detected; binding to %s instead",
+                web_host(),
+            )
+        return web_host()
+
+    def start(self, host: str | None = None, port: int | None = None) -> bool:
+        """Start the WebUI subprocess.
+
+        `host` defaults to :meth:`resolve_bind_host` and `port` to
+        `config.web_port()`, so the TUI `w` key and the documented environment
+        configuration cannot disagree about the bind address.
+        """
+        host = self.resolve_bind_host() if host is None else host
+        port = web_port() if port is None else port
         self._startup_failure_reason = None
         self._last_returncode = None
         self._last_port_check_failed = False
@@ -201,11 +235,12 @@ class WebUIService:
     def startup_failure_reason(self) -> str | None:
         return self._startup_failure_reason
 
-    def access_url(self) -> str | None:
-        ip = self._detect_usb_gadget_ipv4()
-        if ip is None:
-            return None
-        return f"http://{ip}:{self._port}"
+    def access_url(self) -> str:
+        """Return the URL for the address the WebUI is actually bound to."""
+        host = self._host
+        if host == "0.0.0.0":
+            host = self._detect_usb_gadget_ipv4() or "127.0.0.1"
+        return f"http://{host}:{self._port}"
 
     def _wait_for_startup(self, timeout: float = 10.0) -> bool:
         deadline = time.time() + timeout

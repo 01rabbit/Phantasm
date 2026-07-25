@@ -104,7 +104,7 @@ class HomeScreen(OperatorScreen):
         yield Static("", id="profile-status", markup=True)
         yield Static("", id="doctor-badge", markup=True)
         yield WarningBox(
-            "WebUI active on 0.0.0.0:8000. Access via the USB gadget IP.",
+            "WebUI active.",
             level="error",
             id="webui-warning-panel",
         )

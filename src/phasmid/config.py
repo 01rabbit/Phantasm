@@ -107,6 +107,20 @@ def web_host() -> str:
     return env_text("PHASMID_HOST", "127.0.0.1")
 
 
+def web_host_is_explicit() -> bool:
+    """True when the operator set a non-empty `PHASMID_HOST`."""
+    return bool(env_text("PHASMID_HOST", "").strip())
+
+
+def webui_gadget_exposure_enabled() -> bool:
+    """Opt-in WebUI exposure on the USB Ethernet gadget interface.
+
+    When enabled the WebUI binds to the gadget interface address only, never to
+    all interfaces.  Disabled by default so the WebUI stays loopback-only.
+    """
+    return env_flag("PHASMID_WEBUI_EXPOSE_GADGET", default=False)
+
+
 def web_port() -> int:
     return env_int("PHASMID_PORT", 8000, minimum=1)
 

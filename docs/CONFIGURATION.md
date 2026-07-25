@@ -19,7 +19,8 @@ All `PHASMID_*` reads are centralized in `src/phasmid/config.py`.
 | `PHASMID_ACCESS_MAX_FAILURES` | int (>=1) | `5` | Access limiter | Failure count threshold before lockout | `config.access_max_failures()` |
 | `PHASMID_ACCESS_LOCKOUT_SECONDS` | int (>=1) | `60` | Access limiter | Lockout duration after threshold exceeded | `config.access_lockout_seconds()` |
 | `PHASMID_WEB_TOKEN` | string | random per process | WebUI mutations | Fixed mutation token if provided; else generated at startup | `config.web_token_env()` |
-| `PHASMID_HOST` | host string | `127.0.0.1` | WebUI server | Bind host for WebUI process | `config.web_host()` |
+| `PHASMID_HOST` | host string | `127.0.0.1` | WebUI server | Bind host for WebUI process; overrides gadget exposure when set | `config.web_host()` |
+| `PHASMID_WEBUI_EXPOSE_GADGET` | bool | `false` | WebUI server | Binds the USB gadget interface address (`usb0`/`enx*`) instead of loopback; never binds all interfaces | `config.webui_gadget_exposure_enabled()` |
 | `PHASMID_PORT` | int (>=1) | `8000` | WebUI server | Bind port for WebUI process | `config.web_port()` |
 | `PHASMID_MAX_UPLOAD_BYTES` | int (>=1) | `26214400` | WebUI store/metadata | Upload size ceiling in bytes | `config.max_upload_bytes()` |
 | `PHASMID_RESTRICTED_SESSION_SECONDS` | int (>=1) | `120` | WebUI restricted session | Restricted confirmation session TTL | `config.restricted_session_seconds()` |

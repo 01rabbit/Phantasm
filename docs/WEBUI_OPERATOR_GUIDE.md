@@ -13,7 +13,9 @@ compelled disclosure.
 1. Start the WebUI from the TUI with `w`, or run
    `python3 -m phasmid.web_server` for a local development session.
 2. Open the address shown by the TUI or use `http://127.0.0.1:8000` when the
-   default host and port are in use.
+   default host and port are in use. The TUI shows the address actually bound.
+   Reaching the WebUI from a USB-tethered host requires
+   `PHASMID_WEBUI_EXPOSE_GADGET=1`; loopback is the default.
 3. Check the visible WebUI-active warning before continuing. Do not expose the
    interface to an untrusted network.
 

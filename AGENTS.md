@@ -110,7 +110,7 @@ Never describe it as guaranteed secure deletion.
 Preserve these invariants unless a change explicitly updates the threat model, specification, tests, and user-facing documentation.
 
 - The system is local-only by default.
-- The WebUI binds to `127.0.0.1` by default.
+- The WebUI binds to `127.0.0.1` by default, on every start path including the TUI `w` key. USB gadget binding is opt-in via `PHASMID_WEBUI_EXPOSE_GADGET` and binds that one interface address; only an explicit `PHASMID_HOST` can produce a wildcard bind.
 - `vault.bin` alone should not be enough for normal recovery when required local state is absent.
 - The local access key remains part of the recovery path unless a documented migration changes the container format.
 - Object matching is an operational access cue, not cryptographic key material.

@@ -101,7 +101,7 @@
 **JA:** 数値は帯を指す程度。詳細は次/Q&A。
 
 ## [14:40] Slide 18 — Field hardware（実機）　★エンゲージ
-**EN:** "And here's the actual thing. A Pi Zero 2 W in a 3D-printed case, a camera for the object cue, on a little tripod. The WebUI is reached over **USB at localhost** — it never touches a network. It's meant to read as an unremarkable small gadget. It's right here on the table — come look, and try it, after the talk."
+**EN:** "And here's the actual thing. A Pi Zero 2 W in a 3D-printed case, a camera for the object cue, on a little tripod. By default the WebUI binds **localhost only** — on-device access, no network. If you want to reach it from a laptop over the USB link, that's an explicit opt-in, and it binds **that one USB interface** — never all interfaces, never Wi-Fi. It's meant to read as an unremarkable small gadget. It's right here on the table — come look, and try it, after the talk."
 **JA:** 現物を指す／持ち上げる。卓上デモ・Q&Aへの導線。
 
 ## [15:40] Slide 19 — Cryptographic core (v3)
