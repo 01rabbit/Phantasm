@@ -74,8 +74,13 @@ class SimpleHomeScreen(OperatorScreen):
     def compose(self) -> ComposeResult:
         yield self.webui_warning_banner()
         yield Static("PHASMID", id="simple-title")
-        yield Static("Protect or open local storage without exposing expert controls.", id="simple-subtitle")
-        yield Static("[green]✓[/green] Device ready for local use", id="health", markup=True)
+        yield Static(
+            "Protect or open local storage without exposing expert controls.",
+            id="simple-subtitle",
+        )
+        yield Static(
+            "[green]✓[/green] Device ready for local use", id="health", markup=True
+        )
         yield Static("PROTECTED STORAGE", id="storage-label")
         yield DataTable(id="storage-table", cursor_type="row", zebra_stripes=True)
         yield Static(
@@ -100,13 +105,14 @@ class SimpleHomeScreen(OperatorScreen):
         table = self.query_one("#storage-table", DataTable)
         table.clear()
         for vessel in self._vessels:
-            file_count = sum(face.file_count for face in vessel.faces) if vessel.faces else 0
+            file_count = (
+                sum(face.file_count for face in vessel.faces) if vessel.faces else 0
+            )
             table.add_row(
                 vessel.name,
                 "Open" if vessel.is_open else "Closed",
                 vessel.size_human,
                 str(file_count),
-                key=str(vessel.path),
             )
         if not self._vessels:
             self.query_one("#next-step", Static).update(
@@ -116,10 +122,10 @@ class SimpleHomeScreen(OperatorScreen):
 
     def _selected_path(self) -> str:
         table = self.query_one("#storage-table", DataTable)
-        if table.row_count == 0 or table.cursor_row < 0:
+        row = table.cursor_row
+        if row < 0 or row >= len(self._vessels):
             return ""
-        row_key = table.coordinate_to_cell_key(table.cursor_coordinate).row_key
-        return str(row_key.value) if row_key else ""
+        return str(self._vessels[row].path)
 
     def action_open_selected(self) -> None:
         from .open_vessel import OpenVesselScreen
@@ -128,7 +134,9 @@ class SimpleHomeScreen(OperatorScreen):
         if not path:
             self.app.notify("No protected storage is selected.", severity="warning")
             return
-        self.app.push_screen(OpenVesselScreen(vessel_path=path), lambda _: self._refresh_table())
+        self.app.push_screen(
+            OpenVesselScreen(vessel_path=path), lambda _: self._refresh_table()
+        )
 
     def action_new_storage(self) -> None:
         from .create_vessel import CreateVesselScreen
@@ -143,7 +151,9 @@ class SimpleHomeScreen(OperatorScreen):
     def action_expert(self) -> None:
         from .home import HomeScreen
 
-        self.app.push_screen(HomeScreen(initial_vessel_path=self._selected_path() or None))
+        self.app.push_screen(
+            HomeScreen(initial_vessel_path=self._selected_path() or None)
+        )
 
     def action_help(self) -> None:
         from .about import AboutScreen
