@@ -2,7 +2,7 @@
 
 Phasmid is a field-evaluation prototype for local-only coercion-aware storage and the reference implementation of the Janus Eidolon System.
 
-![Phasmid architecture overview](../images/architecture_v1.png)
+![Phasmid architecture overview](images/architecture_v1.png)
 
 Two-slot architecture overview: vessel structure, disclosure faces, local key material, and object-cue operating boundary.
 
@@ -67,7 +67,7 @@ See `docs/COERCION_SAFE_DELAYING.md` for full design documentation.
 
 ## Current Documentation Map
 
-- [docs/SPECIFICATION.md](docs/SPECIFICATION.md) defines implementation behavior and configuration.
-- [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) defines assumptions, residual risk, and safety boundaries.
-- [docs/JANUS_EIDOLON_SYSTEM.md](docs/JANUS_EIDOLON_SYSTEM.md) defines the formal two-slot architecture.
+- [SPECIFICATION.md](SPECIFICATION.md) defines implementation behavior and configuration.
+- [THREAT_MODEL.md](THREAT_MODEL.md) defines assumptions, residual risk, and safety boundaries.
+- [JANUS_EIDOLON_SYSTEM.md](JANUS_EIDOLON_SYSTEM.md) defines the formal two-slot architecture.
 - [README.md](../README.md) defines the user-facing tool summary and operational limits.

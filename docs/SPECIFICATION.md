@@ -188,12 +188,16 @@ The default bind address is `127.0.0.1:8000`.
 
 WebUI v2 is server-rendered with lightweight JavaScript. It preserves the internal two-slot model while presenting normal operations as protected-entry workflows.
 
-Normal navigation:
+Normal navigation presents a Simple Operator surface:
 
 - Home
-- Store
-- Retrieve
-- Maintenance
+- Protect a File
+- Open a Protected File
+- Guided Mode
+
+Maintenance, diagnostics, audit, and inspection are available through
+Advanced tools for experienced operators. Normal flows do not expose those
+controls by default.
 
 The restricted action view is available only by direct route and is not shown in normal navigation. A direct `GET /emergency` renders only a restricted confirmation screen until the browser has a fresh restricted confirmation session. After confirmation, the page presents a short stepwise emergency flow with exact-phrase prompts and a visible restricted-confirmation lifetime. Hidden route concealment is not a security boundary.
 
@@ -258,11 +262,14 @@ Phasmid must prefer simple, low-choice flows under stress.
 
 Normal operation should remain:
 
-1. Store
-2. Retrieve
-3. Maintenance
+1. Protect a File
+2. Open a Protected File
+3. Guided Mode when help is needed
 
-Restricted actions must remain separated. Field Mode should reduce diagnostic noise. The UI should avoid forcing the user to reason about internal slots, trial order, recovery side effects, or disclosure structure during stressful conditions.
+Advanced and restricted actions must remain separated. Field Mode should reduce
+diagnostic noise. The UI should avoid forcing the user to reason about internal
+slots, trial order, recovery side effects, or disclosure structure during
+stressful conditions.
 
 ## 10. Metadata and Data Minimization
 

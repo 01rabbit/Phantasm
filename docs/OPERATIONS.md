@@ -56,6 +56,11 @@ When a graphical interface is required, the operator may "expose" the WebUI. Bec
 2. **Operate**: Perform necessary tasks via `http://127.0.0.1:8000`.
 3. **Retract**: Press `w` again in the TUI. Confirm the shutdown of the WebUI process.
 
+For the normal Protect/Open workflow after the interface is available, use the
+[WebUI Operator Guide](WEBUI_OPERATOR_GUIDE.md). That guide is the operator
+manual for the Simple Operator dashboard; this document covers exposure
+management and local checks.
+
 ### Safety Mechanisms
 
 - **Inactivity Auto-Kill**: The TUI monitors operator input. If no keys are pressed for 10 minutes, the WebUI is automatically terminated.
