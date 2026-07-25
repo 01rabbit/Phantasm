@@ -4,10 +4,10 @@
 
 Phasmid provides a terminal user interface as its primary operator console.
 
-Running `phasmid` with no arguments opens the Main Operator Console. Long
-command-line argument chains are not required for normal operation. Complex
-workflows are accessible through the TUI, guided workflows, and configuration
-files.
+Running `phasmid` with no arguments opens the Simple Operator screen. Long
+command-line argument chains are not required for normal operation. The
+default screen provides only Open, New, Guided, Expert, and Quit. Detailed
+operator screens remain available through Expert.
 
 Phasmid is a research-grade prototype for studying and operating deniable
 storage under coerced disclosure scenarios. The TUI reflects that position: it
@@ -87,7 +87,8 @@ src/phasmid/
     theme.py                phasmid-dark and phasmid-light themes
 
     screens/
-      home.py               Main Operator Console
+      simple_home.py        Simple Operator screen (default)
+      home.py               Expert operator console
       about.py              About / splash screen with full banner
       audit.py              Audit View
       doctor.py             Doctor View
@@ -133,7 +134,7 @@ The TUI does not implement cryptographic operations directly.
 ## Commands
 
 ```bash
-phasmid                    Open the Main Operator Console
+phasmid                    Open the Simple Operator screen
 phasmid open <vessel>      Open a Vessel in the TUI
 phasmid open <vessel> --no-tui --face face_a
                            Mark a Vessel open directly from the CLI
@@ -164,62 +165,37 @@ phasmid about              Open the About screen
 Legacy commands (`init`, `brick`, `verify-state`, `verify-audit-log`,
 `export-redacted-log`) remain available for compatibility and advanced use.
 
-## Main Operator Console
+## Simple Operator Screen
 
-The Main Operator Console is the default TUI entry point.
-
-![TUI Home screen](../images/TUI_HOME.png)
-Home screen with vessel list, vessel summary panel, event log, and operator shortcuts.
+The Simple Operator screen is the default TUI entry point. It shows protected
+storage and keeps normal actions short and visible. The current profile's
+default Vessel directory and selected Vessel context are preserved.
 
 ### Keyboard Shortcuts
 
 | Key | Action |
 |---|---|
 | `o` | Open selected Vessel |
-| `x` | Close selected Vessel |
-| `c` | Create new Vessel |
-| `i` | Inspect selected Vessel |
-| `f` | Manage Faces |
-| `g` | Guided Workflows |
-| `a` | Audit View |
-| `d` | Doctor |
-| `w` | Toggle WebUI Start/Stop |
-| `s` | Settings |
-| `?` | Help / About |
+| `n` | Create protected storage |
+| `g` | Guided Help |
+| `e` | Open Expert controls |
 | `q` | Quit |
 | `r` | Refresh Vessel list (not shown in footer) |
 
-## Screen Gallery (Operator Reference)
+## Expert Controls
 
-To reduce unnecessary exposure, keep public-facing screenshot use minimal.
-The Home screen above should be the default reference image.
-The following screenshots are optional operator-reference views.
-
-### Audit View
-
-![TUI Audit screen](../images/TUI_AUDIT.png)
-
-### Doctor View
-
-![TUI Doctor screen](../images/TUI_DOCTOR.png)
-
-### Inspect Vessel View
-
-![TUI Inspect screen](../images/TUI_INSPECT.png)
-
-### Disclosure Face Manager
-
-![TUI Face Manager screen](../images/TUI_FACE.png)
-
-The Face Manager uses the shared Vessel workflow backend. It creates or updates
-local Face records and displays face id, label, status, file count, occupancy,
-and most recent access time.
+Press `e` from the Simple Operator screen to open the detailed operator
+console. It retains the selected Vessel and provides the previous detailed
+actions: Close, Create, Inspect, Face management, Audit, Doctor, Settings,
+LUKS, and Help. Expert controls are for diagnostic and maintenance work, not
+the normal Protect/Open flow.
 
 ## WebUI Integration (Exposed Mode)
 
 Phasmid provides a local WebUI for operators who require a graphical interface
 for certain tasks. This interface is considered "exposed" as it opens a network
-port (default `0.0.0.0:8000` for USB gadget-connected operation).
+port. The default bind address is `127.0.0.1:8000`; deployment configuration
+may set a different host only when the access path is otherwise protected.
 
 ### WebUI Control
 
@@ -375,10 +351,12 @@ government-adjacent evaluators, and institutional reviewers.
 Guided Workflows are step-by-step interactive explanations built into the same
 operator console. They are not a separate demo mode.
 
-Available workflows:
+The first two workflows support normal use:
 
 | ID | Title |
 |---|---|
+| `quick_protect` | Protect a File |
+| `quick_open` | Open a Protected File |
 | `coerced_disclosure` | Coerced Disclosure Walkthrough |
 | `headerless_inspection` | Headerless Vessel Inspection |
 | `multiple_faces` | Multiple Disclosure Faces |

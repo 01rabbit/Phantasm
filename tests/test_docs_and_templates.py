@@ -28,6 +28,17 @@ class DocsAndTemplateTests(unittest.TestCase):
         self.assertIn("docs/PHASMID_ARCHITECTURE.md", readme)
         self.assertIn("docs/THREAT_MODEL.md", readme)
         self.assertIn("docs/SPECIFICATION.md", readme)
+        self.assertIn("docs/WEBUI_OPERATOR_GUIDE.md", readme)
+
+    def test_webui_operator_guide_covers_normal_simple_operator_flow(self):
+        guide = read_text("docs/WEBUI_OPERATOR_GUIDE.md")
+        self.assertIn("Protect a File", guide)
+        self.assertIn("Open a Protected File", guide)
+        self.assertIn("Guided Mode", guide)
+        self.assertIn("Advanced tools", guide)
+        self.assertIn("Finish and clear", guide)
+        self.assertIn("never replaces the original automatically", guide)
+        self.assertIn("not an access-control boundary", guide)
 
     def test_readme_addresses_reviewer_and_use_boundaries(self):
         readme = read_text("README.md")

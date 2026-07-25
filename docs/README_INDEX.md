@@ -23,6 +23,7 @@ Use this order when documents overlap:
 
 ## Operator interfaces
 
+- WebUI normal-use manual: [`WEBUI_OPERATOR_GUIDE.md`](WEBUI_OPERATOR_GUIDE.md)
 - TUI Operator Console: [`TUI_OPERATOR_CONSOLE.md`](TUI_OPERATOR_CONSOLE.md)
 - Operational workflow guide: [`OPERATIONS.md`](OPERATIONS.md)
 - Restricted actions policy and flow: [`RESTRICTED_ACTIONS.md`](RESTRICTED_ACTIONS.md)

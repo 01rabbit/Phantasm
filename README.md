@@ -97,8 +97,8 @@ What `./phasmid` does on first run:
 
 Success check:
 
-- you see the TUI Operator Console panel
-- press `c` to create a Vessel
+- you see the Simple Operator screen
+- press `n` to create protected storage
 - press `g` for a guided walkthrough
 
 If the TUI does not open, run `phasmid doctor`.
@@ -186,6 +186,7 @@ python3 -m unittest discover -s tests
 Primary entry points:
 
 - Documentation index (full map): [`docs/README_INDEX.md`](docs/README_INDEX.md)
+- WebUI normal-use manual: [`docs/WEBUI_OPERATOR_GUIDE.md`](docs/WEBUI_OPERATOR_GUIDE.md)
 - Threat model authority: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md)
 - Behavioral specification: [`docs/SPECIFICATION.md`](docs/SPECIFICATION.md)
 - Architecture overview: [`docs/PHASMID_ARCHITECTURE.md`](docs/PHASMID_ARCHITECTURE.md)
