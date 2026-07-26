@@ -7,6 +7,81 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-26
+
+> **Upgrading from 0.2.0 changes how the WebUI is reached from another machine.**
+> Browsing from the device itself is unchanged. A USB-tethered host, or anything
+> reached through an explicit `PHASMID_HOST`, must now present the access token
+> at `/unlock` before it is served operator pages. Pin `PHASMID_WEB_TOKEN` if a
+> script or a demo run-of-show depends on a known value. Deployments reached by
+> a DNS or mDNS name must list that name in `PHASMID_ALLOWED_HOSTS`.
+>
+> This is a MINOR bump rather than MAJOR because the project is pre-1.0 and no
+> `vault.bin` format changed and no claim was removed, per
+> [docs/VERSIONING.md](docs/VERSIONING.md). Treat the WebUI access change as
+> breaking for automation regardless.
+
+### Security
+
+Follow-up hardening for the weaknesses recorded as unresolved in
+GHSA-2gm6-2phc-wv26. 0.2.0 removed *remote reachability* by restoring the
+loopback bind default; these changes address the underlying unauthenticated
+surfaces, which anything able to reach the WebUI still had.
+
+- WebUI page access is authenticated for any peer that is not on loopback.
+  `_ui_unlocked()` in `src/phasmid/web_server.py` returned `True`
+  unconditionally, so every page-level lock was a no-op. It now validates an
+  `HttpOnly`, `SameSite=Strict` page-session cookie bound to the client address
+  and expiring after `PHASMID_UI_SESSION_SECONDS` (default 1800). A loopback
+  peer is exempt: it is on the device itself, where the TUI already has full
+  local control, so a token prompt there costs a step and adds no boundary. The
+  exemption is decided per request from the peer address, never from
+  configuration, so a server started straight through uvicorn cannot fail open.
+- Requests whose `Host` header is a DNS name are rejected with `400`. This
+  closes DNS rebinding, the attack that makes even a USB-gadget-only deployment
+  reachable: a page the operator visits on the tethered laptop re-resolves its
+  own domain to the gadget address and the browser then treats the WebUI as
+  same-origin. Rebinding needs a name; address literals cannot be rebound. The
+  check costs the operator nothing, so it applies to loopback peers too.
+  `PHASMID_ALLOWED_HOSTS` allows names genuinely used to reach the device.
+- Added `GET`/`POST /unlock` and `POST /lock`. A session is opened by presenting
+  the access token; unlock attempts are rate limited and attempt limited.
+- The mutation token is no longer rendered into unauthenticated page HTML.
+  `_template_context()` supplies it only to a request that already holds a page
+  session, making it a CSRF token for an unlocked session rather than the
+  credential that opens one.
+- `/video_feed` and `/status` now require a page session. `/video_feed`
+  previously streamed the live object-cue camera with no effective gate.
+- `/emergency/panic` requires a page session and returns its usual concealing
+  404 without one, so its public `BRICK` trigger phrase is no longer the only
+  gate beyond the mutation token.
+- Confirmation phrases in `src/phasmid/restricted_actions.py` are documented as
+  confirmation-only typo guards, in the module, `docs/RESTRICTED_ACTIONS.md`,
+  `docs/SPECIFICATION.md`, and the Core Invariants. No action is authorized by a
+  phrase alone.
+- Regression tests in `tests/test_web_server.py` drive the ASGI app directly, so
+  they exercise real dependency execution rather than route shape. They cover
+  the chained path from the advisory: GET `/` no longer discloses the token, and
+  the public phrases cannot reach `vault.silent_brick()` from a locked client.
+
+### Added
+
+- `PHASMID_UI_SESSION_SECONDS` configures the WebUI page-session lifetime.
+- `PHASMID_ALLOWED_HOSTS` lists extra `Host` header names the WebUI accepts,
+  for deployments reached by a DNS or mDNS name such as `phasmid.local`.
+- The WebUI publishes its access token to `<state dir>/webui_token` (mode
+  `0600`) while running and removes it at shutdown, so the TUI and a manually
+  started server can both show the operator a per-process token.
+  `WebUIService.access_token()` reads it, and the TUI `w` notification shows it.
+
+### Changed
+
+- Opening the WebUI from another machine now requires entering the access token
+  once per session. Browsing from the device itself is unchanged, so the Simple
+  Operator flow carries no added step in the default loopback deployment.
+- The primary navigation gains a **Lock** control, shown only where a page
+  session applies. A loopback peer has none to drop.
+
 ## [0.2.0] - 2026-07-26
 
 Version 0.1.5 was prepared and version-bumped but never tagged or published; its

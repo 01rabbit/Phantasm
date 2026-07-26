@@ -22,6 +22,48 @@ compelled disclosure.
 When the TUI manages the WebUI, it stops the server after ten minutes without
 operator input. Stop it with `w` when the graphical task is complete.
 
+## Access Token
+
+**Browsing from the device itself needs no token.** A browser on
+`http://127.0.0.1:8000` is served directly, because it is already on a machine
+whose TUI has full local control.
+
+**Browsing from another machine does.** A USB-tethered laptop, or anything
+reached through an explicit `PHASMID_HOST`, opens on the access screen. Enter the
+access token, select **Unlock**, and the rest of the interface becomes
+available.
+
+Where to find the token:
+
+- The TUI shows it in the notification raised when you start the WebUI with `w`.
+- `python3 -m phasmid.web_server` prints it at startup.
+- While the WebUI runs, it is readable at `<state dir>/webui_token`.
+- Set `PHASMID_WEB_TOKEN` to pin a known token across restarts, for example when
+  scripting a demo. Otherwise a fresh token is generated per process.
+
+The session cookie is `HttpOnly`, bound to the client address, and expires after
+`PHASMID_UI_SESSION_SECONDS` (default 1800). Select **Lock** — or stop the
+server with `w` — when you step away; closing the browser tab alone leaves the
+session valid until it expires.
+
+Handing the token to a tethered host grants it operator access. Treat it as you
+would handing over the device.
+
+## Reaching the WebUI by Name
+
+The WebUI accepts requests addressed by IP address or `localhost`, and rejects
+requests addressed by a DNS name with a `400`. This blocks a browser-based
+attack in which a page the operator visits repoints its own domain at the WebUI.
+
+If you genuinely reach the device by name — `phasmid.local` over mDNS, for
+example — list it in `PHASMID_ALLOWED_HOSTS`:
+
+```bash
+PHASMID_ALLOWED_HOSTS=phasmid.local phasmid
+```
+
+Prefer the address shown by the TUI, which needs no configuration.
+
 ## Home
 
 The normal home screen has three entry points:

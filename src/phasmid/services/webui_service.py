@@ -242,6 +242,21 @@ class WebUIService:
             host = self._detect_usb_gadget_ipv4() or "127.0.0.1"
         return f"http://{host}:{self._port}"
 
+    @property
+    def token_file(self) -> pathlib.Path:
+        return pathlib.Path(state_dir()) / "webui_token"
+
+    def access_token(self) -> str:
+        """Return the access token the running WebUI expects at `/unlock`.
+
+        The WebUI publishes it to the state directory at startup, so this works
+        for a WebUI this process started and for one it merely found running.
+        """
+        try:
+            return self.token_file.read_text(encoding="utf-8").strip()
+        except OSError:
+            return ""
+
     def _wait_for_startup(self, timeout: float = 10.0) -> bool:
         deadline = time.time() + timeout
         while time.time() < deadline:

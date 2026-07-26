@@ -52,8 +52,8 @@ When a graphical interface is required, the operator may "expose" the WebUI. Bec
 
 ### Procedure
 
-1. **Expose**: Press `w` in the TUI Main Console. Confirm the "WebUI Exposed" notification.
-2. **Operate**: Perform necessary tasks via `http://127.0.0.1:8000`.
+1. **Expose**: Press `w` in the TUI Main Console. Confirm the "WebUI Exposed" notification, which shows the bound address and the access token.
+2. **Operate**: Open `http://127.0.0.1:8000`. A browser on the device needs no token. From a tethered host, enter the access token on the access screen and select **Unlock** first.
 3. **Retract**: Press `w` again in the TUI. Confirm the shutdown of the WebUI process.
 
 For the normal Protect/Open workflow after the interface is available, use the

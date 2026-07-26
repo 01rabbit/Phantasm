@@ -170,6 +170,11 @@
             gap: 2px;
             flex-wrap: wrap;
         }
+        .nav-lock {
+            display: flex;
+            align-items: center;
+            margin: 0;
+        }
         .nav a {
             color: var(--text-muted);
             padding: 7px 14px;
@@ -944,6 +949,12 @@
                 <a href="/operator/audit"   class="operator {{ 'active' if active == 'operator-audit'   else '' }}">Audit</a>
                 <a href="/operator/guided"  class="operator {{ 'active' if active == 'operator-guided'  else '' }}">Workflows</a>
                 <a href="/operator/inspect" class="operator {{ 'active' if active == 'operator-inspect' else '' }}">Inspect</a>
+                {% if ui_unlock_required %}
+                <span class="nav-sep" aria-hidden="true"></span>
+                <form method="post" action="/lock" class="nav-lock">
+                    <button type="submit" class="secondary small">Lock</button>
+                </form>
+                {% endif %}
             </nav>
             {% endif %}
         </header>
@@ -1053,8 +1064,10 @@
                 setLed(document.getElementById('cameraStateLed'), 'active');
             });
         }
+        {% if ui_unlocked %}
         pollStatus();
         window.setInterval(pollStatus, 1200);
+        {% endif %}
     </script>
     {% block scripts %}{% endblock %}
 </body>

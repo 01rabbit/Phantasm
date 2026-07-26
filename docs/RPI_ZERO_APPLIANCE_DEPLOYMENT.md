@@ -83,7 +83,7 @@ PHASMID_PORT=8000
 PHASMID_STATE_DIR=/var/lib/phasmid
 ```
 
-Leave `PHASMID_WEBUI_EXPOSE_GADGET` unset unless the operator interface is reached from a USB-tethered host. When it is set, everything on the other end of the USB link is trusted as an operator: the WebUI serves its pages, its mutation token, and `/video_feed` without authentication.
+Leave `PHASMID_WEBUI_EXPOSE_GADGET` unset unless the operator interface is reached from a USB-tethered host. When it is set, everything on the other end of the USB link can reach the WebUI port. Pages, the mutation token, and `/video_feed` require a page session opened with the access token for any peer that is not on loopback, so the tethered host must be given that token before it can operate the device — treat handing it over as granting operator access.
 
 For high-risk deployments, do not store all recovery conditions on the same physical medium. Phasmid is strongest when the encrypted container, local state, memorized password, physical-object cue, and optional external key material are separated.
 

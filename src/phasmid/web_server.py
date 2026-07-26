@@ -1,5 +1,7 @@
 import io
+import ipaddress
 import logging
+import os
 import secrets
 import time
 import urllib.parse
@@ -30,6 +32,7 @@ from .audit import audit_event
 from .capabilities import Capability, active_policy, capability_enabled
 from .config import (
     AUDIT_LOG_NAME,
+    allowed_web_hosts,
     audit_enabled,
     duress_mode_enabled,
     field_mode_enabled,
@@ -37,6 +40,7 @@ from .config import (
     purge_confirmation_required,
     restricted_session_seconds,
     state_dir,
+    ui_session_seconds,
     web_host,
     web_port,
     web_token_env,
@@ -78,10 +82,12 @@ async def startup_self_tests():
     apply_process_hardening()
     require_volatile_state()
     ensure_crypto_self_tests()
+    publish_web_token()
 
 
 @app.on_event("shutdown")
 async def shutdown_cleanup():
+    clear_published_web_token()
     try:
         access_cue_service.close()
     except Exception as exc:
@@ -98,6 +104,13 @@ RESTRICTED_SESSION_COOKIE = "phasmid_restricted_session"
 RESTRICTED_SESSION_TTL_SECONDS = restricted_session_seconds()
 _restricted_sessions = {}
 _access_attempts = AttemptLimiter()
+
+UI_SESSION_COOKIE = "phasmid_ui_session"
+UI_SESSION_TTL_SECONDS = ui_session_seconds()
+_ui_sessions = {}
+_unlock_attempts = AttemptLimiter()
+WEB_TOKEN_FILE_NAME = "webui_token"
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
 ENTRY_TO_MODE = {
     "entry_1": access_cue_service.modes()[0],
@@ -140,8 +153,43 @@ def _apply_security_headers(response):
     return response
 
 
+def _host_header_allowed(request):
+    """Reject a `Host` that is a DNS name rather than an address.
+
+    DNS rebinding needs a name to rebind.  An address literal cannot be
+    repointed at the WebUI mid-session, so accepting only address literals (plus
+    `localhost` and any operator-configured name) closes the rebinding path
+    without asking the operator for anything.
+    """
+    host = request.headers.get("host", "")
+    if host.startswith("["):
+        # RFC 7230 bracketed IPv6 literal, optionally followed by :port.
+        end = host.find("]")
+        hostname = host[1:end] if end != -1 else ""
+    elif host.count(":") > 1:
+        hostname = host  # bare IPv6 literal; tolerated even though unbracketed
+    else:
+        hostname = host.rsplit(":", 1)[0] if ":" in host else host
+    hostname = hostname.strip().lower()
+    if not hostname:
+        return False
+    if hostname in LOOPBACK_HOSTS:
+        return True
+    if hostname in allowed_web_hosts():
+        return True
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError:
+        return False
+    return True
+
+
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
+    if not _host_header_allowed(request):
+        return _apply_security_headers(
+            JSONResponse({"error": text.OPERATION_UNAVAILABLE}, status_code=400)
+        )
     response = await call_next(request)
     return _apply_security_headers(response)
 
@@ -173,7 +221,86 @@ def _restricted_session_token(request):
     return request.cookies.get(RESTRICTED_SESSION_COOKIE, "")
 
 
+def web_token_path():
+    return Path(state_dir()) / WEB_TOKEN_FILE_NAME
+
+
+def publish_web_token():
+    """Write the current access token to the state directory for local operators.
+
+    The WebUI is started as a subprocess (TUI `w` key) or directly, so the
+    operator has no other way to learn a per-process token.  The state directory
+    already holds the local access key, so this does not widen the file-system
+    trust boundary; it is written `0600` and removed at shutdown.
+    """
+    path = web_token_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(WEB_TOKEN + "\n", encoding="utf-8")
+        os.chmod(path, 0o600)
+    except OSError as exc:
+        LOG.error("Access token publication failed: %s", exc)
+
+
+def clear_published_web_token():
+    try:
+        web_token_path().unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        LOG.debug("Access token cleanup failed: %s", exc)
+
+
+def _ui_session_token(request):
+    return request.cookies.get(UI_SESSION_COOKIE, "")
+
+
+def _create_ui_session(client_id):
+    token = secrets.token_urlsafe(32)
+    _ui_sessions[token] = {
+        "client_id": client_id,
+        "expires_at": time.time() + UI_SESSION_TTL_SECONDS,
+    }
+    return token
+
+
+def _is_loopback_client(request):
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", "") if client else ""
+    return host in LOOPBACK_HOSTS
+
+
+def _ui_unlock_required(request):
+    """True when the caller must present the access token before seeing pages.
+
+    A loopback peer is on the device itself, alongside the TUI that already has
+    full local control, so requiring a token there buys nothing and costs the
+    operator a step on every session.  Any other peer — a USB-tethered host, a
+    gadget-interface neighbour, anything reached through an explicit
+    `PHASMID_HOST` — is a separate machine and must authenticate.
+    """
+    return not _is_loopback_client(request)
+
+
 def _ui_unlocked(request):
+    """True when the caller may be served pages, status, and the camera stream.
+
+    Page HTML carries the mutation token, so for a remote peer this is what
+    keeps the token out of a response it can obtain without credentials.
+    """
+    if not _ui_unlock_required(request):
+        return True
+    token = _ui_session_token(request)
+    if not token:
+        return False
+    session = _ui_sessions.get(token)
+    if not session:
+        return False
+    if session["client_id"] != _client_id(request):
+        return False
+    if session["expires_at"] <= time.time():
+        _ui_sessions.pop(token, None)
+        return False
     return True
 
 
@@ -254,7 +381,7 @@ def require_restricted_action(action_id, request, confirmation=""):
 def _guard_page(request):
     if _ui_unlocked(request):
         return None
-    return RedirectResponse(url="/", status_code=303)
+    return RedirectResponse(url="/unlock", status_code=303)
 
 
 def require_web_token(x_phasmid_token: str = Header(default="")):
@@ -289,10 +416,17 @@ async def read_limited_upload(file: UploadFile):
 
 def _template_context(request: Request, active="home", **extra):
     restricted_confirmed = _restricted_session_valid(request)
+    ui_unlocked = _ui_unlocked(request)
     context = {
         "request": request,
         "active": active,
-        "web_token": WEB_TOKEN,
+        # The mutation token is never rendered into a response that an
+        # unauthenticated client can obtain; it is a CSRF token for an already
+        # unlocked session, not the thing that establishes the session.
+        "web_token": WEB_TOKEN if ui_unlocked else "",
+        "ui_unlocked": ui_unlocked,
+        # A loopback peer has no session to drop, so it is not offered Lock.
+        "ui_unlock_required": _ui_unlock_required(request),
         "max_upload_bytes": MAX_UPLOAD_BYTES,
         "purge_confirmation_required": purge_confirmation_required(),
         "duress_mode_enabled": duress_mode_enabled(),
@@ -427,6 +561,69 @@ def _image_entry_binding(mode, payload):
     return success, message
 
 
+@app.get("/unlock", response_class=HTMLResponse)
+async def unlock_page(request: Request, rejected: bool = False):
+    if _ui_unlocked(request):
+        return RedirectResponse(url="/", status_code=303)
+    return templates.TemplateResponse(
+        request=request,
+        name="unlock.html",
+        context=_template_context(
+            request,
+            active="lock",
+            unlock_error=text.UI_ACCESS_TOKEN_REJECTED if rejected else "",
+        ),
+    )
+
+
+@app.post("/unlock", response_class=HTMLResponse)
+async def unlock_submit(request: Request, token: str = Form(default="")):
+    enforce_rate_limit(request)
+    attempt_scope = f"unlock:{_client_id(request)}"
+    if not _unlock_attempts.check(attempt_scope).allowed:
+        return templates.TemplateResponse(
+            request=request,
+            name="unlock.html",
+            context=_template_context(
+                request,
+                active="lock",
+                unlock_error=text.UI_ACCESS_TEMPORARILY_UNAVAILABLE,
+            ),
+            status_code=429,
+        )
+
+    if not secrets.compare_digest(token, WEB_TOKEN):
+        _unlock_attempts.record_failure(attempt_scope)
+        audit_event("ui_unlock_rejected", source="web")
+        return RedirectResponse(url="/unlock?rejected=1", status_code=303)
+
+    _unlock_attempts.record_success(attempt_scope)
+    session_token = _create_ui_session(_client_id(request))
+    response = RedirectResponse(url="/", status_code=303)
+    response.set_cookie(
+        UI_SESSION_COOKIE,
+        session_token,
+        max_age=UI_SESSION_TTL_SECONDS,
+        httponly=True,
+        samesite="strict",
+    )
+    audit_event("ui_unlocked", source="web")
+    return response
+
+
+@app.post("/lock")
+async def lock_session(request: Request):
+    """Drop the current page session without stopping the server."""
+    enforce_rate_limit(request)
+    _ui_sessions.pop(_ui_session_token(request), None)
+    _restricted_sessions.pop(_restricted_session_token(request), None)
+    response = RedirectResponse(url="/unlock", status_code=303)
+    response.delete_cookie(UI_SESSION_COOKIE)
+    response.delete_cookie(RESTRICTED_SESSION_COOKIE)
+    audit_event("ui_locked", source="web")
+    return response
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     guard = _guard_page(request)
@@ -535,7 +732,7 @@ async def video_feed():
     )
 
 
-@app.get("/status")
+@app.get("/status", dependencies=[Depends(require_ui_unlock)])
 async def status(request: Request):
     return neutral_status()
 
@@ -856,9 +1053,17 @@ async def emergency_initialize(request: Request, confirmation: str = Form(...)):
 
 @app.post("/emergency/panic", dependencies=[Depends(require_web_token)])
 async def web_panic_trigger(request: Request, secret_trigger: str = Form(...)):
-    """Hidden endpoint for rapid local state destruction."""
+    """Hidden endpoint for rapid local state destruction.
+
+    Authorization is the page session plus the mutation token.  The trigger
+    phrase is a typo guard, not a credential: it is a public constant in
+    `restricted_actions.py`.  A locked caller gets the same 404 as a wrong
+    phrase so the route stays concealed.
+    """
     enforce_rate_limit(request)
     try:
+        if not _ui_unlocked(request):
+            raise HTTPException(status_code=423, detail=text.UI_LOCKED)
         require_restricted_action("rapid_local_clear", request, secret_trigger)
     except HTTPException:
         raise HTTPException(status_code=404) from None
@@ -877,6 +1082,7 @@ async def rotate_token(request: Request):
     _require_restricted_when_field_mode(request)
     global WEB_TOKEN
     WEB_TOKEN = secrets.token_urlsafe(32)
+    publish_web_token()
     audit_event("web_token_rotated", source="web")
     return {"status": text.SESSION_TOKEN_ROTATED, "web_token": WEB_TOKEN}
 
@@ -1123,5 +1329,6 @@ if __name__ == "__main__":
     host = web_host()
     port = web_port()
     print(f"[WEB] Starting on http://{host}:{port}")
-    print("[WEB] Mutating requests require X-Phasmid-Token from the served UI.")
+    print("[WEB] Pages require a local access token; open /unlock to enter it.")
+    print(f"[WEB] Access token is readable at {web_token_path()} while running.")
     __import__("uvicorn").run(app, host=host, port=port)

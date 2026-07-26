@@ -39,6 +39,9 @@ CRITICAL_STATE_CLEARED = "Critical state cleared."
 # UI Status and Feedback
 UI_UNLOCKED = "UI unlocked."
 UI_LOCKED_FEEDBACK = "UI locked."
+UI_ACCESS_TOKEN_REQUIRED = "Enter the local access token to continue."
+UI_ACCESS_TOKEN_REJECTED = "Access token rejected."
+UI_ACCESS_TEMPORARILY_UNAVAILABLE = "Local interface temporarily unavailable."
 UI_FACE_LOCK_DISABLED = "Face UI lock is disabled."
 UI_FACE_ENROLLMENT_DISABLED = "Face enrollment is disabled for this session."
 RESTRICTED_CONFIRMATION_REQUIRED_UI = (

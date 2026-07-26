@@ -95,11 +95,15 @@ class PhasmidApp(App):
             )
         else:
             if self.webui_svc.start():
+                token = self.webui_svc.access_token()
+                message = f"WebUI active at {self.webui_svc.access_url()}"
+                if token:
+                    message += f"\nAccess token: {token}"
                 self.notify(
-                    f"WebUI active at {self.webui_svc.access_url()}",
+                    message,
                     title="WEBUI EXPOSED",
                     severity="information",
-                    timeout=10,
+                    timeout=30,
                 )
             else:
                 log_path = self.webui_svc.log_file

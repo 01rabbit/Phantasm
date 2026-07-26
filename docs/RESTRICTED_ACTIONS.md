@@ -8,12 +8,26 @@ They are separated from normal Store and Retrieve flows.
 
 Restricted actions are evaluated by a shared local policy layer. Depending on the action, the policy can require:
 
+- an unlocked WebUI page session;
 - a valid Web mutation token;
 - a fresh restricted confirmation window;
 - a typed action phrase;
 - a deployment capability mode that permits the action.
 
 The guard model is local-only. It does not rely on external approval devices or cloud services.
+
+### Typed phrases are confirmation, not authorization
+
+The phrases in `src/phasmid/restricted_actions.py` — `CLEAR LOCAL ENTRY`,
+`INITIALIZE LOCAL CONTAINER`, `CLEAR LOCAL ACCESS PATH`, `CONFIRM LOCAL CONTROL`,
+`REPLACE LOCAL ENTRY`, and the rapid-clear trigger — are public constants in an
+open-source repository. They carry no entropy and anyone can read them.
+
+Their only purpose is to stop an operator from destroying local state by a
+mis-click or a stray keystroke. Authorization comes from the page session, the
+mutation token, the restricted confirmation window, and the deployment
+capability. Do not add an action whose only server-side gate is a typed phrase,
+and do not describe a phrase as confidential in code, documentation, or UI text.
 
 ## CLI Behavior
 
@@ -31,7 +45,9 @@ Server-side policy checks remain required even when a route is not visible in na
 
 Reviewers should test:
 
+- direct restricted-route access without an unlocked page session;
 - direct restricted-route access without confirmation;
+- correct typed phrase with no page session, no token, or no confirmation window;
 - wrong typed phrase;
 - expired restricted confirmation;
 - deployment capability mode that disables the action;

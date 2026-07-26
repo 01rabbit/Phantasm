@@ -51,6 +51,15 @@ class RestrictedFlowScenarioTests(unittest.TestCase):
     def tearDown(self):
         web_server._rate_limit.clear()
         web_server._restricted_sessions.clear()
+        web_server._ui_sessions.clear()
+
+    def _unlocked_request(self, host="127.0.0.1", **extra):
+        """A request that has already cleared the WebUI page-session gate."""
+        return SimpleNamespace(
+            client=SimpleNamespace(host=host),
+            cookies={web_server.UI_SESSION_COOKIE: web_server._create_ui_session(host)},
+            **extra,
+        )
 
     def test_required_scenarios_are_defined(self):
         scenario_ids = {scenario["id"] for scenario in load_scenarios()}
@@ -143,10 +152,7 @@ class RestrictedFlowScenarioTests(unittest.TestCase):
 
     def test_field_mode_maintenance_scenario(self):
         async def run():
-            request = SimpleNamespace(
-                client=SimpleNamespace(host="127.0.0.1"),
-                cookies={},
-            )
+            request = self._unlocked_request()
             with (
                 mock.patch.object(web_server, "field_mode_enabled", return_value=True),
                 mock.patch.object(
@@ -369,13 +375,15 @@ class TestPiZero2WCoercionSafeHardware(unittest.TestCase):
         return result.returncode, result.stdout, result.stderr
 
     def test_pi_phasmid_import_succeeds(self):
-        rc, _, err = self._ssh("python3 -c 'import phasmid; print(phasmid.__version__)'")
+        rc, _, err = self._ssh(
+            "python3 -c 'import phasmid; print(phasmid.__version__)'"
+        )
         self.assertEqual(rc, 0, f"phasmid import failed: {err}")
 
     def test_pi_context_profile_loads(self):
         rc, out, err = self._ssh(
             "python3 -c 'from phasmid.context_profile import get_profile; "
-            'p = get_profile(\"travel\"); print(p.profile_name)\''
+            'p = get_profile("travel"); print(p.profile_name)\''
         )
         self.assertEqual(rc, 0, f"context_profile import failed: {err}")
         self.assertIn("travel", out)
@@ -394,7 +402,7 @@ class TestPiZero2WCoercionSafeHardware(unittest.TestCase):
             "import tempfile; "
             "from phasmid.context_profile import get_profile; "
             "from phasmid.dummy_generator import DummyGeneratorConfig, generate_dummy_dataset; "
-            'p = get_profile(\"travel\"); '
+            'p = get_profile("travel"); '
             "cfg = DummyGeneratorConfig(target_size_bytes=65536, occupancy_ratio=0.5, profile=p, output_dir=tempfile.mkdtemp()); "
             "r = generate_dummy_dataset(cfg); print(r.files_created)'"
         )

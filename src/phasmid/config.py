@@ -137,6 +137,27 @@ def restricted_session_seconds() -> int:
     return env_int("PHASMID_RESTRICTED_SESSION_SECONDS", 120, minimum=1)
 
 
+def allowed_web_hosts() -> frozenset[str]:
+    """Extra `Host` header values the WebUI accepts, beyond address literals.
+
+    Address literals and loopback names are always accepted. Set this only when
+    the operator reaches the WebUI by a DNS or mDNS name such as
+    `phasmid.local`, which otherwise looks like a rebinding attempt.
+    """
+    raw = env_text("PHASMID_ALLOWED_HOSTS", "")
+    return frozenset(part.strip().lower() for part in raw.split(",") if part.strip())
+
+
+def ui_session_seconds() -> int:
+    """Lifetime of an unlocked WebUI page session.
+
+    The session is what gates page HTML, `/status`, and `/video_feed`, so it is
+    deliberately shorter than an operator session at a desk and is re-established
+    by re-entering the WebUI access token.
+    """
+    return env_int("PHASMID_UI_SESSION_SECONDS", 1800, minimum=1)
+
+
 def audit_enabled() -> bool:
     return env_flag("PHASMID_AUDIT", default=False)
 
