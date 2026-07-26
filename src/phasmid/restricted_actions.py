@@ -1,3 +1,20 @@
+"""Policy for restricted local actions shared by the CLI and the WebUI.
+
+Confirmation phrases in this module are **confirmation-only**.  They are public
+constants in an open-source repository, so they carry no entropy and are not an
+authorization control.  Their only job is to stop an operator from destroying
+local state by a mis-click or a stray keystroke.
+
+Authorization for a restricted action is the combination of:
+
+- the deployment capability (`capabilities.py`),
+- a live restricted confirmation session, where the policy requires one, and
+- for the WebUI, an unlocked page session plus the per-process mutation token
+  (`web_server.require_ui_unlock` and `web_server.require_web_token`).
+
+Never add an action whose only gate is a phrase from this module.
+"""
+
 from dataclasses import dataclass
 
 from . import strings as text
@@ -20,7 +37,8 @@ class RestrictedActionPolicy:
     require_object_cue: bool = False
 
 
-# Central confirmation phrases shared by CLI and WebUI
+# Central confirmation phrases shared by CLI and WebUI.
+# Public constants: typo guards, not credentials.  See the module docstring.
 DESTRUCTIVE_CLEAR_PHRASE = "CLEAR LOCAL ENTRY"
 INITIALIZE_CONTAINER_PHRASE = "INITIALIZE LOCAL CONTAINER"
 EMERGENCY_BRICK_PHRASE = "CLEAR LOCAL ACCESS PATH"
@@ -61,6 +79,12 @@ def evaluate_restricted_action(
     password_reentered: bool = True,
     object_cue_accepted: bool = True,
 ):
+    """Evaluate a restricted action against its policy.
+
+    `confirmation` is matched against a public phrase, so a caller must never
+    treat a successful evaluation as evidence that the caller was authenticated.
+    The caller is responsible for establishing authorization first.
+    """
     if not capability_allowed:
         raise RestrictedActionRejected(text.OPERATION_UNAVAILABLE)
     if policy.require_restricted_confirmation and not restricted_confirmed:

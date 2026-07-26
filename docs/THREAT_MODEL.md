@@ -113,7 +113,9 @@ These surfaces should not reveal the internal disclosure model, internal trial o
 ### WebUI Surface
 
 - HTTP endpoints served on `127.0.0.1` (default) or a configured bind address. See [WebUI Bind Address](#webui-bind-address) for the resolution order.
+- Page, status, and camera-stream endpoints require a live page session. See [WebUI Page Session](#webui-page-session).
 - Mutation endpoints require `X-Phasmid-Token`; restricted action endpoints additionally require a live restricted confirmation session.
+- Restricted-action confirmation phrases are public constants in `src/phasmid/restricted_actions.py`. They are typo guards against operator mistakes and carry no authorization weight.
 - Response headers, `Content-Disposition` filename, and HTTP status codes are normalized to avoid leaking slot or mode information.
 
 ### WebUI Bind Address
@@ -131,18 +133,47 @@ including the TUI `w` key, uses it.
    detected, it falls back to loopback and logs a warning.
 3. Otherwise, the WebUI binds to `127.0.0.1`.
 
-Because the WebUI does not authenticate page access, moving off loopback moves
-every other WebUI weakness from local to remote:
+The bind address is a containment boundary, not the only one. Page access is
+authenticated in its own right (see [WebUI Page Session](#webui-page-session)),
+so reaching the bind address is no longer sufficient to read operator pages,
+harvest the mutation token, or watch the camera stream.
 
-- `_ui_unlocked()` in `src/phasmid/web_server.py` returns `True` unconditionally.
-- The mutation token is rendered into unauthenticated page HTML.
-- Restricted-action confirmation phrases are public constants in
-  `src/phasmid/restricted_actions.py`.
-- `/video_feed` has no authentication.
+Treat `PHASMID_WEBUI_EXPOSE_GADGET` as extending network reachability to whatever
+is on the other end of the USB cable, and `PHASMID_HOST=0.0.0.0` as extending it
+to every network the device is attached to. Reachability still matters: it
+exposes the unlock endpoint to online token guessing, and it widens the blast
+radius of any future authentication defect.
 
-Treat `PHASMID_WEBUI_EXPOSE_GADGET` as extending operator trust to whatever is on
-the other end of the USB cable, and `PHASMID_HOST=0.0.0.0` as extending it to
-every network the device is attached to.
+### WebUI Page Session
+
+Every WebUI surface that reveals operator state requires a page session:
+
+- Page HTML for `/`, `/store`, `/retrieve`, `/maintenance`, `/maintenance/entries`,
+  `/emergency`, and `/operator/*`.
+- `/status`, the object-cue and camera state poll.
+- `/video_feed`, the live object-cue camera stream.
+
+A session is established at `/unlock` by presenting the WebUI access token. The
+server then issues an `HttpOnly`, `SameSite=Strict` session cookie that is bound
+to the client address and expires after `PHASMID_UI_SESSION_SECONDS` (default
+1800). Unlock attempts are rate limited and locked out by `AttemptLimiter` on the
+same local policy as vault access attempts.
+
+The mutation token is rendered into page HTML only for a request that already
+holds a valid session, so it is a CSRF token for an unlocked session rather than
+the credential that establishes one. `_ui_unlocked()` is the single check behind
+all of this; it must never be reduced to an unconditional `True`.
+
+The access token is published to `<state dir>/webui_token` (mode `0600`) while
+the WebUI runs and removed at shutdown, because the WebUI is normally started as
+a subprocess and the operator has no other way to learn a per-process token. The
+state directory already holds the local access key, so this does not widen the
+file-system trust boundary.
+
+**Residual risk:** a process running as the same user can read `webui_token`, or
+the token out of the WebUI process environment when `PHASMID_WEB_TOKEN` is set.
+The page session gate raises the bar for a network or USB-gadget peer and for a
+different local user; it is not a boundary against same-user code execution.
 
 ### CLI Surface
 
@@ -154,6 +185,7 @@ every network the device is attached to.
 
 - `access.bin`, `store.bin`, `lock.bin` — fixed filenames recognizable to an informed examiner.
 - The ORB state blob (`store.bin`) encrypts reference templates under AES-GCM; raw templates are not stored.
+- `webui_token`, `webui.pid`, `webui.log` — present only while the WebUI runs. `webui_token` holds the plaintext WebUI access token at mode `0600` and is removed at shutdown.
 
 ### Filesystem and Log Surface
 
@@ -199,9 +231,9 @@ Each scenario is tagged with applicable [STRIDE](https://learn.microsoft.com/en-
 
 **Scenario:** Attacker observes or captures `X-Phasmid-Token` from a local session and replays it to perform vault operations.
 
-**Mitigation:** Token is per-process; rotation available via restricted action endpoint. WebUI binds to `127.0.0.1` by default, limiting token exposure to the local session. The mutation token is rendered into page HTML that is served without authentication, so anyone who can reach the bind address can read it; this is why the bind address is the primary containment boundary and why gadget exposure is opt-in.
+**Mitigation:** Token is per-process; rotation available via restricted action endpoint. WebUI binds to `127.0.0.1` by default, limiting token exposure to the local session. The mutation token is rendered only into pages served to a request that already holds a valid page session, so reaching the bind address does not disclose it. Establishing a session requires presenting the token at `/unlock`, which is rate limited and attempt limited.
 
-**Residual risk:** Token is valid for the process lifetime; a compromised local session can replay it until process restart or explicit rotation.
+**Residual risk:** Token is valid for the process lifetime; a compromised local session can replay it until process restart or explicit rotation. A same-user process can read the token from `<state dir>/webui_token` or from the WebUI process environment.
 
 ---
 
@@ -528,7 +560,8 @@ For full architectural documentation see `docs/COERCION_SAFE_DELAYING.md`.
 - Keep the configured state directory and `vault.bin` on encrypted local storage.
 - For high-risk deployments, separate `vault.bin`, local state, memorized password, object cue, and optional external key material across different control conditions.
 - Use `PHASMID_FIELD_MODE=1` for appliance-style deployments.
-- Treat WebUI exposure control as an operational measure built from TUI-managed start/stop, default localhost binding, and inactivity auto-kill. It is not a substitute for passwords, object cues, or external values.
+- Treat WebUI exposure control as an operational measure built from TUI-managed start/stop, default localhost binding, page-session authentication, and inactivity auto-kill. It is not a substitute for passwords, object cues, or external values.
+- Lock the WebUI (`POST /lock`) or stop it from the TUI when stepping away; the page session otherwise survives for `PHASMID_UI_SESSION_SECONDS`.
 - Use distinct high-entropy values for normal access and restricted recovery passwords.
 - Keep `PHASMID_PURGE_CONFIRMATION=1` unless the deployment explicitly accepts the data-loss risk of automatic local-state updates.
 - Reinitialize the container after a panic event.

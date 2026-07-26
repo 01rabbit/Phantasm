@@ -1,7 +1,10 @@
 import asyncio
+import inspect
 import os
 import sys
+import time
 import unittest
+import urllib.parse
 from types import SimpleNamespace
 from unittest import mock
 
@@ -12,6 +15,10 @@ ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from phasmid import web_server
+from phasmid.restricted_actions import (
+    RestrictedActionRejected,
+    evaluate_restricted_action,
+)
 
 
 class WebServerBoundaryTests(unittest.TestCase):
@@ -19,6 +26,8 @@ class WebServerBoundaryTests(unittest.TestCase):
         web_server._rate_limit.clear()
         web_server._restricted_sessions.clear()
         web_server._access_attempts._state.clear()
+        web_server._ui_sessions.clear()
+        web_server._unlock_attempts._state.clear()
 
     def test_require_web_token_rejects_invalid_token(self):
         with self.assertRaises(HTTPException) as ctx:
@@ -157,10 +166,20 @@ class WebServerBoundaryTests(unittest.TestCase):
         self.assertTrue(status["camera_ready"])
         self.assertEqual(status["camera_backend"], "stream")
 
-    def test_require_ui_unlock_allows_webui_without_face_gate(self):
+    def test_require_ui_unlock_rejects_request_without_page_session(self):
         request = SimpleNamespace(
             client=SimpleNamespace(host="127.0.0.1"),
             cookies={},
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            web_server.require_ui_unlock(request)
+        self.assertEqual(ctx.exception.status_code, 423)
+
+    def test_require_ui_unlock_allows_request_with_page_session(self):
+        token = web_server._create_ui_session("127.0.0.1")
+        request = SimpleNamespace(
+            client=SimpleNamespace(host="127.0.0.1"),
+            cookies={web_server.UI_SESSION_COOKIE: token},
         )
         self.assertIsNone(web_server.require_ui_unlock(request))
 
@@ -1105,6 +1124,352 @@ class WebServerBoundaryTests(unittest.TestCase):
             register_mock.assert_not_called()
 
         asyncio.run(run())
+
+
+def _asgi_request(method, path, *, headers=None, cookies=None, body=b"", query=""):
+    """Drive the ASGI app directly so routing and dependencies really execute.
+
+    Route-shape assertions cannot catch an inert dependency, which is exactly
+    how the unauthenticated surfaces survived review, so these tests exercise
+    the real request path instead.  No lifespan events run, so the server does
+    not touch the state directory.
+    """
+    raw_headers = [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()]
+    if cookies:
+        jar = "; ".join(f"{name}={value}" for name, value in cookies.items())
+        raw_headers.append((b"cookie", jar.encode()))
+    if body:
+        raw_headers.append((b"content-type", b"application/x-www-form-urlencoded"))
+        raw_headers.append((b"content-length", str(len(body)).encode()))
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.3"},
+        "http_version": "1.1",
+        "method": method,
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode(),
+        "query_string": query.encode(),
+        "root_path": "",
+        "headers": raw_headers,
+        "client": ("127.0.0.1", 50000),
+        "server": ("127.0.0.1", 8000),
+    }
+    captured = {"status": None, "headers": [], "body": b""}
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            captured["status"] = message["status"]
+            captured["headers"] = message["headers"]
+        elif message["type"] == "http.response.body":
+            captured["body"] += message.get("body", b"")
+
+    asyncio.run(web_server.app(scope, receive, send))
+    captured["text"] = captured["body"].decode("utf-8", "replace")
+    captured["set_cookie"] = [
+        value.decode()
+        for name, value in captured["headers"]
+        if name.lower() == b"set-cookie"
+    ]
+    captured["location"] = next(
+        (
+            value.decode()
+            for name, value in captured["headers"]
+            if name.lower() == b"location"
+        ),
+        "",
+    )
+    return captured
+
+
+class WebUIPageSessionGateTests(unittest.TestCase):
+    """GHSA-2gm6-2phc-wv26 follow-up: the WebUI must authenticate page access.
+
+    Advisory findings 1-3: `_ui_unlocked()` was inert, the mutation token was
+    rendered into unauthenticated page HTML, and `/video_feed` had no real gate.
+    """
+
+    def setUp(self):
+        self._clear()
+
+    def tearDown(self):
+        self._clear()
+
+    def _clear(self):
+        web_server._rate_limit.clear()
+        web_server._restricted_sessions.clear()
+        web_server._ui_sessions.clear()
+        web_server._unlock_attempts._state.clear()
+        web_server._access_attempts._state.clear()
+
+    def _unlocked_cookies(self, client_id="127.0.0.1"):
+        return {web_server.UI_SESSION_COOKIE: web_server._create_ui_session(client_id)}
+
+    # ── Finding 1: the page-level gate is no longer a no-op ────────────
+
+    def test_ui_unlocked_is_false_without_session_cookie(self):
+        request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), cookies={})
+        self.assertFalse(web_server._ui_unlocked(request))
+
+    def test_ui_session_is_bound_to_the_issuing_client(self):
+        token = web_server._create_ui_session("127.0.0.1")
+        other_client = SimpleNamespace(
+            client=SimpleNamespace(host="10.0.0.9"),
+            cookies={web_server.UI_SESSION_COOKIE: token},
+        )
+        self.assertFalse(web_server._ui_unlocked(other_client))
+
+    def test_expired_ui_session_is_rejected_and_dropped(self):
+        token = web_server._create_ui_session("127.0.0.1")
+        web_server._ui_sessions[token]["expires_at"] = time.time() - 1
+        request = SimpleNamespace(
+            client=SimpleNamespace(host="127.0.0.1"),
+            cookies={web_server.UI_SESSION_COOKIE: token},
+        )
+        self.assertFalse(web_server._ui_unlocked(request))
+        self.assertNotIn(token, web_server._ui_sessions)
+
+    def test_forged_session_cookie_is_rejected(self):
+        request = SimpleNamespace(
+            client=SimpleNamespace(host="127.0.0.1"),
+            cookies={web_server.UI_SESSION_COOKIE: "not-a-real-session"},
+        )
+        self.assertFalse(web_server._ui_unlocked(request))
+
+    def test_locked_page_request_redirects_to_unlock_not_home(self):
+        response = _asgi_request("GET", "/")
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["location"], "/unlock")
+
+    def test_every_page_route_redirects_to_unlock_while_locked(self):
+        for path in (
+            "/",
+            "/store",
+            "/retrieve",
+            "/maintenance",
+            "/maintenance/entries",
+            "/emergency",
+        ):
+            with self.subTest(path=path):
+                response = _asgi_request("GET", path)
+                self.assertEqual(response["status"], 303)
+                self.assertEqual(response["location"], "/unlock")
+
+    def test_operator_pages_reject_locked_requests(self):
+        for path in (
+            "/operator/doctor",
+            "/operator/audit",
+            "/operator/guided",
+            "/operator/inspect",
+        ):
+            with self.subTest(path=path):
+                response = _asgi_request(
+                    "GET",
+                    path,
+                    headers={"X-Phasmid-Token": web_server.WEB_TOKEN},
+                )
+                self.assertEqual(response["status"], 423)
+
+    # ── Finding 2: the mutation token is never in an unauthenticated body ──
+
+    def test_unauthenticated_page_request_does_not_leak_mutation_token(self):
+        for path in ("/", "/store", "/retrieve", "/maintenance", "/emergency"):
+            with self.subTest(path=path):
+                response = _asgi_request("GET", path)
+                self.assertNotIn(web_server.WEB_TOKEN, response["text"])
+
+    def test_unlock_page_does_not_render_the_mutation_token(self):
+        response = _asgi_request("GET", "/unlock")
+        self.assertEqual(response["status"], 200)
+        self.assertNotIn(web_server.WEB_TOKEN, response["text"])
+
+    def test_template_context_withholds_token_until_unlocked(self):
+        locked = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), cookies={})
+        self.assertEqual(web_server._template_context(locked)["web_token"], "")
+
+        unlocked = SimpleNamespace(
+            client=SimpleNamespace(host="127.0.0.1"),
+            cookies=self._unlocked_cookies(),
+        )
+        self.assertEqual(
+            web_server._template_context(unlocked)["web_token"],
+            web_server.WEB_TOKEN,
+        )
+
+    def test_unlocked_page_renders_the_mutation_token_for_the_ui(self):
+        response = _asgi_request("GET", "/", cookies=self._unlocked_cookies())
+        self.assertEqual(response["status"], 200)
+        self.assertIn(web_server.WEB_TOKEN, response["text"])
+
+    # ── Finding 3: /video_feed and /status are authenticated ───────────
+
+    def test_video_feed_rejects_locked_request(self):
+        response = _asgi_request("GET", "/video_feed")
+        self.assertEqual(response["status"], 423)
+
+    def test_status_rejects_locked_request(self):
+        response = _asgi_request("GET", "/status")
+        self.assertEqual(response["status"], 423)
+
+    # ── Unlock flow ────────────────────────────────────────────────────
+
+    def test_unlock_with_correct_token_issues_httponly_session_cookie(self):
+        response = _asgi_request(
+            "POST",
+            "/unlock",
+            body=urllib.parse.urlencode({"token": web_server.WEB_TOKEN}).encode(),
+        )
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["location"], "/")
+        cookie = next(
+            value
+            for value in response["set_cookie"]
+            if value.startswith(web_server.UI_SESSION_COOKIE)
+        )
+        self.assertIn("HttpOnly", cookie)
+        self.assertIn("samesite=strict", cookie.lower())
+        self.assertNotIn(web_server.WEB_TOKEN, cookie)
+
+    def test_unlock_with_wrong_token_issues_no_session(self):
+        response = _asgi_request(
+            "POST",
+            "/unlock",
+            body=urllib.parse.urlencode({"token": "wrong-token"}).encode(),
+        )
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["location"], "/unlock?rejected=1")
+        self.assertEqual(response["set_cookie"], [])
+        self.assertEqual(web_server._ui_sessions, {})
+
+    def test_unlock_locks_out_after_repeated_wrong_tokens(self):
+        limiter = web_server.AttemptLimiter(
+            max_failures=2, lockout_seconds=60, clock=lambda: 1000
+        )
+        body = urllib.parse.urlencode({"token": "wrong-token"}).encode()
+        with mock.patch.object(web_server, "_unlock_attempts", limiter):
+            _asgi_request("POST", "/unlock", body=body)
+            _asgi_request("POST", "/unlock", body=body)
+            blocked = _asgi_request(
+                "POST",
+                "/unlock",
+                body=urllib.parse.urlencode({"token": web_server.WEB_TOKEN}).encode(),
+            )
+        self.assertEqual(blocked["status"], 429)
+        self.assertEqual(web_server._ui_sessions, {})
+
+    def test_lock_drops_page_and_restricted_sessions(self):
+        cookies = self._unlocked_cookies()
+        response = _asgi_request("POST", "/lock", cookies=cookies)
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["location"], "/unlock")
+        self.assertEqual(web_server._ui_sessions, {})
+
+    # ── Finding 4 / the chained destructive path ───────────────────────
+
+    def test_public_phrases_do_not_reach_destructive_actions_while_locked(self):
+        """GET / then POST the public phrases must not reach silent_brick()."""
+        harvest = _asgi_request("GET", "/")
+        self.assertNotIn(web_server.WEB_TOKEN, harvest["text"])
+
+        with (
+            mock.patch.object(web_server.vault, "silent_brick") as silent_brick,
+            mock.patch.object(web_server.vault, "purge_other_mode") as purge,
+        ):
+            confirm = _asgi_request(
+                "POST",
+                "/restricted/confirm",
+                headers={"X-Phasmid-Token": web_server.WEB_TOKEN},
+                body=urllib.parse.urlencode(
+                    {"confirmation": web_server.RESTRICTED_CONFIRMATION_PHRASE}
+                ).encode(),
+            )
+            brick = _asgi_request(
+                "POST",
+                "/emergency/brick",
+                headers={"X-Phasmid-Token": web_server.WEB_TOKEN},
+                body=urllib.parse.urlencode(
+                    {"confirmation": web_server.EMERGENCY_BRICK_PHRASE}
+                ).encode(),
+            )
+
+        self.assertEqual(confirm["status"], 423)
+        self.assertEqual(brick["status"], 423)
+        self.assertEqual(web_server._restricted_sessions, {})
+        silent_brick.assert_not_called()
+        purge.assert_not_called()
+
+    def test_panic_route_stays_concealed_and_inert_while_locked(self):
+        with mock.patch.object(web_server.vault, "silent_brick") as silent_brick:
+            response = _asgi_request(
+                "POST",
+                "/emergency/panic",
+                headers={"X-Phasmid-Token": web_server.WEB_TOKEN},
+                body=urllib.parse.urlencode({"secret_trigger": "BRICK"}).encode(),
+            )
+        self.assertEqual(response["status"], 404)
+        silent_brick.assert_not_called()
+
+
+class RestrictedPhraseAuthorizationTests(unittest.TestCase):
+    """Advisory finding 4: confirmation phrases are typo guards, not credentials."""
+
+    def test_correct_phrase_alone_does_not_authorize_a_restricted_action(self):
+        policy = web_server.RESTRICTED_ACTION_POLICIES["clear_local_access_path"]
+        with self.assertRaises(RestrictedActionRejected):
+            evaluate_restricted_action(
+                policy,
+                capability_allowed=True,
+                restricted_confirmed=False,
+                confirmation=policy.confirmation_phrase,
+            )
+        with self.assertRaises(RestrictedActionRejected):
+            evaluate_restricted_action(
+                policy,
+                capability_allowed=False,
+                restricted_confirmed=True,
+                confirmation=policy.confirmation_phrase,
+            )
+
+    def test_every_web_restricted_route_requires_more_than_the_phrase(self):
+        """No route may treat a public phrase as its only server-side gate."""
+        gated = {
+            "/purge_other": "clear_unmatched_entry",
+            "/emergency/brick": "clear_local_access_path",
+            "/emergency/initialize": "initialize_container",
+            "/emergency/panic": "rapid_local_clear",
+        }
+        for path, action_id in gated.items():
+            with self.subTest(path=path):
+                route = next(
+                    route
+                    for route in web_server.app.routes
+                    if getattr(route, "path", None) == path
+                )
+                dependency_names = {
+                    item.call.__name__ for item in route.dependant.dependencies
+                }
+                self.assertIn("require_web_token", dependency_names)
+
+                policy = web_server.RESTRICTED_ACTION_POLICIES[action_id]
+                # A phrase-only policy would be authorization by public constant.
+                self.assertTrue(
+                    policy.require_restricted_confirmation
+                    or path == "/emergency/panic",
+                    f"{action_id} relies on its public phrase alone",
+                )
+
+    def test_rapid_local_clear_is_gated_by_the_page_session_not_the_phrase(self):
+        """`rapid_local_clear` skips restricted confirmation, so the session gate
+        is the control that keeps its public phrase from being sufficient."""
+        policy = web_server.RESTRICTED_ACTION_POLICIES["rapid_local_clear"]
+        self.assertFalse(policy.require_restricted_confirmation)
+
+        source = inspect.getsource(web_server.web_panic_trigger)
+        self.assertIn("_ui_unlocked(request)", source)
 
 
 class _BytesFile:

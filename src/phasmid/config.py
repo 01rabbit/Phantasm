@@ -137,6 +137,16 @@ def restricted_session_seconds() -> int:
     return env_int("PHASMID_RESTRICTED_SESSION_SECONDS", 120, minimum=1)
 
 
+def ui_session_seconds() -> int:
+    """Lifetime of an unlocked WebUI page session.
+
+    The session is what gates page HTML, `/status`, and `/video_feed`, so it is
+    deliberately shorter than an operator session at a desk and is re-established
+    by re-entering the WebUI access token.
+    """
+    return env_int("PHASMID_UI_SESSION_SECONDS", 1800, minimum=1)
+
+
 def audit_enabled() -> bool:
     return env_flag("PHASMID_AUDIT", default=False)
 

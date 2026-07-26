@@ -18,7 +18,8 @@ All `PHASMID_*` reads are centralized in `src/phasmid/config.py`.
 | `PHASMID_MIN_PASSPHRASE_LENGTH` | int (>=1) | `10` | Store/init passphrase policy | Minimum accepted passphrase length | `config.passphrase_min_length()` |
 | `PHASMID_ACCESS_MAX_FAILURES` | int (>=1) | `5` | Access limiter | Failure count threshold before lockout | `config.access_max_failures()` |
 | `PHASMID_ACCESS_LOCKOUT_SECONDS` | int (>=1) | `60` | Access limiter | Lockout duration after threshold exceeded | `config.access_lockout_seconds()` |
-| `PHASMID_WEB_TOKEN` | string | random per process | WebUI mutations | Fixed mutation token if provided; else generated at startup | `config.web_token_env()` |
+| `PHASMID_WEB_TOKEN` | string | random per process | WebUI access and mutations | Fixed access token if provided; else generated at startup. Presented at `/unlock` to open a page session and sent as `X-Phasmid-Token` on mutations | `config.web_token_env()` |
+| `PHASMID_UI_SESSION_SECONDS` | int (>=1) | `1800` | WebUI page session | Lifetime of an unlocked WebUI page session | `config.ui_session_seconds()` |
 | `PHASMID_HOST` | host string | `127.0.0.1` | WebUI server | Bind host for WebUI process; overrides gadget exposure when set | `config.web_host()` |
 | `PHASMID_WEBUI_EXPOSE_GADGET` | bool | `false` | WebUI server | Binds the USB gadget interface address (`usb0`/`enx*`) instead of loopback; never binds all interfaces | `config.webui_gadget_exposure_enabled()` |
 | `PHASMID_PORT` | int (>=1) | `8000` | WebUI server | Bind port for WebUI process | `config.web_port()` |

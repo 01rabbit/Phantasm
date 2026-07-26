@@ -10,7 +10,7 @@ Phasmid should remain local-only. The expected access path is localhost during d
 
 - Bind the WebUI to `127.0.0.1` by default. This is what the TUI `w` key does with no further configuration.
 - Use USB Ethernet gadget access for the operator interface when needed. Set `PHASMID_WEBUI_EXPOSE_GADGET=1` to bind the USB gadget interface address (`usb0` or `enx*`) instead of loopback. It binds that one address, never all interfaces, and falls back to loopback when no gadget address is present.
-- Do not set `PHASMID_HOST=0.0.0.0`. The WebUI serves its pages without authentication, so a wildcard bind exposes vault operations to every attached network.
+- Do not set `PHASMID_HOST=0.0.0.0`. WebUI pages require a page session opened with the access token, but a wildcard bind still exposes the unlock endpoint to every attached network.
 - Disable SSH by default.
 - Disable Wi-Fi and Bluetooth by default unless explicitly required for a controlled deployment.
 - Do not add cloud unlock, telemetry, analytics, or remote management.

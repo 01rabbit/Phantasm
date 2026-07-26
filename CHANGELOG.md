@@ -7,6 +7,52 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Security
+
+Follow-up hardening for the weaknesses recorded as unresolved in
+GHSA-2gm6-2phc-wv26. 0.2.0 removed *remote reachability* by restoring the
+loopback bind default; these changes address the underlying unauthenticated
+surfaces, which anything able to reach the WebUI still had.
+
+- WebUI page access is authenticated. `_ui_unlocked()` in
+  `src/phasmid/web_server.py` returned `True` unconditionally, so every
+  page-level lock was a no-op. It now validates an `HttpOnly`,
+  `SameSite=Strict` page-session cookie bound to the client address and
+  expiring after `PHASMID_UI_SESSION_SECONDS` (default 1800).
+- Added `GET`/`POST /unlock` and `POST /lock`. A session is opened by presenting
+  the access token; unlock attempts are rate limited and attempt limited.
+- The mutation token is no longer rendered into unauthenticated page HTML.
+  `_template_context()` supplies it only to a request that already holds a page
+  session, making it a CSRF token for an unlocked session rather than the
+  credential that opens one.
+- `/video_feed` and `/status` now require a page session. `/video_feed`
+  previously streamed the live object-cue camera with no effective gate.
+- `/emergency/panic` requires a page session and returns its usual concealing
+  404 without one, so its public `BRICK` trigger phrase is no longer the only
+  gate beyond the mutation token.
+- Confirmation phrases in `src/phasmid/restricted_actions.py` are documented as
+  confirmation-only typo guards, in the module, `docs/RESTRICTED_ACTIONS.md`,
+  `docs/SPECIFICATION.md`, and the Core Invariants. No action is authorized by a
+  phrase alone.
+- Regression tests in `tests/test_web_server.py` drive the ASGI app directly, so
+  they exercise real dependency execution rather than route shape. They cover
+  the chained path from the advisory: GET `/` no longer discloses the token, and
+  the public phrases cannot reach `vault.silent_brick()` from a locked client.
+
+### Added
+
+- `PHASMID_UI_SESSION_SECONDS` configures the WebUI page-session lifetime.
+- The WebUI publishes its access token to `<state dir>/webui_token` (mode
+  `0600`) while running and removes it at shutdown, so the TUI and a manually
+  started server can both show the operator a per-process token.
+  `WebUIService.access_token()` reads it, and the TUI `w` notification shows it.
+
+### Changed
+
+- Opening the WebUI now requires entering the access token once per session.
+  This is a deliberate change to the Simple Operator flow: the interface no
+  longer serves operator pages to anything that can reach the bind address.
+
 ## [0.2.0] - 2026-07-26
 
 Version 0.1.5 was prepared and version-bumped but never tagged or published; its

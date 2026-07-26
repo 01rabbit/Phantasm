@@ -161,9 +161,11 @@ address actually bound, so check there first when a browser cannot connect.
 
 `PHASMID_HOST` overrides the bind address directly and takes precedence over the
 gadget opt-in. Setting `PHASMID_HOST=0.0.0.0` exposes the WebUI on every
-interface; because WebUI pages, the embedded mutation token, and `/video_feed`
-are served without authentication, treat that as unsafe on any untrusted
-network. See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) and
+interface. WebUI pages, the embedded mutation token, and `/video_feed` require a
+page session opened with the access token, so a wildcard bind no longer hands
+those to anything that can reach the port — but it does expose the unlock
+endpoint to online guessing, so treat it as unsafe on any untrusted network. See
+[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) and
 [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
 ## Install and run details

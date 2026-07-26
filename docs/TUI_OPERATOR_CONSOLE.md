@@ -214,6 +214,11 @@ Starting the WebUI launches a background process managed by the TUI.
 
 ### Safety Features
 
+- **Access Token**: The WebUI serves no operator page, `/status`, or
+  `/video_feed` until a browser presents the access token at `/unlock`. The `w`
+  start notification shows the token, and it is readable at
+  `<state dir>/webui_token` while the server runs. Set `PHASMID_WEB_TOKEN` to
+  pin a known value across restarts.
 - **Auto-Kill Timer**: If the TUI detects no operator input for 10 minutes while
   the WebUI is active, it will automatically terminate the WebUI server to
   return the system to a stealth state.

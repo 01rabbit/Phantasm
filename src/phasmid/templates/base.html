@@ -1053,8 +1053,10 @@
                 setLed(document.getElementById('cameraStateLed'), 'active');
             });
         }
+        {% if ui_unlocked %}
         pollStatus();
         window.setInterval(pollStatus, 1200);
+        {% endif %}
     </script>
     {% block scripts %}{% endblock %}
 </body>

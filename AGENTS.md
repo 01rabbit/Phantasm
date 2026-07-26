@@ -117,6 +117,9 @@ Preserve these invariants unless a change explicitly updates the threat model, s
 - ORB descriptors, image coordinates, face templates, and camera frames must not be described as high-entropy secrets.
 - UI face lock is a local interface gate only and must not be treated as vault encryption.
 - Hidden routes are UX concealment only, not access control.
+- WebUI pages, `/status`, and `/video_feed` require a page session established at `/unlock` with the access token. `_ui_unlocked()` must remain a real check; never reduce it to an unconditional `True`.
+- The mutation token is rendered into page HTML only for a request that already holds a page session. It is a CSRF token for an unlocked session, never the credential that opens one.
+- Typed confirmation phrases are public constants. They are typo guards, not authorization; no action may be gated by a phrase alone.
 - Field Mode reduces casual local exposure but is not a security boundary.
 - Restricted actions must require server-side checks, short-lived restricted confirmation, and typed confirmation where applicable.
 - Normal UI and CLI flows must not reveal internal storage labels, trial order, restricted recovery behavior, or alternate protected state.

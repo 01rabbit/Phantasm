@@ -18,9 +18,34 @@ compelled disclosure.
    `PHASMID_WEBUI_EXPOSE_GADGET=1`; loopback is the default.
 3. Check the visible WebUI-active warning before continuing. Do not expose the
    interface to an untrusted network.
+4. **Unlock the interface.** Every page opens on the access screen until a token
+   is presented. Enter the access token and select **Unlock**.
 
 When the TUI manages the WebUI, it stops the server after ten minutes without
 operator input. Stop it with `w` when the graphical task is complete.
+
+## Access Token
+
+The WebUI serves no operator page, status poll, or camera stream until the
+browser holds a page session, and a page session is created only by presenting
+the access token at `/unlock`.
+
+- The TUI shows the token in the notification raised when you start the WebUI
+  with `w`.
+- `python3 -m phasmid.web_server` prints it at startup.
+- While the WebUI runs, it is also readable at `<state dir>/webui_token`.
+- Set `PHASMID_WEB_TOKEN` to pin a known token across restarts, for example when
+  scripting a demo. Otherwise a fresh token is generated per process.
+
+The session cookie is `HttpOnly`, bound to the client address, and expires after
+`PHASMID_UI_SESSION_SECONDS` (default 1800). Select **Lock** — or stop the
+server with `w` — when you step away; closing the browser tab alone leaves the
+session valid until it expires.
+
+This gate keeps a network or USB-tethered peer from reading operator pages,
+harvesting the mutation token, or watching the camera stream. It is not a
+defense against another process running as the same user on the device, which
+can read the token file directly.
 
 ## Home
 
