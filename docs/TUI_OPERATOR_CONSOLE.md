@@ -190,6 +190,13 @@ actions: Close, Create, Inspect, Face management, Audit, Doctor, Settings,
 LUKS, and Help. Expert controls are for diagnostic and maintenance work, not
 the normal Protect/Open flow.
 
+> **Entering Expert controls is one-way for the rest of the session.** There is
+> no key that returns to the Simple Operator screen: `q` in Expert controls
+> quits the application rather than going back. Restart `phasmid` to get the
+> Simple Operator screen again. Plan work that must stay on the simple surface
+> — a scripted demonstration, or handing the device to a non-specialist —
+> before pressing `e`.
+
 ## WebUI Integration (Exposed Mode)
 
 Phasmid provides a local WebUI for operators who require a graphical interface
