@@ -71,7 +71,7 @@ Current implementation status and evidence paths are tracked in [`docs/IMPLEMENT
 | OS | Linux, macOS (development); Raspberry Pi OS Bookworm/Bullseye (deployment) |
 | Hardware | x86-64 laptop/desktop for development; Raspberry Pi Zero 2 W for field deployment |
 | Camera (optional) | Picamera2 / libcamera — required only for object-cue matching on Pi |
-| WebUI (optional) | Any modern browser; intended for localhost or USB gadget Ethernet access only |
+| WebUI (optional) | Any modern browser; binds `127.0.0.1` by default. USB gadget Ethernet access is opt-in — see [WebUI access](#webui-access) |
 | LUKS (optional) | Linux kernel with dm-crypt — required for the optional LUKS2 storage layer |
 
 For Raspberry Pi deployment, `python3-picamera2` and `python3-libcamera` must be installed via apt before running the bootstrap script.
@@ -142,6 +142,29 @@ Phasmid does not claim:
 - covert communication, censorship bypass, remote wipe, or remote unlock
 
 For complete claims and non-claims, see [`docs/CLAIMS.md`](docs/CLAIMS.md), [`docs/NON_CLAIMS.md`](docs/NON_CLAIMS.md), and [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+
+## WebUI access
+
+The WebUI binds `127.0.0.1:8000` by default, so pressing `w` in the TUI keeps it
+reachable only from the device itself. Reaching it from another machine is an
+explicit opt-in:
+
+```bash
+# Reach the WebUI from a laptop over the USB Ethernet gadget link.
+# Binds the gadget interface address (usb0 / enx*) only — never all interfaces.
+PHASMID_WEBUI_EXPOSE_GADGET=1 phasmid
+```
+
+If you skip this, the WebUI starts successfully but a browser on the attached
+laptop cannot reach it. The TUI notification and exposure banner always show the
+address actually bound, so check there first when a browser cannot connect.
+
+`PHASMID_HOST` overrides the bind address directly and takes precedence over the
+gadget opt-in. Setting `PHASMID_HOST=0.0.0.0` exposes the WebUI on every
+interface; because WebUI pages, the embedded mutation token, and `/video_feed`
+are served without authentication, treat that as unsafe on any untrusted
+network. See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) and
+[`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
 ## Install and run details
 

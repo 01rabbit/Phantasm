@@ -7,7 +7,43 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-26
+
+Version 0.1.5 was prepared and version-bumped but never tagged or published; its
+changes ship here as part of 0.2.0. The last published release before this one is
+0.1.4.
+
+> **Security notice for 0.1.4 users — upgrade.** In 0.1.4 the TUI `w` key bound
+> the WebUI to `0.0.0.0`, reachable from any attached network. The WebUI serves
+> page HTML, the embedded mutation token, and `/video_feed` without
+> authentication, and `_ui_unlocked()` returns `True` unconditionally, so that
+> wildcard bind made those weaknesses remotely reachable — including the
+> restricted-action confirmation phrases, which are public constants in this
+> repository. 0.2.0 restores the documented loopback default. If you must expose
+> the WebUI, use `PHASMID_WEBUI_EXPOSE_GADGET=1`, which binds the USB gadget
+> interface only.
+
+This release also changes the default operator surface. The TUI now opens the
+Simple Operator screen instead of the detailed console, and the WebUI home is
+reduced to two primary actions. Existing expert workflows remain available behind
+Expert controls (`e`) and the WebUI **Advanced tools** disclosure.
+
 ### Added
+
+- Simple Operator mode: `phasmid` with no arguments now opens a low-cognitive-load
+  TUI entry screen (`src/phasmid/tui/screens/simple_home.py`) listing protected
+  storage with `o` Open, `n` New, `g` Guided, `e` Expert, and `q` Quit. The
+  previous detailed console is reachable with `e`.
+- WebUI Simple Operator home: two primary actions, **Protect a File** and **Open
+  a Protected File**, a Guided Mode entry point, and an **Advanced tools**
+  disclosure holding maintenance, diagnostics, audit, and inspection.
+- WebUI protect flow is now a numbered three-step wizard (choose file, create
+  access password, set physical access object) whose submit control stays
+  disabled until all three are ready. The retrieve flow is reduced to two steps.
+- Beginner-first guided workflows (`quick_protect`, `quick_open`) in both the TUI
+  and the WebUI, written without Phasmid-specific terminology.
+- `docs/WEBUI_OPERATOR_GUIDE.md`: normal-use manual for the refreshed WebUI.
+- README section documenting WebUI bind behaviour and the USB gadget opt-in.
 
 - WebUI object-cue registration from a local image file: `/register_key` now accepts an optional `reference_image` upload, and the Local Entry Maintenance page provides a file picker next to the existing camera rebind flow. Registration from a file derives the same encrypted feature template as camera capture and keeps the size-limited upload handling used by other WebUI uploads.
 - `AIGate.register_reference_from_image_bytes` for camera-independent reference registration, with decoding guards, downscaling of large images toward the camera frame scale, and the existing cue-similarity checks.
@@ -16,6 +52,12 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Changed
 
+- `docs/TUI_OPERATOR_CONSOLE.md` rewritten for the Simple/Expert split, and now
+  documents that entering Expert controls is one-way for the session: no key
+  returns to the Simple Operator screen and `q` there quits the application.
+- `README.md`, `docs/OPERATIONS.md`, `docs/SPECIFICATION.md`,
+  `docs/PHASMID_ARCHITECTURE.md`, and `docs/README_INDEX.md` updated for the
+  refreshed operator surfaces.
 - WebUI bind address is now resolved in one place, `WebUIService.resolve_bind_host()`, used by every start path. Order: explicit `PHASMID_HOST`, then opt-in USB gadget exposure, then `127.0.0.1`.
 - `WebUIService.start()` takes `host=None`/`port=None` and resolves them from configuration, so `PHASMID_PORT` is now honoured on the TUI path as well.
 - `WebUIService.access_url()` reports the address actually bound instead of probing for a USB gadget address, and no longer returns `None`. The TUI start notification and exposure banner show that address.
