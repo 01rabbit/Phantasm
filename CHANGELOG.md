@@ -7,6 +7,14 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Changed
+
+- `SECURITY.md` now states supported versions concretely rather than by
+  reference to "the latest release line", links the published advisories, and
+  names GitHub private vulnerability reporting as the preferred intake channel.
+  A Scope note points at the accepted residual risks in `docs/THREAT_MODEL.md`
+  and `docs/NON_CLAIMS.md` so documented limits are not re-reported as findings.
+
 ## [0.3.0] - 2026-07-26
 
 > **Upgrading from 0.2.0 changes how the WebUI is reached from another machine.**
