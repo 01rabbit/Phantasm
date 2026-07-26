@@ -1402,6 +1402,10 @@ class WebUIPageSessionGateTests(unittest.TestCase):
         self.assertEqual(blocked["status"], 429)
         self.assertEqual(web_server._ui_sessions, {})
 
+    def test_unlocked_remote_page_offers_a_lock_control(self):
+        response = _asgi_request("GET", "/", cookies=self._unlocked_cookies())
+        self.assertIn('action="/lock"', response["text"])
+
     def test_lock_drops_page_and_restricted_sessions(self):
         cookies = self._unlocked_cookies()
         response = _asgi_request("POST", "/lock", cookies=cookies)
@@ -1477,6 +1481,11 @@ class LoopbackExemptionTests(unittest.TestCase):
     def test_loopback_peer_receives_the_mutation_token(self):
         response = _asgi_request("GET", "/", client="127.0.0.1")
         self.assertIn(web_server.WEB_TOKEN, response["text"])
+
+    def test_loopback_peer_is_not_offered_a_lock_control(self):
+        """Lock would bounce straight back for a peer that needs no session."""
+        response = _asgi_request("GET", "/", client="127.0.0.1")
+        self.assertNotIn('action="/lock"', response["text"])
 
     def test_ipv6_loopback_peer_is_exempt(self):
         request = SimpleNamespace(client=SimpleNamespace(host="::1"), cookies={})

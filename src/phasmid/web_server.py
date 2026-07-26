@@ -425,6 +425,8 @@ def _template_context(request: Request, active="home", **extra):
         # unlocked session, not the thing that establishes the session.
         "web_token": WEB_TOKEN if ui_unlocked else "",
         "ui_unlocked": ui_unlocked,
+        # A loopback peer has no session to drop, so it is not offered Lock.
+        "ui_unlock_required": _ui_unlock_required(request),
         "max_upload_bytes": MAX_UPLOAD_BYTES,
         "purge_confirmation_required": purge_confirmation_required(),
         "duress_mode_enabled": duress_mode_enabled(),
