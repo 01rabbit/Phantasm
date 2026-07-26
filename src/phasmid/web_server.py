@@ -1,4 +1,5 @@
 import io
+import ipaddress
 import logging
 import os
 import secrets
@@ -31,6 +32,7 @@ from .audit import audit_event
 from .capabilities import Capability, active_policy, capability_enabled
 from .config import (
     AUDIT_LOG_NAME,
+    allowed_web_hosts,
     audit_enabled,
     duress_mode_enabled,
     field_mode_enabled,
@@ -108,6 +110,7 @@ UI_SESSION_TTL_SECONDS = ui_session_seconds()
 _ui_sessions = {}
 _unlock_attempts = AttemptLimiter()
 WEB_TOKEN_FILE_NAME = "webui_token"
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
 ENTRY_TO_MODE = {
     "entry_1": access_cue_service.modes()[0],
@@ -150,8 +153,43 @@ def _apply_security_headers(response):
     return response
 
 
+def _host_header_allowed(request):
+    """Reject a `Host` that is a DNS name rather than an address.
+
+    DNS rebinding needs a name to rebind.  An address literal cannot be
+    repointed at the WebUI mid-session, so accepting only address literals (plus
+    `localhost` and any operator-configured name) closes the rebinding path
+    without asking the operator for anything.
+    """
+    host = request.headers.get("host", "")
+    if host.startswith("["):
+        # RFC 7230 bracketed IPv6 literal, optionally followed by :port.
+        end = host.find("]")
+        hostname = host[1:end] if end != -1 else ""
+    elif host.count(":") > 1:
+        hostname = host  # bare IPv6 literal; tolerated even though unbracketed
+    else:
+        hostname = host.rsplit(":", 1)[0] if ":" in host else host
+    hostname = hostname.strip().lower()
+    if not hostname:
+        return False
+    if hostname in LOOPBACK_HOSTS:
+        return True
+    if hostname in allowed_web_hosts():
+        return True
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError:
+        return False
+    return True
+
+
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
+    if not _host_header_allowed(request):
+        return _apply_security_headers(
+            JSONResponse({"error": text.OPERATION_UNAVAILABLE}, status_code=400)
+        )
     response = await call_next(request)
     return _apply_security_headers(response)
 
@@ -226,13 +264,32 @@ def _create_ui_session(client_id):
     return token
 
 
-def _ui_unlocked(request):
-    """True when the caller holds a live UI session established with the token.
+def _is_loopback_client(request):
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", "") if client else ""
+    return host in LOOPBACK_HOSTS
 
-    Page HTML carries the mutation token, so page GETs are authenticated exactly
-    like mutations are.  Without this, anything that can reach the bind address
-    can harvest the token from an unauthenticated response.
+
+def _ui_unlock_required(request):
+    """True when the caller must present the access token before seeing pages.
+
+    A loopback peer is on the device itself, alongside the TUI that already has
+    full local control, so requiring a token there buys nothing and costs the
+    operator a step on every session.  Any other peer — a USB-tethered host, a
+    gadget-interface neighbour, anything reached through an explicit
+    `PHASMID_HOST` — is a separate machine and must authenticate.
     """
+    return not _is_loopback_client(request)
+
+
+def _ui_unlocked(request):
+    """True when the caller may be served pages, status, and the camera stream.
+
+    Page HTML carries the mutation token, so for a remote peer this is what
+    keeps the token out of a response it can obtain without credentials.
+    """
+    if not _ui_unlock_required(request):
+        return True
     token = _ui_session_token(request)
     if not token:
         return False

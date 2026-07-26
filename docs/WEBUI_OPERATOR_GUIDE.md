@@ -18,22 +18,26 @@ compelled disclosure.
    `PHASMID_WEBUI_EXPOSE_GADGET=1`; loopback is the default.
 3. Check the visible WebUI-active warning before continuing. Do not expose the
    interface to an untrusted network.
-4. **Unlock the interface.** Every page opens on the access screen until a token
-   is presented. Enter the access token and select **Unlock**.
 
 When the TUI manages the WebUI, it stops the server after ten minutes without
 operator input. Stop it with `w` when the graphical task is complete.
 
 ## Access Token
 
-The WebUI serves no operator page, status poll, or camera stream until the
-browser holds a page session, and a page session is created only by presenting
-the access token at `/unlock`.
+**Browsing from the device itself needs no token.** A browser on
+`http://127.0.0.1:8000` is served directly, because it is already on a machine
+whose TUI has full local control.
 
-- The TUI shows the token in the notification raised when you start the WebUI
-  with `w`.
+**Browsing from another machine does.** A USB-tethered laptop, or anything
+reached through an explicit `PHASMID_HOST`, opens on the access screen. Enter the
+access token, select **Unlock**, and the rest of the interface becomes
+available.
+
+Where to find the token:
+
+- The TUI shows it in the notification raised when you start the WebUI with `w`.
 - `python3 -m phasmid.web_server` prints it at startup.
-- While the WebUI runs, it is also readable at `<state dir>/webui_token`.
+- While the WebUI runs, it is readable at `<state dir>/webui_token`.
 - Set `PHASMID_WEB_TOKEN` to pin a known token across restarts, for example when
   scripting a demo. Otherwise a fresh token is generated per process.
 
@@ -42,10 +46,23 @@ The session cookie is `HttpOnly`, bound to the client address, and expires after
 server with `w` — when you step away; closing the browser tab alone leaves the
 session valid until it expires.
 
-This gate keeps a network or USB-tethered peer from reading operator pages,
-harvesting the mutation token, or watching the camera stream. It is not a
-defense against another process running as the same user on the device, which
-can read the token file directly.
+Handing the token to a tethered host grants it operator access. Treat it as you
+would handing over the device.
+
+## Reaching the WebUI by Name
+
+The WebUI accepts requests addressed by IP address or `localhost`, and rejects
+requests addressed by a DNS name with a `400`. This blocks a browser-based
+attack in which a page the operator visits repoints its own domain at the WebUI.
+
+If you genuinely reach the device by name — `phasmid.local` over mDNS, for
+example — list it in `PHASMID_ALLOWED_HOSTS`:
+
+```bash
+PHASMID_ALLOWED_HOSTS=phasmid.local phasmid
+```
+
+Prefer the address shown by the TUI, which needs no configuration.
 
 ## Home
 

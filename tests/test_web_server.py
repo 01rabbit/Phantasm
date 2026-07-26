@@ -20,6 +20,10 @@ from phasmid.restricted_actions import (
     evaluate_restricted_action,
 )
 
+# A USB-gadget peer: a separate machine, and the caller the page gate exists for.
+REMOTE_CLIENT = "10.55.0.2"
+GADGET_BIND = "10.55.0.1"
+
 
 class WebServerBoundaryTests(unittest.TestCase):
     def tearDown(self):
@@ -166,20 +170,27 @@ class WebServerBoundaryTests(unittest.TestCase):
         self.assertTrue(status["camera_ready"])
         self.assertEqual(status["camera_backend"], "stream")
 
-    def test_require_ui_unlock_rejects_request_without_page_session(self):
+    def test_require_ui_unlock_rejects_remote_request_without_page_session(self):
         request = SimpleNamespace(
-            client=SimpleNamespace(host="127.0.0.1"),
+            client=SimpleNamespace(host=REMOTE_CLIENT),
             cookies={},
         )
         with self.assertRaises(HTTPException) as ctx:
             web_server.require_ui_unlock(request)
         self.assertEqual(ctx.exception.status_code, 423)
 
-    def test_require_ui_unlock_allows_request_with_page_session(self):
-        token = web_server._create_ui_session("127.0.0.1")
+    def test_require_ui_unlock_allows_remote_request_with_page_session(self):
+        token = web_server._create_ui_session(REMOTE_CLIENT)
+        request = SimpleNamespace(
+            client=SimpleNamespace(host=REMOTE_CLIENT),
+            cookies={web_server.UI_SESSION_COOKIE: token},
+        )
+        self.assertIsNone(web_server.require_ui_unlock(request))
+
+    def test_require_ui_unlock_allows_loopback_request(self):
         request = SimpleNamespace(
             client=SimpleNamespace(host="127.0.0.1"),
-            cookies={web_server.UI_SESSION_COOKIE: token},
+            cookies={},
         )
         self.assertIsNone(web_server.require_ui_unlock(request))
 
@@ -1126,15 +1137,35 @@ class WebServerBoundaryTests(unittest.TestCase):
         asyncio.run(run())
 
 
-def _asgi_request(method, path, *, headers=None, cookies=None, body=b"", query=""):
+def _asgi_request(
+    method,
+    path,
+    *,
+    headers=None,
+    cookies=None,
+    body=b"",
+    query="",
+    client=REMOTE_CLIENT,
+    host=None,
+):
     """Drive the ASGI app directly so routing and dependencies really execute.
 
     Route-shape assertions cannot catch an inert dependency, which is exactly
     how the unauthenticated surfaces survived review, so these tests exercise
     the real request path instead.  No lifespan events run, so the server does
     not touch the state directory.
+
+    The default client is a USB-gadget peer rather than loopback, because that
+    is the caller the page-session gate exists for.
     """
-    raw_headers = [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()]
+    raw_headers = [
+        (k.lower().encode(), v.encode())
+        for k, v in (headers or {}).items()
+        if k.lower() != "host"
+    ]
+    if host is None:
+        host = "127.0.0.1:8000" if client == "127.0.0.1" else f"{GADGET_BIND}:8000"
+    raw_headers.append((b"host", host.encode()))
     if cookies:
         jar = "; ".join(f"{name}={value}" for name, value in cookies.items())
         raw_headers.append((b"cookie", jar.encode()))
@@ -1153,8 +1184,8 @@ def _asgi_request(method, path, *, headers=None, cookies=None, body=b"", query="
         "query_string": query.encode(),
         "root_path": "",
         "headers": raw_headers,
-        "client": ("127.0.0.1", 50000),
-        "server": ("127.0.0.1", 8000),
+        "client": (client, 50000),
+        "server": (GADGET_BIND, 8000),
     }
     captured = {"status": None, "headers": [], "body": b""}
 
@@ -1187,10 +1218,12 @@ def _asgi_request(method, path, *, headers=None, cookies=None, body=b"", query="
 
 
 class WebUIPageSessionGateTests(unittest.TestCase):
-    """GHSA-2gm6-2phc-wv26 follow-up: the WebUI must authenticate page access.
+    """GHSA-2gm6-2phc-wv26 follow-up: authenticate page access for remote peers.
 
     Advisory findings 1-3: `_ui_unlocked()` was inert, the mutation token was
     rendered into unauthenticated page HTML, and `/video_feed` had no real gate.
+    A loopback peer is exempt by design (see `LoopbackExemptionTests`); every
+    test here speaks for a USB-gadget or network peer.
     """
 
     def setUp(self):
@@ -1206,28 +1239,30 @@ class WebUIPageSessionGateTests(unittest.TestCase):
         web_server._unlock_attempts._state.clear()
         web_server._access_attempts._state.clear()
 
-    def _unlocked_cookies(self, client_id="127.0.0.1"):
+    def _unlocked_cookies(self, client_id=REMOTE_CLIENT):
         return {web_server.UI_SESSION_COOKIE: web_server._create_ui_session(client_id)}
 
     # ── Finding 1: the page-level gate is no longer a no-op ────────────
 
     def test_ui_unlocked_is_false_without_session_cookie(self):
-        request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), cookies={})
+        request = SimpleNamespace(
+            client=SimpleNamespace(host=REMOTE_CLIENT), cookies={}
+        )
         self.assertFalse(web_server._ui_unlocked(request))
 
     def test_ui_session_is_bound_to_the_issuing_client(self):
-        token = web_server._create_ui_session("127.0.0.1")
+        token = web_server._create_ui_session(REMOTE_CLIENT)
         other_client = SimpleNamespace(
-            client=SimpleNamespace(host="10.0.0.9"),
+            client=SimpleNamespace(host="10.55.0.9"),
             cookies={web_server.UI_SESSION_COOKIE: token},
         )
         self.assertFalse(web_server._ui_unlocked(other_client))
 
     def test_expired_ui_session_is_rejected_and_dropped(self):
-        token = web_server._create_ui_session("127.0.0.1")
+        token = web_server._create_ui_session(REMOTE_CLIENT)
         web_server._ui_sessions[token]["expires_at"] = time.time() - 1
         request = SimpleNamespace(
-            client=SimpleNamespace(host="127.0.0.1"),
+            client=SimpleNamespace(host=REMOTE_CLIENT),
             cookies={web_server.UI_SESSION_COOKIE: token},
         )
         self.assertFalse(web_server._ui_unlocked(request))
@@ -1235,9 +1270,15 @@ class WebUIPageSessionGateTests(unittest.TestCase):
 
     def test_forged_session_cookie_is_rejected(self):
         request = SimpleNamespace(
-            client=SimpleNamespace(host="127.0.0.1"),
+            client=SimpleNamespace(host=REMOTE_CLIENT),
             cookies={web_server.UI_SESSION_COOKIE: "not-a-real-session"},
         )
+        self.assertFalse(web_server._ui_unlocked(request))
+
+    def test_missing_client_address_is_treated_as_remote(self):
+        """Fail closed: an unidentifiable peer must not inherit the exemption."""
+        request = SimpleNamespace(client=None, cookies={})
+        self.assertTrue(web_server._ui_unlock_required(request))
         self.assertFalse(web_server._ui_unlocked(request))
 
     def test_locked_page_request_redirects_to_unlock_not_home(self):
@@ -1288,11 +1329,11 @@ class WebUIPageSessionGateTests(unittest.TestCase):
         self.assertNotIn(web_server.WEB_TOKEN, response["text"])
 
     def test_template_context_withholds_token_until_unlocked(self):
-        locked = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), cookies={})
+        locked = SimpleNamespace(client=SimpleNamespace(host=REMOTE_CLIENT), cookies={})
         self.assertEqual(web_server._template_context(locked)["web_token"], "")
 
         unlocked = SimpleNamespace(
-            client=SimpleNamespace(host="127.0.0.1"),
+            client=SimpleNamespace(host=REMOTE_CLIENT),
             cookies=self._unlocked_cookies(),
         )
         self.assertEqual(
@@ -1412,6 +1453,104 @@ class WebUIPageSessionGateTests(unittest.TestCase):
             )
         self.assertEqual(response["status"], 404)
         silent_brick.assert_not_called()
+
+
+class LoopbackExemptionTests(unittest.TestCase):
+    """A peer on the device itself is not asked for the access token.
+
+    The TUI already has full local control there, so a token prompt costs the
+    operator a step per session and buys nothing.  The exemption is decided from
+    the peer address per request, not from configuration, so a server launched
+    straight through uvicorn without `PHASMID_HOST` cannot fail open.
+    """
+
+    def tearDown(self):
+        web_server._rate_limit.clear()
+        web_server._ui_sessions.clear()
+
+    def test_loopback_peer_is_served_without_a_session(self):
+        for path in ("/", "/store", "/retrieve", "/status"):
+            with self.subTest(path=path):
+                response = _asgi_request("GET", path, client="127.0.0.1")
+                self.assertEqual(response["status"], 200)
+
+    def test_loopback_peer_receives_the_mutation_token(self):
+        response = _asgi_request("GET", "/", client="127.0.0.1")
+        self.assertIn(web_server.WEB_TOKEN, response["text"])
+
+    def test_ipv6_loopback_peer_is_exempt(self):
+        request = SimpleNamespace(client=SimpleNamespace(host="::1"), cookies={})
+        self.assertFalse(web_server._ui_unlock_required(request))
+
+    def test_gadget_peer_is_not_exempt(self):
+        request = SimpleNamespace(
+            client=SimpleNamespace(host=REMOTE_CLIENT), cookies={}
+        )
+        self.assertTrue(web_server._ui_unlock_required(request))
+
+    def test_exemption_does_not_depend_on_configured_bind_host(self):
+        """A wildcard bind must not turn every peer into a loopback peer."""
+        with mock.patch.object(web_server, "web_host", return_value="0.0.0.0"):
+            response = _asgi_request("GET", "/", client=REMOTE_CLIENT)
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["location"], "/unlock")
+
+
+class HostHeaderValidationTests(unittest.TestCase):
+    """DNS rebinding needs a name to rebind; address literals cannot be.
+
+    This is what keeps a page the operator visits on a tethered laptop from
+    repointing at the WebUI and driving it, at no cost to the operator.
+    """
+
+    def tearDown(self):
+        web_server._rate_limit.clear()
+        web_server._ui_sessions.clear()
+
+    def test_dns_name_host_is_rejected(self):
+        response = _asgi_request(
+            "GET", "/", client="127.0.0.1", host="rebind.example.com:8000"
+        )
+        self.assertEqual(response["status"], 400)
+        self.assertNotIn(web_server.WEB_TOKEN, response["text"])
+
+    def test_rebinding_cannot_reach_a_destructive_action(self):
+        with mock.patch.object(web_server.vault, "silent_brick") as silent_brick:
+            response = _asgi_request(
+                "POST",
+                "/emergency/brick",
+                client="127.0.0.1",
+                host="rebind.example.com:8000",
+                headers={"X-Phasmid-Token": web_server.WEB_TOKEN},
+                body=urllib.parse.urlencode(
+                    {"confirmation": web_server.EMERGENCY_BRICK_PHRASE}
+                ).encode(),
+            )
+        self.assertEqual(response["status"], 400)
+        silent_brick.assert_not_called()
+
+    def test_address_literal_and_localhost_are_accepted(self):
+        for host in ("127.0.0.1:8000", "localhost:8000", f"{GADGET_BIND}:8000"):
+            with self.subTest(host=host):
+                response = _asgi_request("GET", "/", client="127.0.0.1", host=host)
+                self.assertEqual(response["status"], 200)
+
+    def test_bracketed_ipv6_host_is_accepted(self):
+        response = _asgi_request("GET", "/", client="::1", host="[::1]:8000")
+        self.assertEqual(response["status"], 200)
+
+    def test_missing_host_header_is_rejected(self):
+        request = SimpleNamespace(headers={})
+        self.assertFalse(web_server._host_header_allowed(request))
+
+    def test_operator_configured_name_is_accepted(self):
+        with mock.patch.object(
+            web_server, "allowed_web_hosts", return_value=frozenset({"phasmid.local"})
+        ):
+            response = _asgi_request(
+                "GET", "/", client="127.0.0.1", host="phasmid.local:8000"
+            )
+        self.assertEqual(response["status"], 200)
 
 
 class RestrictedPhraseAuthorizationTests(unittest.TestCase):

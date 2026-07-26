@@ -14,11 +14,22 @@ GHSA-2gm6-2phc-wv26. 0.2.0 removed *remote reachability* by restoring the
 loopback bind default; these changes address the underlying unauthenticated
 surfaces, which anything able to reach the WebUI still had.
 
-- WebUI page access is authenticated. `_ui_unlocked()` in
-  `src/phasmid/web_server.py` returned `True` unconditionally, so every
-  page-level lock was a no-op. It now validates an `HttpOnly`,
-  `SameSite=Strict` page-session cookie bound to the client address and
-  expiring after `PHASMID_UI_SESSION_SECONDS` (default 1800).
+- WebUI page access is authenticated for any peer that is not on loopback.
+  `_ui_unlocked()` in `src/phasmid/web_server.py` returned `True`
+  unconditionally, so every page-level lock was a no-op. It now validates an
+  `HttpOnly`, `SameSite=Strict` page-session cookie bound to the client address
+  and expiring after `PHASMID_UI_SESSION_SECONDS` (default 1800). A loopback
+  peer is exempt: it is on the device itself, where the TUI already has full
+  local control, so a token prompt there costs a step and adds no boundary. The
+  exemption is decided per request from the peer address, never from
+  configuration, so a server started straight through uvicorn cannot fail open.
+- Requests whose `Host` header is a DNS name are rejected with `400`. This
+  closes DNS rebinding, the attack that makes even a USB-gadget-only deployment
+  reachable: a page the operator visits on the tethered laptop re-resolves its
+  own domain to the gadget address and the browser then treats the WebUI as
+  same-origin. Rebinding needs a name; address literals cannot be rebound. The
+  check costs the operator nothing, so it applies to loopback peers too.
+  `PHASMID_ALLOWED_HOSTS` allows names genuinely used to reach the device.
 - Added `GET`/`POST /unlock` and `POST /lock`. A session is opened by presenting
   the access token; unlock attempts are rate limited and attempt limited.
 - The mutation token is no longer rendered into unauthenticated page HTML.
@@ -42,6 +53,8 @@ surfaces, which anything able to reach the WebUI still had.
 ### Added
 
 - `PHASMID_UI_SESSION_SECONDS` configures the WebUI page-session lifetime.
+- `PHASMID_ALLOWED_HOSTS` lists extra `Host` header names the WebUI accepts,
+  for deployments reached by a DNS or mDNS name such as `phasmid.local`.
 - The WebUI publishes its access token to `<state dir>/webui_token` (mode
   `0600`) while running and removes it at shutdown, so the TUI and a manually
   started server can both show the operator a per-process token.
@@ -49,9 +62,9 @@ surfaces, which anything able to reach the WebUI still had.
 
 ### Changed
 
-- Opening the WebUI now requires entering the access token once per session.
-  This is a deliberate change to the Simple Operator flow: the interface no
-  longer serves operator pages to anything that can reach the bind address.
+- Opening the WebUI from another machine now requires entering the access token
+  once per session. Browsing from the device itself is unchanged, so the Simple
+  Operator flow carries no added step in the default loopback deployment.
 
 ## [0.2.0] - 2026-07-26
 

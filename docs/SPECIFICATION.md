@@ -186,7 +186,11 @@ PYTHONPATH=src python3 -m phasmid.web_server
 
 The default bind address is `127.0.0.1:8000`, for both this command and the TUI `w` key. Binding the USB Ethernet gadget interface instead requires `PHASMID_WEBUI_EXPOSE_GADGET=1`; a wildcard bind requires setting `PHASMID_HOST` explicitly.
 
-Every operator page, `/status`, and `/video_feed` require a page session. A session is created at `/unlock` by presenting the access token (`PHASMID_WEB_TOKEN`, or the per-process token published to `<state dir>/webui_token` and shown by the TUI). The server issues an `HttpOnly`, `SameSite=Strict` cookie bound to the client address, valid for `PHASMID_UI_SESSION_SECONDS`. `POST /lock` drops it. The mutation token is rendered into page HTML only for requests that already hold a session.
+Every operator page, `/status`, and `/video_feed` require a page session for any peer that is not on loopback. A loopback peer is exempt: it is on the device itself, where the TUI already has full local control. The exemption is decided per request from the peer address, not from configuration.
+
+A session is created at `/unlock` by presenting the access token (`PHASMID_WEB_TOKEN`, or the per-process token published to `<state dir>/webui_token` and shown by the TUI). The server issues an `HttpOnly`, `SameSite=Strict` cookie bound to the client address, valid for `PHASMID_UI_SESSION_SECONDS`. `POST /lock` drops it. The mutation token is rendered into page HTML only for requests that already satisfy the gate.
+
+Requests whose `Host` header is a DNS name are rejected with `400`, which blocks DNS rebinding. Address literals and `localhost` are always accepted; add names reached over DNS or mDNS to `PHASMID_ALLOWED_HOSTS`.
 
 WebUI v2 is server-rendered with lightweight JavaScript. It preserves the internal two-slot model while presenting normal operations as protected-entry workflows.
 
@@ -213,7 +217,7 @@ WebUI responses include conservative browser hardening headers such as no-store 
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/unlock` | Access screen; the only page served without a page session |
+| `GET` | `/unlock` | Access screen for non-loopback peers; the only page served without a page session |
 | `POST` | `/unlock` | Open a page session by presenting the access token |
 | `POST` | `/lock` | Drop the page session and any restricted confirmation |
 | `GET` | `/` | Home |
@@ -374,6 +378,7 @@ An experimental policy-layer prototype can evaluate neutral frame signals (for e
 | `PHASMID_DURESS_MODE` | Enable opt-in access-triggered local-state update | `0` |
 | `PHASMID_WEB_TOKEN` | Web access and mutation token | random at start |
 | `PHASMID_UI_SESSION_SECONDS` | WebUI page session lifetime | `1800` |
+| `PHASMID_ALLOWED_HOSTS` | Extra `Host` names accepted beyond address literals | unset |
 | `PHASMID_HOST` | Web bind host; overrides gadget exposure when set | `127.0.0.1` |
 | `PHASMID_WEBUI_EXPOSE_GADGET` | Bind the USB gadget interface address instead of loopback | `0` |
 | `PHASMID_PORT` | Web bind port | `8000` |
