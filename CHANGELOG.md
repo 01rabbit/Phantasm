@@ -7,6 +7,20 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-26
+
+> **Upgrading from 0.2.0 changes how the WebUI is reached from another machine.**
+> Browsing from the device itself is unchanged. A USB-tethered host, or anything
+> reached through an explicit `PHASMID_HOST`, must now present the access token
+> at `/unlock` before it is served operator pages. Pin `PHASMID_WEB_TOKEN` if a
+> script or a demo run-of-show depends on a known value. Deployments reached by
+> a DNS or mDNS name must list that name in `PHASMID_ALLOWED_HOSTS`.
+>
+> This is a MINOR bump rather than MAJOR because the project is pre-1.0 and no
+> `vault.bin` format changed and no claim was removed, per
+> [docs/VERSIONING.md](docs/VERSIONING.md). Treat the WebUI access change as
+> breaking for automation regardless.
+
 ### Security
 
 Follow-up hardening for the weaknesses recorded as unresolved in
@@ -65,6 +79,8 @@ surfaces, which anything able to reach the WebUI still had.
 - Opening the WebUI from another machine now requires entering the access token
   once per session. Browsing from the device itself is unchanged, so the Simple
   Operator flow carries no added step in the default loopback deployment.
+- The primary navigation gains a **Lock** control, shown only where a page
+  session applies. A loopback peer has none to drop.
 
 ## [0.2.0] - 2026-07-26
 
