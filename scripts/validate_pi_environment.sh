@@ -50,7 +50,7 @@ activate_venv_if_present() {
 stage_a_imports() {
   log "Stage A: Python imports"
   if python - <<'PY'
-import importlib
+import importlib.util
 mods = ["picamera2", "cv2", "numpy"]
 missing = [m for m in mods if importlib.util.find_spec(m) is None]
 if missing:

@@ -68,13 +68,18 @@ Current implementation status and evidence paths are tracked in [`docs/IMPLEMENT
 | Requirement | Detail |
 |---|---|
 | Python | 3.10 or later |
-| OS | Linux, macOS (development); Raspberry Pi OS Bookworm/Bullseye (deployment) |
+| OS | Linux, macOS (development); Raspberry Pi OS Trixie or Bookworm, 64-bit (deployment) |
 | Hardware | x86-64 laptop/desktop for development; Raspberry Pi Zero 2 W for field deployment |
 | Camera (optional) | Picamera2 / libcamera — required only for object-cue matching on Pi |
 | WebUI (optional) | Any modern browser; binds `127.0.0.1` by default. USB gadget Ethernet access is opt-in — see [WebUI access](#webui-access) |
 | LUKS (optional) | Linux kernel with dm-crypt — required for the optional LUKS2 storage layer |
 
 For Raspberry Pi deployment, `python3-picamera2` and `python3-libcamera` must be installed via apt before running the bootstrap script.
+
+Deployment is verified on 64-bit Raspberry Pi OS. A 32-bit (`armv7l`) userland
+is not supported: the aarch64 wheels the install path depends on do not exist
+for it. Bullseye is excluded because it ships Python 3.9, below the Python
+requirement above.
 
 ## Hardware Snapshot
 
