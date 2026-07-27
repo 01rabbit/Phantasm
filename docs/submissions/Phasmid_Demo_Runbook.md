@@ -4,8 +4,9 @@
 **画面:** 実TUI（Local Disclosure Control）＋必要に応じてローカルWebUI（127.0.0.1）。
 
 > **情報の確度について**
-> - **確定（TUI実画面で確認済み）:** 下部コマンドバーのキー — `o Open / c Create / i Inspect / f Faces / g Guided / a Audit / d Doctor / s Settings / l LUKS / ? Help / q Quit / w WebUI / ^p palette`、パネル構成（Vessels「Deniable container files」/ Vessel Status / Operator Log）、Operator Log の Dummy Profile 指標（Size / File Count / Occupancy Ratio / Plausibility assessment）、上部警告 `! SYSTEM: n WARN`。
-> - **本番前に確定（ビルド依存・要確認）:** 各キー押下後のサブダイアログの項目名・入力順、**Silent Standby の割当キー**、Faces の物体登録手順の細部、demo/coercion_safe モードの切替UI。→ 本書では 〔要確認〕 と明示。
+> - **確定（0.3.0 実機で確認済み）:** TUIは**2層**。起動時は **Simple Operator** 画面で、フッタは `o Open / n New / g Guided / e Expert / q Quit / w WebUI` の6項目のみ。`e` を押すと **Expert controls** に入り、`Esc Back / o Open / x Close / c Create / i Inspect / f Faces / g Guided / a Audit / d Doctor / s Settings / l LUKS / ? Help / q Quit / w WebUI` が出る。`w`（WebUI）と `Ctrl+S`（Silent Standby）は画面によらず有効で、`Ctrl+S` はフッタに表示されない（`show=False`）。パネル構成（Vessels「Deniable container files」/ Vessel Status / Operator Log）、Operator Log の Dummy Profile 指標（Size / File Count / Occupancy Ratio / Plausibility assessment）、上部警告 `! SYSTEM: n WARN`。
+> - **本番前に確定（ビルド依存・要確認）:** 各キー押下後のサブダイアログの項目名・入力順、Faces の物体登録手順の細部、demo/coercion_safe モードの切替UI。→ 本書では 〔要確認〕 と明示。
+> - **注意:** 本書は 0.3.0（`c74d17f`）で再確認した。0.1.4 までは起動直後が Expert 相当の単層画面だったため、それ以前の手順書のキー順は**そのままでは通らない**。
 
 ---
 
@@ -39,12 +40,12 @@
 - [ ] TUIをホーム画面（`PHASMID / LOCAL DISCLOSURE CONTROL`）で待機。
 - [ ] `! SYSTEM: n WARN` の内容を `press to review` で事前確認し、想定内であることを把握（聴衆に説明できる状態に）。
 - [ ] デモ用パスフレーズ／物体プロップを手元に。**実秘匿は使わない**。
-- [ ] Silent Standby の割当キーを最終確認 〔要確認〕。指が迷わない位置に。
+- [ ] Silent Standby は **`Ctrl+S`**（既定）。`PHASMID_STANDBY_HOTKEY` を設定している場合のみ実値を確認。復帰は **`Ctrl+R`** または **`Esc`**。
 
 ---
 
 ## 3. 初期状態 & リセット / Initial state & reset
-- **初期状態:** Vessels は空（"No vessels registered"）または既知のデモVesselのみ。Operator Log はクリーンまたはデモ用ログ。
+- **初期状態:** 起動直後は **Simple Operator 画面**。Vessels は空（"No vessels registered"）または既知のデモVesselのみ。Operator Log はクリーンまたはデモ用ログ。
 - **各サイクル後リセット:** デモVesselを削除/初期化し、Silent Standby を `active` に戻す。次回のために §7 を実施。
 
 ---
@@ -53,19 +54,21 @@
 > 表記: **キー** = TUI下部バーのキー押下（確定情報）。〔要確認〕= ビルド依存の細部。発話は最小限、手を動かすことを優先。
 
 ### Step 0 — オリエンテーション（0:20）
-- **操作:** ホーム画面を提示。下部コマンドバーを指す。
-- **発話（EN）:** "This is the real TUI — Local Disclosure Control. Watch the bottom bar; everything I do maps to one of these."
-- **画面期待:** `PHASMID` ロゴ、Vessels / Vessel Status / Operator Log、下部バー表示。
+- **操作:** Simple Operator 画面を提示。下部バーを指す。
+- **発話（EN）:** "This is the real TUI — Local Disclosure Control. The home screen is deliberately small: open, new, guided, expert. Under pressure you do not want a wall of options. The full control set is one key away."
+- **画面期待:** `PHASMID` ロゴ、Vessels / Vessel Status / Operator Log、下部バーは `o Open / n New / g Guided / e Expert / q Quit / w WebUI` の6項目。
+- **注意:** この最小面こそが coercion-aware 設計の一部である旨を一言で。Slide 14 の Silent Standby に伏線として繋がる。
 - **注意:** 上部 `! SYSTEM: n WARN` が出ていれば一言で触れる（"and it's honest about its own warnings"）。
 
 ### Step 1 — Create a Vessel（1:00｜Prepare）
-- **操作:** **`c` (Create)** → デモVessel名・サイズ等を入力 〔要確認: 項目/入力順〕。
+- **操作:** **`n` (New)** → デモVessel名・サイズ等を入力 〔要確認: 項目/入力順〕。Simple Operator 画面のまま実行できる。
 - **発話（EN）:** "First I create a **vessel** — a deniable container file. This is the Prepare step."
 - **画面期待:** Vessels 一覧に新規Vesselが出現、Vessel Status に容量/posture が反映。
 - **失敗時:** 作成が滞れば既存デモVesselを **`o` (Open)** して以降を継続。
 
 ### Step 2 — Object cue via Faces（1:20｜Bind, ★cue≠key）
-- **操作:** **`f` (Faces)** → カメラに物体プロップを提示し、キューとして登録/選択 〔要確認: 登録フロー〕。
+- **操作:** まず **`e` (Expert)** で Expert controls に入る → **`f` (Faces)** → カメラに物体プロップを提示し、キューとして登録/選択 〔要確認: 登録フロー〕。
+- **注意（画面遷移）:** Faces / Audit は Simple Operator 画面には**存在しない**。`e` を先に押さないと `f` も `a` も無反応。ここから Step 4 までは Expert に留まる。
 - **発話（EN）:** "Now the object cue — under **Faces**. I show an everyday object to the camera. Remember: this is a **cue, not a key**. It gates the action; it is not the encryption key. A photo of it unlocks nothing."
 - **画面期待:** キュー登録/一致のフィードバック表示。
 - **注意:** ここが概念の要。**必ず cue≠key を口頭で言い切る。** 認識が不安定なら距離/照明を微調整、または `demo` モードで確定的に見せる 〔要確認〕。
@@ -84,7 +87,7 @@
 - **注意:** 「ツールが自分のダミーの弱さを正直に指摘する」点＝倫理スライドと接続。
 
 ### Step 5 — Local WebUI（0:50｜ローカル境界）
-- **操作:** **`w` (WebUI)** で 127.0.0.1 起動 → 画面提示（任意でブラウザ側に切替）。
+- **操作:** **`w` (WebUI)** で 127.0.0.1 起動 → 画面提示（任意でブラウザ側に切替）。`w` はアプリ全体のバインドで、Simple / Expert のどちらからでも効く。
 - **発話（EN）:** "The same controls are available over a **local WebUI** — bound to 127.0.0.1 by default. Reaching it from a tethered laptop over USB is an explicit opt-in that binds only the USB interface. It never touches a network."
 - **画面期待:** WebUI 起動通知／localhost URL。TUIには露出バナー等 〔要確認〕。
 - **注意:** ブラウザに切替える場合は**事前にタブ用意**。切替に手間取るならTUI内表示のみで可。TUIバナーには実際のbindアドレスが表示される。
@@ -92,7 +95,8 @@
 - **失敗時:** 起動が遅ければ口頭説明に留め、TUIへ戻る（時間優先）。
 
 ### Step 6 — Silent Standby → dummy_disclosure（1:00｜★Disclose 山場）
-- **操作:** **Silent Standby 割当キー** 〔要確認〕を押下 → 状態が `active → standby`（必要に応じ `sealed`）→ **`dummy_disclosure`** へ。
+- **操作:** **`Ctrl+S`** を押下 → 状態が `active → standby`（必要に応じ `sealed`）→ **`dummy_disclosure`** へ。復帰は **`Ctrl+R`** または **`Esc`**（Re-authenticate）。
+- **注意（キーの所在）:** `Ctrl+S` はフッタに表示されない設計のため、画面を見ても場所が分からない。**指で覚えておくこと。**
 - **発話（EN）:** "Now the moment it's built for. One hotkey — **Silent Standby**. The sensitive surface drops away, and under pressure I can present a **dummy disclosure**. Recovery needs re-auth. I'm not hiding from forensics — I'm buying **time** and **uncertainty**."
 - **画面期待:** UIが非機微状態へ遷移、ダミー開示ビュー提示。状態表示 `dummy_disclosure`。
 - **注意:** **本デモの山**。ゆっくり、間を取る。倫理（Slide 21）に接続して締める。
@@ -100,7 +104,7 @@
 
 ### Step 7 — ラップ（0:10）
 - **発話（EN）:** "That's Prepare, Bind, Operate, Disclose — on real hardware. Come try it at the table."
-- **操作:** ホームへ戻す。プロジェクタ入力をスライドへ復帰（Slide 25）。
+- **操作:** Expert にいる場合は **`Esc`** で Simple Operator へ戻す。プロジェクタ入力をスライドへ復帰（Slide 25）。
 
 ---
 
@@ -130,7 +134,9 @@
 ---
 
 ## 8. 本番前に確定する項目 / Fill-ins（作者のみ設定可）
-- [ ] **Silent Standby の割当キー**（Step 6）。
+
+> 0.3.0 実機で確定済み（本書に反映済み・再確認不要）: Silent Standby = `Ctrl+S`、復帰 = `Ctrl+R` / `Esc`、`w` はアプリ全体バインド、2層の画面構成とフッタ内容。
+
 - [ ] Create ダイアログの項目名・入力順（Step 1）。
 - [ ] Faces の物体登録フロー詳細（Step 2）。
 - [ ] 認識モード切替UI（`demo` / `coercion_safe`）の操作（設営時／失敗時）。
