@@ -125,8 +125,8 @@
 **JA:** 呼吸を整え実機へ。プロジェクタ入力をTUIへ切替。**バックアップ録画の頭出しを確認。**
 
 ## [19:20] Slide 24 — Live demo（実TUI）　★中心 / 約7分
-**EN（最小限・手を動かしながら）:** "This is the real TUI — **Local Disclosure Control**. I'll **create a vessel**, set the object cue under **Faces**, run the **Guided** flow, check dummy-profile plausibility in **Audit**, launch the local **WebUI**, then trigger **Silent Standby** and show the dummy disclosure. Watch the bottom bar."
-**JA:** 詳細手順は別紙 **Phasmid_Demo_Runbook** を参照。話しすぎない／画面を指す／各ステップで一呼吸。**7分で切り上げ、Q&Aに15分以上を残す。** 失敗時は録画へ切替し設計点を口頭補強。
+**EN（最小限・手を動かしながら）:** "This is the real TUI — **Local Disclosure Control**. The home screen is deliberately small — four actions, nothing else. Under pressure you do not want a wall of options. I'll **create protected storage**, then open **Expert** controls with one key: set the object cue under **Faces**, run the **Guided** flow, check dummy-profile plausibility in **Audit**, launch the local **WebUI**, then trigger **Silent Standby** and show the dummy disclosure."
+**JA:** 詳細手順は別紙 **Phasmid_Demo_Runbook** を参照。キー順（0.3.0 実機確認済み）: `n` New → `e` Expert → `f` Faces → `g` Guided → `a` Audit → `w` WebUI → `Ctrl+S` Silent Standby（復帰 `Ctrl+R`）。話しすぎない／画面を指す／各ステップで一呼吸。**7分で切り上げ、Q&Aに15分以上を残す。** 失敗時は録画へ切替し設計点を口頭補強。
 
 ## [26:20] Slide 25 — Quick start
 **EN:** "Want to try it? Clone the repo, cd in, run `./phasmid` — first run sets up a venv and opens the console. Research software, Apache-2.0. Evaluate it locally, in field-test conditions — not as production protection."

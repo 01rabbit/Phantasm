@@ -58,6 +58,19 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Changed
 
+- The DEF CON Demo Labs materials described a TUI that no longer exists. The
+  runbook, the talk script and slide 24 of the deck all documented one command
+  bar -- `o c i f g a d s l ? q w` -- which 0.2.0 replaced with a two-layer
+  surface: a Simple Operator home screen and Expert controls behind `e`.
+  Following the old sequence on stage would have pressed `c` for Create and `f`
+  for Faces on a screen that binds neither, and the deck would have projected a
+  key bar the audience could see did not match the live terminal beside it. All
+  three artifacts now match the 0.3.0 build, checked against the running
+  application rather than read off the source: the home footer, the expert
+  footer, `Ctrl+S` for Silent Standby with `Ctrl+R` or `Esc` to recover, and `w`
+  as an application-level binding that works from either screen. Three of the
+  runbook's open fill-ins are closed as a result, including the Silent Standby
+  key, which the demo's climax depended on and which was still blank.
 - `README.md` named Bookworm and Bullseye as the deployment targets. Bullseye
   ships Python 3.9 and cannot satisfy the Python 3.10 requirement stated two rows
   above it in the same table. The row now names Trixie and Bookworm and states
