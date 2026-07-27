@@ -27,6 +27,7 @@ dump.txt
 *.bin
 models/object_gate/
 release/
+_pi_field_test/
 report.json
 refactor-instructions.md
 phasmid-autotest/
