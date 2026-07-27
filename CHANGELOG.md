@@ -7,6 +7,16 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Fixed
+
+- Expert controls are no longer a one-way trip. `escape` returns to the Simple
+  Operator screen, matching every other pushed screen in the TUI; previously the
+  only way out was `q`, which quits the application, so reaching Expert controls
+  ended the simple surface for the rest of the session. The protected storage
+  list is refreshed on return, so work done in Expert controls is reflected
+  immediately. `docs/TUI_OPERATOR_CONSOLE.md` documented the old behaviour as a
+  caveat and now documents the return path and the full Expert key table.
+
 ### Changed
 
 - `SECURITY.md` now states supported versions concretely rather than by
