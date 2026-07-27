@@ -30,9 +30,31 @@ and this project follows SemVer-style release intent for documented interfaces.
   `/unlock`, and `curl -sf` treats that 303 as success, so the probe would time
   an empty redirect and report meaningless latency. It now requires HTTP 200 and
   fails with an explanation when it sees the unlock redirect.
+- `scripts/bootstrap_pi.sh` aborted before it created the virtualenv on
+  Raspberry Pi OS Trixie. The apt package list named `libatlas-base-dev`, which
+  Debian 13 dropped, and `set -e` turned that one missing candidate into a total
+  failure: no `.venv`, no editable install, no usable device, from a script whose
+  whole job is to produce one. The list now names `libopenblas-dev`, which the
+  supported releases ship and which `scripts/pi_zero2w/README.md` and
+  `docs/PI_ZERO2W_FIELD_TEST.md` already prescribed, so the repository no longer
+  contradicts itself about its own dependencies. Packages with no installation
+  candidate are reported and skipped instead of ending the run, because the BLAS
+  development headers only matter when no wheel is available and numpy has to be
+  built from source.
+- `scripts/validate_pi_environment.sh` recorded Stage A as failed on every run
+  under Python 3.13. The probe did `import importlib` and then called
+  `importlib.util.find_spec`; importing the parent package does not bind `util`
+  as an attribute, so the check raised `AttributeError` and was recorded as a
+  missing-import failure while picamera2, cv2 and numpy were in fact all
+  importable. It now imports `importlib.util` directly.
 
 ### Changed
 
+- `README.md` named Bookworm and Bullseye as the deployment targets. Bullseye
+  ships Python 3.9 and cannot satisfy the Python 3.10 requirement stated two rows
+  above it in the same table. The row now names Trixie and Bookworm and states
+  the 64-bit requirement the install path already depended on; a note below the
+  table records why 32-bit and Bullseye are excluded.
 - `SECURITY.md` now states supported versions concretely rather than by
   reference to "the latest release line", links the published advisories, and
   names GitHub private vulnerability reporting as the preferred intake channel.

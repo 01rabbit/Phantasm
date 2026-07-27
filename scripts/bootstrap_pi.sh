@@ -36,7 +36,7 @@ apt_install() {
     python3-dev
     build-essential
     pkg-config
-    libatlas-base-dev
+    libopenblas-dev
   )
 
   local -a sudo_prefix=()
@@ -46,7 +46,37 @@ apt_install() {
 
   log "Installing apt dependencies..."
   "${sudo_prefix[@]}" apt-get update
-  "${sudo_prefix[@]}" apt-get install -y "${packages[@]}"
+
+  # A package that a newer Debian release has dropped must not abort the
+  # whole bootstrap under `set -e`. libatlas-base-dev did exactly that on
+  # trixie: it has no installation candidate there, so apt-get exited
+  # non-zero and the virtualenv was never created. Install what this
+  # release actually ships and report the rest -- the BLAS development
+  # headers only matter when no wheel is available and numpy has to be
+  # built from source.
+  local -a available=() unavailable=()
+  local pkg candidate
+  for pkg in "${packages[@]}"; do
+    candidate="$(apt-cache policy "$pkg" 2>/dev/null \
+      | awk '/Candidate:/ { print $2 }')"
+    if [[ -n "$candidate" && "$candidate" != "(none)" ]]; then
+      available+=("$pkg")
+    else
+      unavailable+=("$pkg")
+    fi
+  done
+
+  if [[ ${#unavailable[@]} -gt 0 ]]; then
+    warn "No installation candidate on this release: ${unavailable[*]}"
+    warn "Continuing without them. Revisit if a later stage fails."
+  fi
+
+  if [[ ${#available[@]} -eq 0 ]]; then
+    warn "No apt dependencies resolved. Check the apt sources."
+    return 1
+  fi
+
+  "${sudo_prefix[@]}" apt-get install -y "${available[@]}"
 }
 
 prepare_venv() {
