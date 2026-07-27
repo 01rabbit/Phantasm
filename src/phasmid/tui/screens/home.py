@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 class HomeScreen(OperatorScreen):
     BINDINGS = [
+        Binding("escape", "dismiss", "Back"),
         Binding("o", "open_vessel", "Open"),
         Binding("x", "close_vessel", "Close"),
         Binding("c", "create_vessel", "Create"),

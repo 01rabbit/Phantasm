@@ -166,7 +166,8 @@ class SimpleHomeScreen(OperatorScreen):
         from .home import HomeScreen
 
         self.app.push_screen(
-            HomeScreen(initial_vessel_path=self._selected_path() or None)
+            HomeScreen(initial_vessel_path=self._selected_path() or None),
+            lambda _: self._refresh_table(),
         )
 
     def action_help(self) -> None:

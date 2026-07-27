@@ -1528,3 +1528,51 @@ def test_vessel_meta_defaults_name_from_path():
 
     v = VesselMeta(path=Path("/tmp/travel.vessel"))
     assert v.name == "travel.vessel"
+
+
+# ---------------------------------------------------------------------------
+# Simple Operator <-> Expert navigation
+# ---------------------------------------------------------------------------
+
+
+def test_expert_controls_have_back_binding():
+    """Expert controls must offer a way back, not only Quit.
+
+    Every other pushed screen binds `escape` to `dismiss`; the Expert console
+    was the one exception, which made entering it one-way for the session.
+    """
+    from phasmid.tui.screens.home import HomeScreen
+
+    bindings = {(b.key, b.action) for b in HomeScreen.BINDINGS}
+    assert ("escape", "dismiss") in bindings
+    # `q` still quits, matching the rest of the TUI.
+    assert ("q", "quit") in bindings
+
+
+def test_expert_entry_refreshes_simple_home_on_return(monkeypatch):
+    """Returning from Expert controls refreshes the protected storage list."""
+    from phasmid.tui.screens.home import HomeScreen
+    from phasmid.tui.screens.simple_home import SimpleHomeScreen
+
+    screen = SimpleHomeScreen.__new__(SimpleHomeScreen)
+    refreshed: list[bool] = []
+    monkeypatch.setattr(SimpleHomeScreen, "_selected_path", lambda self: "")
+    monkeypatch.setattr(
+        SimpleHomeScreen, "_refresh_table", lambda self: refreshed.append(True)
+    )
+
+    pushed: dict = {}
+
+    class FakeApp:
+        def push_screen(self, screen_obj, callback=None):
+            pushed["screen"] = screen_obj
+            pushed["callback"] = callback
+
+    monkeypatch.setattr(SimpleHomeScreen, "app", property(lambda self: FakeApp()))
+
+    screen.action_expert()
+
+    assert isinstance(pushed["screen"], HomeScreen)
+    assert pushed["callback"] is not None, "no return callback: list would go stale"
+    pushed["callback"](None)
+    assert refreshed == [True]
