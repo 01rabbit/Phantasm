@@ -50,6 +50,29 @@ The script will:
 8. Probe the WebUI startup, response latency, and shutdown
 9. Copy results back to `release/pi-zero2w/` on the Mac
 
+## Pre-demo smoke test
+
+Separate from the performance run. Run it on the device, from the repository
+root, before a demonstration:
+
+```bash
+bash scripts/pi_zero2w/run_demo_smoke_test.sh
+```
+
+It asserts what a shell can assert — bind-host resolution, WebUI startup, access
+token publication and permissions, the `/unlock` page-session flow, the Silent
+Standby transitions, and clean shutdown — then prints the steps that need a
+human, because a camera and a projector cannot be checked from a script. It
+exits non-zero if any automated check fails.
+
+State is redirected to a scratch directory and the port defaults to 8099, so a
+running operator WebUI and the real state directory are left alone.
+
+Add `PHASMID_WEBUI_EXPOSE_GADGET=1` to additionally assert that the USB gadget
+path resolves to a single gadget address rather than to all interfaces. Without
+a `usb0`/`enx*` address present the check fails by design: that is exactly the
+condition in which a browser on the attached laptop cannot reach the WebUI.
+
 ## Results
 
 | File | Contents |

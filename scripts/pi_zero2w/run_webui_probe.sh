@@ -15,6 +15,10 @@
 #   PHASMID_DEBUG=0
 #
 # PHASMID_TMPFS_STATE must NOT be set. run_remote_perf.sh strips it.
+#
+# PHASMID_HOST must stay loopback. Since 0.3.0 the WebUI requires a page session
+# for non-loopback peers, so pointing this probe at a routable address measures
+# redirects to /unlock rather than the home page.
 
 set -uo pipefail
 
@@ -67,9 +71,20 @@ for i in $(seq 1 $MAX_WAIT_S); do
         tail -20 "$WEBUI_LOG" >&2
         exit 1
     fi
-    if curl -sf --max-time 2 "$BASE_URL/" > /dev/null 2>&1; then
+    # Assert 200 rather than "curl did not fail". Since 0.3.0 a non-loopback
+    # peer without a page session is redirected to /unlock, and `curl -sf`
+    # treats that 303 as success — the probe would then time an empty redirect
+    # instead of the home page and report latency that means nothing.
+    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "$BASE_URL/" 2>/dev/null)"
+    if [[ "$code" == "200" ]]; then
         STARTED=1
         break
+    fi
+    if [[ "$code" == "302" || "$code" == "303" ]]; then
+        printf '[webui] ERROR: %s redirected to the unlock page (HTTP %s).\n' "$BASE_URL/" "$code" >&2
+        printf '[webui] Page access requires a session for non-loopback peers since 0.3.0.\n' >&2
+        printf '[webui] Run this probe on the device against 127.0.0.1, which is exempt.\n' >&2
+        exit 1
     fi
     sleep 1
 done
