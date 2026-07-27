@@ -14,6 +14,14 @@ and this project follows SemVer-style release intent for documented interfaces.
   names GitHub private vulnerability reporting as the preferred intake channel.
   A Scope note points at the accepted residual risks in `docs/THREAT_MODEL.md`
   and `docs/NON_CLAIMS.md` so documented limits are not re-reported as findings.
+- The CI formatting gate now inspects files. `[tool.black] include` in
+  `pyproject.toml` was `'\\.pyi?$'`, a regex matching no real path, so every
+  black invocation reported "No Python files are present to be formatted" and
+  exited 0. The workflow also ran an in-place `black` before `black --check`,
+  which reformatted whatever the check would have caught, so the check could
+  not fail even once the pattern was repaired. The pattern is corrected, the
+  mutating step is replaced by a single `black --check --diff`, and the 16
+  files that drifted behind the dead gate are reformatted.
 
 ## [0.3.0] - 2026-07-26
 
