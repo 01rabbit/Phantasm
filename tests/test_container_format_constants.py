@@ -49,7 +49,9 @@ class ContainerFormatConstantsTests(unittest.TestCase):
     def test_container_layout_capacity_uses_record_overhead(self):
         with tempfile.NamedTemporaryFile(delete=False) as handle:
             container_path = handle.name
-        self.addCleanup(lambda: os.path.exists(container_path) and os.unlink(container_path))
+        self.addCleanup(
+            lambda: os.path.exists(container_path) and os.unlink(container_path)
+        )
 
         container_size = 4096
         layout = ContainerLayout(container_path, container_size)

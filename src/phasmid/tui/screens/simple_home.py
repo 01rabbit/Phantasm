@@ -121,7 +121,10 @@ class SimpleHomeScreen(OperatorScreen):
                 vessel.size_human,
                 str(file_count),
             )
-            if self._initial_vessel_path and str(vessel.path) == self._initial_vessel_path:
+            if (
+                self._initial_vessel_path
+                and str(vessel.path) == self._initial_vessel_path
+            ):
                 initial_row = index
         if initial_row is not None:
             table.move_cursor(row=initial_row)

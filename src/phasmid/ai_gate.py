@@ -115,7 +115,9 @@ class AIGate:
             raise ValueError("unsupported local entry")
 
     def _reference_state_from_image(self, image: Any) -> dict[str, Any] | None:
-        return cast(dict[str, Any] | None, self.matcher.reference_state_from_image(image))
+        return cast(
+            dict[str, Any] | None, self.matcher.reference_state_from_image(image)
+        )
 
     def _to_gray(self, image: Any) -> Any:
         return self.matcher.to_gray(image)
@@ -251,9 +253,7 @@ class AIGate:
         self.object_detected = True
         self.match_states = {mode: mode == matched_mode for mode in self.MODES}
 
-    def _update_match_result_from_gate_results(
-        self, results: dict[str, Any]
-    ) -> None:
+    def _update_match_result_from_gate_results(self, results: dict[str, Any]) -> None:
         if any(result.state == "ambiguous" for result in results.values()):
             self.latest_gate_results = results
             self.last_match_mode = self.MATCH_AMBIGUOUS

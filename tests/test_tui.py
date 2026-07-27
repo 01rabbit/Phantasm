@@ -1215,7 +1215,9 @@ def test_create_vessel_screen_uses_shared_workflow(monkeypatch):
             )
         ),
     )
-    monkeypatch.setattr(screen, "dismiss", lambda: created.setdefault("dismissed", True))
+    monkeypatch.setattr(
+        screen, "dismiss", lambda: created.setdefault("dismissed", True)
+    )
     monkeypatch.setattr(
         screen,
         "query_one",
@@ -1248,7 +1250,12 @@ def test_open_vessel_screen_marks_vessel_open(monkeypatch):
             events.append(("open", path, face_id))
 
         def retrieve_file(
-            self, path, passphrase, output_path=None, selector=None, use_attempt_limiter=False
+            self,
+            path,
+            passphrase,
+            output_path=None,
+            selector=None,
+            use_attempt_limiter=False,
         ):
             events.append(("retrieve", path, passphrase, output_path, selector))
             return SimpleNamespace(bytes_retrieved=4, output_path=Path("/tmp/out.bin"))
@@ -1296,7 +1303,9 @@ def test_face_manager_screen_uses_shared_workflow(monkeypatch):
 
     from phasmid.tui.screens.face_manager import FaceManagerScreen
 
-    vessel = SimpleNamespace(path=Path("/tmp/travel.vessel"), name="travel.vessel", faces=[])
+    vessel = SimpleNamespace(
+        path=Path("/tmp/travel.vessel"), name="travel.vessel", faces=[]
+    )
     screen = FaceManagerScreen(vessel=vessel)
     events = []
 
@@ -1356,20 +1365,29 @@ def test_face_manager_screen_uses_shared_workflow(monkeypatch):
         ),
     )
 
-    table = SimpleNamespace(clear=lambda: events.append(("clear",)), add_row=lambda *args: events.append(("row", args)))
+    table = SimpleNamespace(
+        clear=lambda: events.append(("clear",)),
+        add_row=lambda *args: events.append(("row", args)),
+    )
     monkeypatch.setattr(
         screen,
         "query_one",
         lambda selector, _type=None: {
             "#face-id": SimpleNamespace(value="face_b"),
             "#new-label": SimpleNamespace(value="travel"),
-            "#plausibility-summary": SimpleNamespace(update=lambda value: events.append(("summary", value))),
+            "#plausibility-summary": SimpleNamespace(
+                update=lambda value: events.append(("summary", value))
+            ),
             DataTable: table,
         }[selector],
     )
 
-    screen.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="add-label-btn")))
-    screen.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="inspect-plausibility-btn")))
+    screen.on_button_pressed(
+        SimpleNamespace(button=SimpleNamespace(id="add-label-btn"))
+    )
+    screen.on_button_pressed(
+        SimpleNamespace(button=SimpleNamespace(id="inspect-plausibility-btn"))
+    )
 
     assert ("create_face", Path("/tmp/travel.vessel"), "face_b", "travel") in events
     assert ("inspect_plausibility", Path("/tmp/travel.vessel"), "face_b") in events

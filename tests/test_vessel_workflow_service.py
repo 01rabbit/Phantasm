@@ -37,11 +37,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             output_path = Path(tmpdir) / "recovered.txt"
             input_path.write_text("field note", encoding="utf-8")
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 created = svc.create_vessel(vessel_path, "8M")
                 self.assertTrue(created.vessel_path.exists())
@@ -75,11 +78,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             input_path.write_text("field note", encoding="utf-8")
             self._write_object_image(image_path, (20, 120, 220))
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 stored = svc.add_file(
@@ -93,7 +99,10 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                 self.assertEqual(stored.bytes_stored, len(b"field note"))
                 inspection = InspectionService().inspect(vessel_path)
                 labels = {field.label: field.value for field in inspection.fields}
-                self.assertIn("face_a:credentials=ready:object=ready", labels["Face Credential State"])
+                self.assertIn(
+                    "face_a:credentials=ready:object=ready",
+                    labels["Face Credential State"],
+                )
 
     def test_first_add_initializes_face_b_credentials(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -104,11 +113,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             input_path.write_text("field note", encoding="utf-8")
             self._write_object_image(image_path, (220, 40, 40))
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 stored = svc.add_file(
@@ -133,11 +145,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             state_dir = Path(tmpdir) / "state"
             vessel_path = Path(tmpdir) / "travel.vessel"
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 with self.assertRaises(FileExistsError):
@@ -148,11 +163,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             state_dir = Path(tmpdir) / "state"
             vessel_path = Path(tmpdir) / "travel.vessel"
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
 
@@ -167,11 +185,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             state_dir = Path(tmpdir) / "state"
             vessel_path = Path(tmpdir) / "travel.vessel"
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M", label="travel")
 
@@ -191,7 +212,9 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                 self.assertTrue(reopened.vessel.is_open)
                 self.assertEqual(reopened.vessel.open_count, 2)
                 self.assertEqual(reopened.vessel.label, "travel")
-                self.assertEqual(reopened.vessel.last_closed_at, closed.vessel.last_closed_at)
+                self.assertEqual(
+                    reopened.vessel.last_closed_at, closed.vessel.last_closed_at
+                )
 
                 inspection = InspectionService().inspect(vessel_path)
                 self.assertTrue(inspection.ok)
@@ -204,11 +227,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             output_path = Path(tmpdir) / "recovered.txt"
             input_path.write_text("field note", encoding="utf-8")
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 face = svc.create_face(vessel_path, "face_b", label="travel")
@@ -217,7 +243,9 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                 self.assertTrue(face.face.created_at)
 
                 opened = svc.open_vessel(vessel_path, face_id="face_b")
-                opened_face = next(face for face in opened.vessel.faces if face.face_id == "face_b")
+                opened_face = next(
+                    face for face in opened.vessel.faces if face.face_id == "face_b"
+                )
                 self.assertEqual(opened_face.status, "open")
                 self.assertTrue(opened_face.last_accessed)
 
@@ -233,13 +261,17 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                 self.assertEqual(stored.mode, "secret")
 
                 closed = svc.close_vessel(vessel_path)
-                closed_face = next(face for face in closed.vessel.faces if face.face_id == "face_b")
+                closed_face = next(
+                    face for face in closed.vessel.faces if face.face_id == "face_b"
+                )
                 self.assertEqual(closed_face.status, "occupied")
                 self.assertEqual(closed_face.occupancy, len(b"field note"))
                 self.assertEqual(closed_face.file_count, 1)
 
                 reopened = svc.open_vessel(vessel_path, face_id="face_b")
-                reopened_face = next(face for face in reopened.vessel.faces if face.face_id == "face_b")
+                reopened_face = next(
+                    face for face in reopened.vessel.faces if face.face_id == "face_b"
+                )
                 self.assertEqual(reopened_face.label, "travel")
                 self.assertEqual(reopened_face.occupancy, len(b"field note"))
 
@@ -269,11 +301,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             file_x.write_text("alpha", encoding="utf-8")
             file_y.write_text("bravo", encoding="utf-8")
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 cue_a = ["reference_dummy_matched"]
@@ -376,11 +411,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             state_dir = Path(tmpdir) / "state"
             vessel_path = Path(tmpdir) / "travel.vessel"
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
 
@@ -423,11 +461,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             note_path = Path(tmpdir) / "note.txt"
             note_path.write_text("field note", encoding="utf-8")
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 cue_sequence = ["reference_dummy_matched"]
@@ -475,11 +516,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             self._write_object_image(first_image, (20, 120, 220))
             self._write_object_image(second_image, (220, 40, 40))
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 svc.add_file(
@@ -520,7 +564,9 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                     selector="face_a",
                     object_image_path=str(first_image),
                 )
-                self.assertEqual([item.name for item in listing_after.files], ["note.txt"])
+                self.assertEqual(
+                    [item.name for item in listing_after.files], ["note.txt"]
+                )
 
     def test_second_add_wrong_access_password_fails(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -533,11 +579,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             second_file.write_text("bravo", encoding="utf-8")
             self._write_object_image(image_path, (20, 120, 220))
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 svc.add_file(
@@ -569,11 +618,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             second_file.write_text("bravo", encoding="utf-8")
             self._write_object_image(image_path, (20, 120, 220))
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 svc.add_file(
@@ -610,11 +662,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             note_path.write_text("field note", encoding="utf-8")
             self._write_object_image(image_path, (20, 120, 220))
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 svc.add_file(
@@ -650,7 +705,9 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                         object_image_path=str(image_path),
                     )
 
-    def test_emergency_destroy_face_requires_correct_object_password_and_confirmation(self):
+    def test_emergency_destroy_face_requires_correct_object_password_and_confirmation(
+        self,
+    ):
         with tempfile.TemporaryDirectory() as tmpdir:
             state_dir = Path(tmpdir) / "state"
             vessel_path = Path(tmpdir) / "travel.vessel"
@@ -663,11 +720,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             self._write_object_image(image_a, (20, 120, 220))
             self._write_object_image(image_b, (220, 40, 40))
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 svc.add_file(
@@ -734,11 +794,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             image_a = Path(tmpdir) / "object-a.png"
             self._write_object_image(image_a, (20, 120, 220))
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 with self.assertRaisesRegex(ValueError, "credentials not initialized"):
@@ -763,11 +826,14 @@ class VesselWorkflowServiceTests(unittest.TestCase):
             self._write_object_image(image_a, (20, 120, 220))
             self._write_object_image(image_b, (220, 40, 40))
 
-            with mock.patch.dict(
-                os.environ,
-                {"PHASMID_STATE_DIR": str(state_dir)},
-                clear=False,
-            ), self._patch_registry_dir(tmpdir):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
                 svc = VesselWorkflowService()
                 svc.create_vessel(vessel_path, "8M")
                 svc.add_file(

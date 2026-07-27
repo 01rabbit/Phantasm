@@ -172,9 +172,15 @@ class CLITests(unittest.TestCase):
             unittest.mock.patch.object(
                 cli, "apply_process_hardening", return_value=None
             ),
-            unittest.mock.patch.object(cli, "require_volatile_state", return_value=None),
+            unittest.mock.patch.object(
+                cli, "require_volatile_state", return_value=None
+            ),
             unittest.mock.patch.object(cli, "_run_startup_checks", return_value=True),
-            unittest.mock.patch.object(sys, "argv", ["phasmid", "open", "travel.vessel", "--no-tui", "--face", "face_b"]),
+            unittest.mock.patch.object(
+                sys,
+                "argv",
+                ["phasmid", "open", "travel.vessel", "--no-tui", "--face", "face_b"],
+            ),
             unittest.mock.patch.object(
                 cli, "VesselWorkflowService", return_value=FakeWorkflowService()
             ),
@@ -192,15 +198,21 @@ class CLITests(unittest.TestCase):
         class FakeWorkflowService:
             def close_vessel(self, path):
                 events.append(("close", path))
-                return type("Result", (), {"vessel": type("Vessel", (), {"path": path})()})()
+                return type(
+                    "Result", (), {"vessel": type("Vessel", (), {"path": path})()}
+                )()
 
         with (
             unittest.mock.patch.object(
                 cli, "apply_process_hardening", return_value=None
             ),
-            unittest.mock.patch.object(cli, "require_volatile_state", return_value=None),
+            unittest.mock.patch.object(
+                cli, "require_volatile_state", return_value=None
+            ),
             unittest.mock.patch.object(cli, "_run_startup_checks", return_value=True),
-            unittest.mock.patch.object(sys, "argv", ["phasmid", "close", "travel.vessel"]),
+            unittest.mock.patch.object(
+                sys, "argv", ["phasmid", "close", "travel.vessel"]
+            ),
             unittest.mock.patch.object(
                 cli, "VesselWorkflowService", return_value=FakeWorkflowService()
             ),
@@ -231,12 +243,23 @@ class CLITests(unittest.TestCase):
             unittest.mock.patch.object(
                 cli, "apply_process_hardening", return_value=None
             ),
-            unittest.mock.patch.object(cli, "require_volatile_state", return_value=None),
+            unittest.mock.patch.object(
+                cli, "require_volatile_state", return_value=None
+            ),
             unittest.mock.patch.object(cli, "_run_startup_checks", return_value=True),
             unittest.mock.patch.object(
                 sys,
                 "argv",
-                ["phasmid", "face", "create", "travel.vessel", "--face", "face_b", "--label", "travel"],
+                [
+                    "phasmid",
+                    "face",
+                    "create",
+                    "travel.vessel",
+                    "--face",
+                    "face_b",
+                    "--label",
+                    "travel",
+                ],
             ),
             unittest.mock.patch.object(
                 cli, "VesselWorkflowService", return_value=FakeWorkflowService()
@@ -282,12 +305,21 @@ class CLITests(unittest.TestCase):
             unittest.mock.patch.object(
                 cli, "apply_process_hardening", return_value=None
             ),
-            unittest.mock.patch.object(cli, "require_volatile_state", return_value=None),
+            unittest.mock.patch.object(
+                cli, "require_volatile_state", return_value=None
+            ),
             unittest.mock.patch.object(cli, "_run_startup_checks", return_value=True),
             unittest.mock.patch.object(
                 sys,
                 "argv",
-                ["phasmid", command_name, "inspect", "travel.vessel", "--face", "face_b"],
+                [
+                    "phasmid",
+                    command_name,
+                    "inspect",
+                    "travel.vessel",
+                    "--face",
+                    "face_b",
+                ],
             ),
             unittest.mock.patch.object(
                 cli, "VesselWorkflowService", return_value=FakeWorkflowService()
@@ -338,20 +370,39 @@ class CLITests(unittest.TestCase):
                     )
                 )
                 return type(
-                    "Result", (), {"input_path": Path(input_path), "vessel_path": Path(vessel)}
+                    "Result",
+                    (),
+                    {"input_path": Path(input_path), "vessel_path": Path(vessel)},
                 )()
 
         with (
             unittest.mock.patch.object(
                 cli, "apply_process_hardening", return_value=None
             ),
-            unittest.mock.patch.object(cli, "require_volatile_state", return_value=None),
+            unittest.mock.patch.object(
+                cli, "require_volatile_state", return_value=None
+            ),
             unittest.mock.patch.object(cli, "_run_startup_checks", return_value=True),
             unittest.mock.patch.object(
                 cli, "_resolve_access_password", return_value="pw"
             ),
-            unittest.mock.patch.object(sys, "argv", ["phasmid", "file", "add", "travel.vessel", "--face", "face_b", "--input", "note.txt"]),
-            unittest.mock.patch.object(cli, "VesselWorkflowService", return_value=FakeWorkflowService()),
+            unittest.mock.patch.object(
+                sys,
+                "argv",
+                [
+                    "phasmid",
+                    "file",
+                    "add",
+                    "travel.vessel",
+                    "--face",
+                    "face_b",
+                    "--input",
+                    "note.txt",
+                ],
+            ),
+            unittest.mock.patch.object(
+                cli, "VesselWorkflowService", return_value=FakeWorkflowService()
+            ),
             unittest.mock.patch.object(cli.gate, "start"),
             unittest.mock.patch.object(cli.gate, "close"),
             unittest.mock.patch.object(cli.EmergencyDaemon, "start"),
@@ -360,7 +411,20 @@ class CLITests(unittest.TestCase):
         ):
             cli.main()
 
-        self.assertIn(("file_add", "travel.vessel", "note.txt", "pw", None, "face_b", True, None, None), events)
+        self.assertIn(
+            (
+                "file_add",
+                "travel.vessel",
+                "note.txt",
+                "pw",
+                None,
+                "face_b",
+                True,
+                None,
+                None,
+            ),
+            events,
+        )
         self.assertIn("File added to selected face", output.getvalue())
 
     def test_cli_file_add_with_object_image_skips_camera(self):
@@ -399,14 +463,18 @@ class CLITests(unittest.TestCase):
                     )
                 )
                 return type(
-                    "Result", (), {"input_path": Path(input_path), "vessel_path": Path(vessel)}
+                    "Result",
+                    (),
+                    {"input_path": Path(input_path), "vessel_path": Path(vessel)},
                 )()
 
         with (
             unittest.mock.patch.object(
                 cli, "apply_process_hardening", return_value=None
             ),
-            unittest.mock.patch.object(cli, "require_volatile_state", return_value=None),
+            unittest.mock.patch.object(
+                cli, "require_volatile_state", return_value=None
+            ),
             unittest.mock.patch.object(cli, "_run_startup_checks", return_value=True),
             unittest.mock.patch.object(
                 cli, "_resolve_access_password", return_value="pw"
@@ -486,17 +554,23 @@ class CLITests(unittest.TestCase):
                     )
                 )
                 return type(
-                    "Result", (), {"input_path": Path(input_path), "vessel_path": Path(vessel)}
+                    "Result",
+                    (),
+                    {"input_path": Path(input_path), "vessel_path": Path(vessel)},
                 )()
 
         with (
             unittest.mock.patch.object(
                 cli, "apply_process_hardening", return_value=None
             ),
-            unittest.mock.patch.object(cli, "require_volatile_state", return_value=None),
+            unittest.mock.patch.object(
+                cli, "require_volatile_state", return_value=None
+            ),
             unittest.mock.patch.object(cli, "_run_startup_checks", return_value=True),
             unittest.mock.patch.object(
-                cli, "_resolve_first_add_passwords", return_value=("access", "emergency")
+                cli,
+                "_resolve_first_add_passwords",
+                return_value=("access", "emergency"),
             ),
             unittest.mock.patch.object(
                 sys,
@@ -560,7 +634,9 @@ class CLITests(unittest.TestCase):
             unittest.mock.patch.object(
                 cli, "apply_process_hardening", return_value=None
             ),
-            unittest.mock.patch.object(cli, "require_volatile_state", return_value=None),
+            unittest.mock.patch.object(
+                cli, "require_volatile_state", return_value=None
+            ),
             unittest.mock.patch.object(cli, "_run_startup_checks", return_value=True),
             unittest.mock.patch.object(
                 cli, "_resolve_required_emergency_password", return_value="burn"
@@ -594,7 +670,14 @@ class CLITests(unittest.TestCase):
 
         gate_start.assert_not_called()
         self.assertIn(
-            ("destroy_face", "travel.vessel", "burn", "face_b", "object.png", "DESTROY FACE"),
+            (
+                "destroy_face",
+                "travel.vessel",
+                "burn",
+                "face_b",
+                "object.png",
+                "DESTROY FACE",
+            ),
             events,
         )
         self.assertIn("Face destroyed explicitly", output.getvalue())
