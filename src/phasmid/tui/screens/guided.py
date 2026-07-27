@@ -19,7 +19,9 @@ def _quick_start_workflows() -> list[GuidedWorkflow]:
                 GuidedStep(2, "Choose the file you need to protect."),
                 GuidedStep(3, "Set the access password."),
                 GuidedStep(4, "Present and bind the physical access object."),
-                GuidedStep(5, "Confirm the result and close the storage when finished."),
+                GuidedStep(
+                    5, "Confirm the result and close the storage when finished."
+                ),
             ],
         ),
         GuidedWorkflow(
@@ -28,7 +30,9 @@ def _quick_start_workflows() -> list[GuidedWorkflow]:
             description="Normal-use steps for opening content that was protected earlier.",
             steps=[
                 GuidedStep(1, "Select the protected storage you need."),
-                GuidedStep(2, "Present the physical access object and wait for a stable match."),
+                GuidedStep(
+                    2, "Present the physical access object and wait for a stable match."
+                ),
                 GuidedStep(3, "Enter the access password."),
                 GuidedStep(4, "Retrieve only the file you need."),
                 GuidedStep(5, "Close the storage when finished."),

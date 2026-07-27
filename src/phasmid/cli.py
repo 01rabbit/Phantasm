@@ -310,9 +310,7 @@ def _print_operation_report(report):
     status_style = (
         "green"
         if report["status"] in ok_statuses
-        else "yellow"
-        if report["status"] == "attention"
-        else "red"
+        else "yellow" if report["status"] == "attention" else "red"
     )
     console.print(
         Panel(
@@ -516,7 +514,9 @@ def _build_tui_parser() -> argparse.ArgumentParser:
         "destroy-vessel", help="Destroy the entire Vessel explicitly"
     )
     emergency_vessel_p.add_argument("vessel", help="Path to Vessel file")
-    emergency_vessel_p.add_argument("--face", default="face_a", help="Authorizing face id")
+    emergency_vessel_p.add_argument(
+        "--face", default="face_a", help="Authorizing face id"
+    )
     emergency_vessel_p.add_argument("--emergency-passphrase-file")
     emergency_vessel_p.add_argument("--confirm", required=True)
     _add_object_source_flags(emergency_vessel_p)
@@ -554,11 +554,11 @@ def _build_tui_parser() -> argparse.ArgumentParser:
     plausibility_clear_p.add_argument("--restricted-passphrase-file")
 
     store_p = subparsers.add_parser("store", help="Store a local file in a Vessel")
-    store_p.add_argument("vessel", nargs="?", default="vault.bin", help="Path to Vessel file")
-    store_p.add_argument("--entry", choices=["a", "b"], default="a")
     store_p.add_argument(
-        "--" + "prof" + "ile", choices=["a", "b"], dest="legacy_entry"
+        "vessel", nargs="?", default="vault.bin", help="Path to Vessel file"
     )
+    store_p.add_argument("--entry", choices=["a", "b"], default="a")
+    store_p.add_argument("--" + "prof" + "ile", choices=["a", "b"], dest="legacy_entry")
     store_p.add_argument("--mode", dest="legacy_entry_mode")
     store_p.add_argument("--input", "--file", dest="file")
     store_p.add_argument(
@@ -595,7 +595,13 @@ def _build_tui_parser() -> argparse.ArgumentParser:
 
 
 def _add_legacy_subparser(subparsers) -> None:
-    for action in ["init", "brick", "verify-state", "verify-audit-log", "export-redacted-log"]:
+    for action in [
+        "init",
+        "brick",
+        "verify-state",
+        "verify-audit-log",
+        "export-redacted-log",
+    ]:
         p = subparsers.add_parser(action, help=f"Legacy: {action}")
         if action == "export-redacted-log":
             p.add_argument("--out")
@@ -880,10 +886,10 @@ def _run_emergency_command(args) -> int:
 def _print_plausibility_result(result) -> None:
     summary = object.__getattribute__(result, "pro" + "file")
     type_distribution = summary.file_type_distribution
-    distribution = ", ".join(
-        f"{ext}:{count}"
-        for ext, count in sorted(type_distribution.items())
-    ) or "-"
+    distribution = (
+        ", ".join(f"{ext}:{count}" for ext, count in sorted(type_distribution.items()))
+        or "-"
+    )
     info(
         "Plausibility summary: "
         f"files={summary.dummy_file_count}, "
@@ -1021,12 +1027,16 @@ def _run_file_add_command(args) -> int:
                 no_object_binding=getattr(args, "no_object_binding", False),
                 emergency_password=emergency_pw,
             )
-        except (FileNotFoundError, PermissionError, RuntimeError, ValueError, OSError) as exc:
+        except (
+            FileNotFoundError,
+            PermissionError,
+            RuntimeError,
+            ValueError,
+            OSError,
+        ) as exc:
             error(str(exc))
             return 1
-        success(
-            f"File added to selected face: [bold]{result.input_path.name}[/bold]"
-        )
+        success(f"File added to selected face: [bold]{result.input_path.name}[/bold]")
         return 0
     finally:
         panic_monitor.stop()
@@ -1172,12 +1182,16 @@ def _run_emergency_destroy_face_command(args) -> int:
                 camera_object=getattr(args, "camera_object", False),
                 confirmation=args.confirm,
             )
-        except (FileNotFoundError, PermissionError, RuntimeError, ValueError, OSError) as exc:
+        except (
+            FileNotFoundError,
+            PermissionError,
+            RuntimeError,
+            ValueError,
+            OSError,
+        ) as exc:
             error(str(exc))
             return 1
-        success(
-            f"Face destroyed explicitly: [bold]{result.face_id}[/bold]"
-        )
+        success(f"Face destroyed explicitly: [bold]{result.face_id}[/bold]")
         return 0
     finally:
         panic_monitor.stop()
@@ -1208,12 +1222,16 @@ def _run_emergency_destroy_vessel_command(args) -> int:
                 camera_object=getattr(args, "camera_object", False),
                 confirmation=args.confirm,
             )
-        except (FileNotFoundError, PermissionError, RuntimeError, ValueError, OSError) as exc:
+        except (
+            FileNotFoundError,
+            PermissionError,
+            RuntimeError,
+            ValueError,
+            OSError,
+        ) as exc:
             error(str(exc))
             return 1
-        success(
-            f"Vessel destroyed explicitly: [bold]{result.vessel_path}[/bold]"
-        )
+        success(f"Vessel destroyed explicitly: [bold]{result.vessel_path}[/bold]")
         return 0
     finally:
         panic_monitor.stop()
@@ -1353,7 +1371,9 @@ def _run_retrieve_command(args) -> int:
         console.print()
         console.print(Rule("Object Verification", style="dim cyan"))
         if getattr(args, "passphrase_file", None):
-            info("Position the bound object in view. Verification will begin automatically.")
+            info(
+                "Position the bound object in view. Verification will begin automatically."
+            )
             user_gesture_seq = svc.collect_auth_sequence()
         else:
             user_gesture_seq = _collect_auth_sequence()

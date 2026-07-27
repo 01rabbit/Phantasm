@@ -210,9 +210,13 @@ class VesselWorkflowService:
         if not vessel_path.exists():
             raise FileNotFoundError(f"vessel file not found: {vessel_path}")
         resolved_face_id = self.resolve_face_id(face_id)
-        default_label = "Disclosure Face 1" if resolved_face_id == "face_a" else "Disclosure Face 2"
+        default_label = (
+            "Disclosure Face 1" if resolved_face_id == "face_a" else "Disclosure Face 2"
+        )
         selector = "a" if resolved_face_id == "face_a" else "b"
-        self._vessels.create_face(vessel_path, resolved_face_id, label or default_label, selector)
+        self._vessels.create_face(
+            vessel_path, resolved_face_id, label or default_label, selector
+        )
         vessel = self._get_meta(vessel_path)
         face = self._get_face(vessel, resolved_face_id)
         return FaceResult(vessel=vessel, face=face)
@@ -410,7 +414,9 @@ class VesselWorkflowService:
             if isinstance(candidate, dict):
                 self._set_face_binding_record(vessel_path, face_id, candidate)
             else:
-                self._set_face_binding_record(vessel_path, face_id, candidate.to_record())
+                self._set_face_binding_record(
+                    vessel_path, face_id, candidate.to_record()
+                )
             return cast(
                 list[str],
                 self._access_cue.sequence_for_mode(self.resolve_mode(selector)),
@@ -558,9 +564,18 @@ class VesselWorkflowService:
             return []
 
         specs = [
-            ("field_notes_01.txt", self._text_payload("Field Notes", max(256, target_bytes // 10))),
-            ("briefing_01.md", self._text_payload("# Briefing", max(320, target_bytes // 12))),
-            ("report_01.pdf", self._pdf_payload("Operational Report", max(768, target_bytes // 8))),
+            (
+                "field_notes_01.txt",
+                self._text_payload("Field Notes", max(256, target_bytes // 10)),
+            ),
+            (
+                "briefing_01.md",
+                self._text_payload("# Briefing", max(320, target_bytes // 12)),
+            ),
+            (
+                "report_01.pdf",
+                self._pdf_payload("Operational Report", max(768, target_bytes // 8)),
+            ),
             ("logsheet_01.csv", self._csv_payload(max(256, target_bytes // 12))),
             ("site_photo_01.jpg", self._jpg_payload(max(512, target_bytes // 10))),
         ]
@@ -676,7 +691,9 @@ class VesselWorkflowService:
         if profile.plausibility_level == "HIGH":
             return "Baseline profile is credible. Periodically refresh file mix."
         if profile.plausibility_level == "MEDIUM":
-            return "Add more size variation or increase occupancy for a stronger baseline."
+            return (
+                "Add more size variation or increase occupancy for a stronger baseline."
+            )
         return "Generate a broader local baseline before field use."
 
     def _read_face_namespace(
@@ -1042,7 +1059,10 @@ class VesselWorkflowService:
 
         for name in list(files):
             item = files.get(name)
-            if isinstance(item, dict) and str(item.get("origin", "")) == _GENERATED_PLAUSIBILITY_ORIGIN:
+            if (
+                isinstance(item, dict)
+                and str(item.get("origin", "")) == _GENERATED_PLAUSIBILITY_ORIGIN
+            ):
                 del files[name]
 
         vessel_size = vessel.stat().st_size
@@ -1069,7 +1089,9 @@ class VesselWorkflowService:
             and str(item.get("origin", "")) == _GENERATED_PLAUSIBILITY_ORIGIN
             for item in files.values()
         ):
-            raise ValueError("target size does not fit within the selected face capacity")
+            raise ValueError(
+                "target size does not fit within the selected face capacity"
+            )
 
         self._write_face_namespace(
             vessel,
@@ -1091,7 +1113,9 @@ class VesselWorkflowService:
     ) -> DummyProfileResult:
         vessel = Path(vessel_path).expanduser().resolve()
         if cue_sequence is None:
-            cue_sequence = self._access_cue.sequence_for_mode(self.resolve_mode(selector))
+            cue_sequence = self._access_cue.sequence_for_mode(
+                self.resolve_mode(selector)
+            )
         cue_sequence = cast(list[str], cue_sequence)
         namespace, _filename = self._read_face_namespace(
             vessel, open_passphrase, selector, cue_sequence
@@ -1101,7 +1125,10 @@ class VesselWorkflowService:
             raise ValueError("face namespace is invalid")
         for name in list(files):
             item = files.get(name)
-            if isinstance(item, dict) and str(item.get("origin", "")) == _GENERATED_PLAUSIBILITY_ORIGIN:
+            if (
+                isinstance(item, dict)
+                and str(item.get("origin", "")) == _GENERATED_PLAUSIBILITY_ORIGIN
+            ):
                 del files[name]
         self._write_face_namespace(
             vessel,
@@ -1134,12 +1161,12 @@ class VesselWorkflowService:
             object_image_path=object_image_path,
             camera_object=camera_object,
         )
-        if not self._verify_face_emergency_password(vessel, face_id, emergency_password):
+        if not self._verify_face_emergency_password(
+            vessel, face_id, emergency_password
+        ):
             raise ValueError("emergency password mismatch")
         mode = self.resolve_mode(selector)
-        vault = PhasmidVault(
-            str(vessel), size_mb=vessel.stat().st_size / (1024 * 1024)
-        )
+        vault = PhasmidVault(str(vessel), size_mb=vessel.stat().st_size / (1024 * 1024))
         vault.purge_mode(mode)
         self._vessels.touch_face(
             vessel,
@@ -1188,11 +1215,11 @@ class VesselWorkflowService:
             object_image_path=object_image_path,
             camera_object=camera_object,
         )
-        if not self._verify_face_emergency_password(vessel, face_id, emergency_password):
+        if not self._verify_face_emergency_password(
+            vessel, face_id, emergency_password
+        ):
             raise ValueError("emergency password mismatch")
-        vault = PhasmidVault(
-            str(vessel), size_mb=vessel.stat().st_size / (1024 * 1024)
-        )
+        vault = PhasmidVault(str(vessel), size_mb=vessel.stat().st_size / (1024 * 1024))
         vault.silent_brick()
         self._vessels.unregister(vessel)
         return EmergencyDestroyResult(
@@ -1259,7 +1286,9 @@ class VesselWorkflowService:
         namespace = None
         accessed_selector = None
         for candidate in candidate_selectors:
-            if not self._credentials_initialized(vessel, self.resolve_face_id(str(candidate))):
+            if not self._credentials_initialized(
+                vessel, self.resolve_face_id(str(candidate))
+            ):
                 continue
             try:
                 active_cue_sequence = cue_sequence
@@ -1300,7 +1329,12 @@ class VesselWorkflowService:
                 accessed_selector = str(candidate)
                 break
             except ValueError:
-                if selector is not None or object_image_path or camera_object or no_object_binding:
+                if (
+                    selector is not None
+                    or object_image_path
+                    or camera_object
+                    or no_object_binding
+                ):
                     raise
                 continue
 

@@ -84,9 +84,7 @@ class ObjectBindingService:
         ).encode("utf-8")
         fingerprint_id = hashlib.sha256(fingerprint_bytes).hexdigest()
         threshold = (
-            self._CAMERA_THRESHOLD
-            if source_type == "camera"
-            else self._IMAGE_THRESHOLD
+            self._CAMERA_THRESHOLD if source_type == "camera" else self._IMAGE_THRESHOLD
         )
         return ObjectBindingProfile(
             source_type=source_type,
@@ -229,9 +227,7 @@ class ObjectBindingService:
         )
         return 1.0 - (mismatches / float(len(left)))
 
-    def _histogram_similarity(
-        self, left: list[float], right: list[float]
-    ) -> float:
+    def _histogram_similarity(self, left: list[float], right: list[float]) -> float:
         if not left or not right or len(left) != len(right):
             return 0.0
         return float(sum(min(a, b) for a, b in zip(left, right, strict=True)))

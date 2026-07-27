@@ -74,6 +74,6 @@ KNOWN_SIGNATURES: list[tuple[str, int, bytes]] = [
     ("JSON object", 0, b"{"),
 ]
 
-assert len(KNOWN_SIGNATURES) >= 20, (
-    f"known_magics.py must define at least 20 signatures, got {len(KNOWN_SIGNATURES)}"
-)
+assert (
+    len(KNOWN_SIGNATURES) >= 20
+), f"known_magics.py must define at least 20 signatures, got {len(KNOWN_SIGNATURES)}"
