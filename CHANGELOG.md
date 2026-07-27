@@ -7,6 +7,15 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/pi_zero2w/run_demo_smoke_test.sh`: pre-demo smoke test for the target
+  device. Asserts bind-host resolution, WebUI startup, access-token publication
+  and permissions, the `/unlock` page-session flow, the Silent Standby
+  transitions, and clean shutdown, then prints the steps that require a human.
+  Uses a scratch state directory and port 8099 so a running operator WebUI and
+  the real state directory are untouched. Exits non-zero on any failed check.
+
 ### Fixed
 
 - Expert controls are no longer a one-way trip. `escape` returns to the Simple
@@ -16,6 +25,11 @@ and this project follows SemVer-style release intent for documented interfaces.
   list is refreshed on return, so work done in Expert controls is reflected
   immediately. `docs/TUI_OPERATOR_CONSOLE.md` documented the old behaviour as a
   caveat and now documents the return path and the full Expert key table.
+- `scripts/pi_zero2w/run_webui_probe.sh` asserted only that `curl` did not fail.
+  Since 0.3.0 a non-loopback peer without a page session is redirected to
+  `/unlock`, and `curl -sf` treats that 303 as success, so the probe would time
+  an empty redirect and report meaningless latency. It now requires HTTP 200 and
+  fails with an explanation when it sees the unlock redirect.
 
 ### Changed
 
