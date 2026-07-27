@@ -47,6 +47,14 @@ and this project follows SemVer-style release intent for documented interfaces.
   as an attribute, so the check raised `AttributeError` and was recorded as a
   missing-import failure while picamera2, cv2 and numpy were in fact all
   importable. It now imports `importlib.util` directly.
+- `.gitignore` did not cover `_pi_field_test/`, the directory that
+  `scripts/pi_zero2w/run_remote_perf.sh` and
+  `scripts/pi_zero2w/run_demo_smoke_test.sh` write their results into.
+  Running either left the working tree dirty for good, so every device that
+  had been field tested reported untracked output on each `git status` and a
+  real untracked change was easy to lose among it. Parts of the contents were
+  already covered by the `vault.bin`, `*.bin` and `.state/` patterns; the
+  directory itself was not.
 
 ### Changed
 
