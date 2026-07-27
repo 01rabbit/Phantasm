@@ -139,9 +139,10 @@ def recommend_iter(
     if not open_ok:
         return None, "no candidate achieved successful open"
     closest = min(open_ok, key=lambda m: abs(float(m["luks_format_ms"]) - 4000.0))
-    return int(
-        closest["iter_time_ms"]
-    ), "closest format time to upper acceptance bound with successful open"
+    return (
+        int(closest["iter_time_ms"]),
+        "closest format time to upper acceptance bound with successful open",
+    )
 
 
 def evaluate_status(
@@ -254,9 +255,9 @@ def main() -> int:
         "device_tier": tier,
         "iter_time_ms_requested": args.requested_iter,
         "recommended_iter_time_ms": recommended_iter,
-        "selected_iter_for_evaluation_ms": int(recommended_iter)
-        if recommended_iter is not None
-        else None,
+        "selected_iter_for_evaluation_ms": (
+            int(recommended_iter) if recommended_iter is not None else None
+        ),
         "recommendation_basis": basis,
         "cipher": args.cipher,
         "key_size": args.key_size,
@@ -292,36 +293,36 @@ def main() -> int:
             ),
             "requested_iter": {
                 "iter_time_ms": int(requested["iter_time_ms"]) if requested else None,
-                "luks_format_in_range": bool(requested["luks_format_in_range"])
-                if requested
-                else False,
-                "luks_open_in_range": bool(requested["luks_open_in_range"])
-                if requested
-                else False,
-                "luks_format_ok": bool(requested["luks_format_ok"])
-                if requested
-                else False,
+                "luks_format_in_range": (
+                    bool(requested["luks_format_in_range"]) if requested else False
+                ),
+                "luks_open_in_range": (
+                    bool(requested["luks_open_in_range"]) if requested else False
+                ),
+                "luks_format_ok": (
+                    bool(requested["luks_format_ok"]) if requested else False
+                ),
                 "luks_open_ok": bool(requested["luks_open_ok"]) if requested else False,
             },
             "selected_iter": {
                 "iter_time_ms": int(selected["iter_time_ms"]) if selected else None,
-                "luks_format_in_range": bool(selected["luks_format_in_range"])
-                if selected
-                else False,
-                "luks_open_in_range": bool(selected["luks_open_in_range"])
-                if selected
-                else False,
-                "luks_format_ok": bool(selected["luks_format_ok"])
-                if selected
-                else False,
+                "luks_format_in_range": (
+                    bool(selected["luks_format_in_range"]) if selected else False
+                ),
+                "luks_open_in_range": (
+                    bool(selected["luks_open_in_range"]) if selected else False
+                ),
+                "luks_format_ok": (
+                    bool(selected["luks_format_ok"]) if selected else False
+                ),
                 "luks_open_ok": bool(selected["luks_open_ok"]) if selected else False,
             },
-            "luks_format_in_range": bool(requested["luks_format_in_range"])
-            if requested
-            else False,
-            "luks_open_in_range": bool(requested["luks_open_in_range"])
-            if requested
-            else False,
+            "luks_format_in_range": (
+                bool(requested["luks_format_in_range"]) if requested else False
+            ),
+            "luks_open_in_range": (
+                bool(requested["luks_open_in_range"]) if requested else False
+            ),
             "aes_required_met": aes_status in {"confirmed", "inferred"},
             "dm_crypt_required_met": args.dm_crypt_loadable == "true",
         },

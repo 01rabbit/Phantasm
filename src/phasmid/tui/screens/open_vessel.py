@@ -138,7 +138,9 @@ class OpenVesselScreen(OperatorScreen):
                 )
             elif operation == "list":
                 if not passphrase:
-                    self.app.notify("Passphrase is required for listing.", severity="error")
+                    self.app.notify(
+                        "Passphrase is required for listing.", severity="error"
+                    )
                     return
                 listing = self._workflow.list_files(
                     path,
@@ -146,7 +148,9 @@ class OpenVesselScreen(OperatorScreen):
                     selector=str(face),
                     use_attempt_limiter=True,
                 )
-                names = ", ".join(file.name for file in listing.files) or "No files stored."
+                names = (
+                    ", ".join(file.name for file in listing.files) or "No files stored."
+                )
                 self.app.notify(
                     names,
                     title="Open Vessel",
@@ -155,7 +159,9 @@ class OpenVesselScreen(OperatorScreen):
                 )
             else:
                 if not passphrase:
-                    self.app.notify("Passphrase is required for recovery.", severity="error")
+                    self.app.notify(
+                        "Passphrase is required for recovery.", severity="error"
+                    )
                     return
                 if operation == "retrieve" and not output_file:
                     self.app.notify(

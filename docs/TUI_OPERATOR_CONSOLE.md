@@ -190,12 +190,32 @@ actions: Close, Create, Inspect, Face management, Audit, Doctor, Settings,
 LUKS, and Help. Expert controls are for diagnostic and maintenance work, not
 the normal Protect/Open flow.
 
-> **Entering Expert controls is one-way for the rest of the session.** There is
-> no key that returns to the Simple Operator screen: `q` in Expert controls
-> quits the application rather than going back. Restart `phasmid` to get the
-> Simple Operator screen again. Plan work that must stay on the simple surface
-> — a scripted demonstration, or handing the device to a non-specialist —
-> before pressing `e`.
+Press `escape` to return to the Simple Operator screen. The protected storage
+list is refreshed on return, so anything created or closed in Expert controls is
+reflected immediately.
+
+`q` in Expert controls quits the application rather than going back, matching
+every other screen in the TUI. Use `escape` to go back.
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|---|---|
+| `escape` | Back to the Simple Operator screen |
+| `o` | Open Vessel |
+| `x` | Close Vessel |
+| `c` | Create Vessel |
+| `i` | Inspect Vessel |
+| `f` | Face management |
+| `g` | Guided Help |
+| `a` | Audit View |
+| `d` | Doctor View |
+| `s` | Settings |
+| `l` | LUKS panel |
+| `?` | Help |
+| `q` | Quit |
+| `r` | Refresh Vessel list (not shown in footer) |
+| `/` | About (not shown in footer) |
 
 ## WebUI Integration (Exposed Mode)
 

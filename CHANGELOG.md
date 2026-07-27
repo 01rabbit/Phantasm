@@ -18,6 +18,13 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Fixed
 
+- Expert controls are no longer a one-way trip. `escape` returns to the Simple
+  Operator screen, matching every other pushed screen in the TUI; previously the
+  only way out was `q`, which quits the application, so reaching Expert controls
+  ended the simple surface for the rest of the session. The protected storage
+  list is refreshed on return, so work done in Expert controls is reflected
+  immediately. `docs/TUI_OPERATOR_CONSOLE.md` documented the old behaviour as a
+  caveat and now documents the return path and the full Expert key table.
 - `scripts/pi_zero2w/run_webui_probe.sh` asserted only that `curl` did not fail.
   Since 0.3.0 a non-loopback peer without a page session is redirected to
   `/unlock`, and `curl -sf` treats that 303 as success, so the probe would time
@@ -31,6 +38,14 @@ and this project follows SemVer-style release intent for documented interfaces.
   names GitHub private vulnerability reporting as the preferred intake channel.
   A Scope note points at the accepted residual risks in `docs/THREAT_MODEL.md`
   and `docs/NON_CLAIMS.md` so documented limits are not re-reported as findings.
+- The CI formatting gate now inspects files. `[tool.black] include` in
+  `pyproject.toml` was `'\\.pyi?$'`, a regex matching no real path, so every
+  black invocation reported "No Python files are present to be formatted" and
+  exited 0. The workflow also ran an in-place `black` before `black --check`,
+  which reformatted whatever the check would have caught, so the check could
+  not fail even once the pattern was repaired. The pattern is corrected, the
+  mutating step is replaced by a single `black --check --diff`, and the 16
+  files that drifted behind the dead gate are reformatted.
 
 ## [0.3.0] - 2026-07-26
 

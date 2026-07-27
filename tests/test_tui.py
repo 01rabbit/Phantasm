@@ -1215,7 +1215,9 @@ def test_create_vessel_screen_uses_shared_workflow(monkeypatch):
             )
         ),
     )
-    monkeypatch.setattr(screen, "dismiss", lambda: created.setdefault("dismissed", True))
+    monkeypatch.setattr(
+        screen, "dismiss", lambda: created.setdefault("dismissed", True)
+    )
     monkeypatch.setattr(
         screen,
         "query_one",
@@ -1248,7 +1250,12 @@ def test_open_vessel_screen_marks_vessel_open(monkeypatch):
             events.append(("open", path, face_id))
 
         def retrieve_file(
-            self, path, passphrase, output_path=None, selector=None, use_attempt_limiter=False
+            self,
+            path,
+            passphrase,
+            output_path=None,
+            selector=None,
+            use_attempt_limiter=False,
         ):
             events.append(("retrieve", path, passphrase, output_path, selector))
             return SimpleNamespace(bytes_retrieved=4, output_path=Path("/tmp/out.bin"))
@@ -1296,7 +1303,9 @@ def test_face_manager_screen_uses_shared_workflow(monkeypatch):
 
     from phasmid.tui.screens.face_manager import FaceManagerScreen
 
-    vessel = SimpleNamespace(path=Path("/tmp/travel.vessel"), name="travel.vessel", faces=[])
+    vessel = SimpleNamespace(
+        path=Path("/tmp/travel.vessel"), name="travel.vessel", faces=[]
+    )
     screen = FaceManagerScreen(vessel=vessel)
     events = []
 
@@ -1356,20 +1365,29 @@ def test_face_manager_screen_uses_shared_workflow(monkeypatch):
         ),
     )
 
-    table = SimpleNamespace(clear=lambda: events.append(("clear",)), add_row=lambda *args: events.append(("row", args)))
+    table = SimpleNamespace(
+        clear=lambda: events.append(("clear",)),
+        add_row=lambda *args: events.append(("row", args)),
+    )
     monkeypatch.setattr(
         screen,
         "query_one",
         lambda selector, _type=None: {
             "#face-id": SimpleNamespace(value="face_b"),
             "#new-label": SimpleNamespace(value="travel"),
-            "#plausibility-summary": SimpleNamespace(update=lambda value: events.append(("summary", value))),
+            "#plausibility-summary": SimpleNamespace(
+                update=lambda value: events.append(("summary", value))
+            ),
             DataTable: table,
         }[selector],
     )
 
-    screen.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="add-label-btn")))
-    screen.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="inspect-plausibility-btn")))
+    screen.on_button_pressed(
+        SimpleNamespace(button=SimpleNamespace(id="add-label-btn"))
+    )
+    screen.on_button_pressed(
+        SimpleNamespace(button=SimpleNamespace(id="inspect-plausibility-btn"))
+    )
 
     assert ("create_face", Path("/tmp/travel.vessel"), "face_b", "travel") in events
     assert ("inspect_plausibility", Path("/tmp/travel.vessel"), "face_b") in events
@@ -1510,3 +1528,51 @@ def test_vessel_meta_defaults_name_from_path():
 
     v = VesselMeta(path=Path("/tmp/travel.vessel"))
     assert v.name == "travel.vessel"
+
+
+# ---------------------------------------------------------------------------
+# Simple Operator <-> Expert navigation
+# ---------------------------------------------------------------------------
+
+
+def test_expert_controls_have_back_binding():
+    """Expert controls must offer a way back, not only Quit.
+
+    Every other pushed screen binds `escape` to `dismiss`; the Expert console
+    was the one exception, which made entering it one-way for the session.
+    """
+    from phasmid.tui.screens.home import HomeScreen
+
+    bindings = {(b.key, b.action) for b in HomeScreen.BINDINGS}
+    assert ("escape", "dismiss") in bindings
+    # `q` still quits, matching the rest of the TUI.
+    assert ("q", "quit") in bindings
+
+
+def test_expert_entry_refreshes_simple_home_on_return(monkeypatch):
+    """Returning from Expert controls refreshes the protected storage list."""
+    from phasmid.tui.screens.home import HomeScreen
+    from phasmid.tui.screens.simple_home import SimpleHomeScreen
+
+    screen = SimpleHomeScreen.__new__(SimpleHomeScreen)
+    refreshed: list[bool] = []
+    monkeypatch.setattr(SimpleHomeScreen, "_selected_path", lambda self: "")
+    monkeypatch.setattr(
+        SimpleHomeScreen, "_refresh_table", lambda self: refreshed.append(True)
+    )
+
+    pushed: dict = {}
+
+    class FakeApp:
+        def push_screen(self, screen_obj, callback=None):
+            pushed["screen"] = screen_obj
+            pushed["callback"] = callback
+
+    monkeypatch.setattr(SimpleHomeScreen, "app", property(lambda self: FakeApp()))
+
+    screen.action_expert()
+
+    assert isinstance(pushed["screen"], HomeScreen)
+    assert pushed["callback"] is not None, "no return callback: list would go stale"
+    pushed["callback"](None)
+    assert refreshed == [True]

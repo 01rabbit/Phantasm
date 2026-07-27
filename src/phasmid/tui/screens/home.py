@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 class HomeScreen(OperatorScreen):
     BINDINGS = [
+        Binding("escape", "dismiss", "Back"),
         Binding("o", "open_vessel", "Open"),
         Binding("x", "close_vessel", "Close"),
         Binding("c", "create_vessel", "Create"),
@@ -247,7 +248,8 @@ class HomeScreen(OperatorScreen):
         def _on_confirm(result: bool | None) -> None:
             if result:
                 self.app.push_screen(
-                    OpenVesselScreen(vessel_path=path), lambda _result: self._refresh_vessels()
+                    OpenVesselScreen(vessel_path=path),
+                    lambda _result: self._refresh_vessels(),
                 )
 
         self.app.push_screen(
@@ -319,7 +321,9 @@ class HomeScreen(OperatorScreen):
 
         table = self.query_one(VesselTable)
         vessel = table.selected_vessel
-        self.app.push_screen(FaceManagerScreen(vessel=vessel), lambda _result: self._refresh_vessels())
+        self.app.push_screen(
+            FaceManagerScreen(vessel=vessel), lambda _result: self._refresh_vessels()
+        )
 
     def action_guided(self) -> None:
         from .guided import GuidedScreen

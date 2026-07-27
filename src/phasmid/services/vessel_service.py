@@ -135,8 +135,12 @@ def _aggregate_dummy_profile(
     level_rank = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
     for face in faces:
         profile = _normalize_dummy_profile_record(face.get("dummy_profile", {}))
-        aggregate["dummy_file_count"] = _int_value(aggregate["dummy_file_count"]) + _int_value(profile["dummy_file_count"])
-        aggregate["dummy_total_size"] = _int_value(aggregate["dummy_total_size"]) + _int_value(profile["dummy_total_size"])
+        aggregate["dummy_file_count"] = _int_value(
+            aggregate["dummy_file_count"]
+        ) + _int_value(profile["dummy_file_count"])
+        aggregate["dummy_total_size"] = _int_value(
+            aggregate["dummy_total_size"]
+        ) + _int_value(profile["dummy_total_size"])
         total_ratio += _float_value(profile["occupancy_ratio"])
         highest_score = max(highest_score, _int_value(profile["plausibility_score"]))
         level = str(profile["plausibility_level"]).upper()
@@ -391,7 +395,9 @@ def update_face_access(
 ) -> dict[str, object]:
     record = _update_registry_record(path)
     faces = _normalize_faces(record.get("faces", []))
-    face = next((item for item in faces if str(item.get("face_id", "")) == face_id), None)
+    face = next(
+        (item for item in faces if str(item.get("face_id", "")) == face_id), None
+    )
     if face is None:
         raise ValueError(f"unsupported face id: {face_id}")
 
@@ -424,9 +430,7 @@ def update_face_access(
         return record
     if closed:
         face["status"] = (
-            "occupied"
-            if _int_value(face.get("file_count", 0)) > 0
-            else "available"
+            "occupied" if _int_value(face.get("file_count", 0)) > 0 else "available"
         )
         record = _update_registry_record(
             path,

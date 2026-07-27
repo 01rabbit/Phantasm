@@ -88,7 +88,9 @@ class FaceManagerScreen(OperatorScreen):
 
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
-        table.add_columns("Face", "Label", "Status", "Files", "Occupancy", "Last Accessed")
+        table.add_columns(
+            "Face", "Label", "Status", "Files", "Occupancy", "Last Accessed"
+        )
         self._refresh_table()
 
     def _refresh_table(self) -> None:
@@ -118,15 +120,20 @@ class FaceManagerScreen(OperatorScreen):
             summary.update("No Vessel selected.")
             return
         face_id = self._selected_face_id()
-        face = next((item for item in self._vessel.faces if item.face_id == face_id), None)
+        face = next(
+            (item for item in self._vessel.faces if item.face_id == face_id), None
+        )
         if face is None:
             summary.update("No Face metadata recorded.")
             return
         profile = face.dummy_profile
-        distribution = ", ".join(
-            f"{ext}:{count}"
-            for ext, count in sorted(profile.file_type_distribution.items())
-        ) or "-"
+        distribution = (
+            ", ".join(
+                f"{ext}:{count}"
+                for ext, count in sorted(profile.file_type_distribution.items())
+            )
+            or "-"
+        )
         summary.update(
             "Plausibility Profile\n"
             f"Level: {profile.plausibility_level}  "
