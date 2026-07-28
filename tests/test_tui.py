@@ -1820,3 +1820,71 @@ def test_webui_cannot_be_exposed_from_a_sealed_state():
     app.action_toggle_webui()
 
     assert started == [], "sealed state re-exposed the WebUI"
+
+
+def test_expert_footer_shows_every_binding_at_the_documented_minimum_width():
+    """The Expert footer silently loses bindings on a narrow terminal.
+
+    Footer cells sit at fixed offsets rather than being compressed to fit,
+    so anything past the terminal width is simply not drawn - with no
+    ellipsis or other sign that the row is incomplete. `w` (WebUI) is an
+    app-level binding appended after the screen's own, which puts the
+    control for an exposed network interface last in the row and first to
+    disappear. At 100 columns `l`, `?`, `q` and `w` were all off-screen.
+
+    MIN_WIDTH is the measured threshold. It is asserted from both sides so
+    that adding a binding to HomeScreen fails here and forces the number in
+    the runbook to be updated rather than silently going stale.
+    """
+    import asyncio
+
+    from textual.widgets._footer import FooterKey
+
+    MIN_WIDTH = 123
+
+    async def offscreen_at(width: int) -> list[str]:
+        from phasmid.tui.app import PhasmidApp
+        from phasmid.tui.screens.home import HomeScreen
+
+        app = PhasmidApp(initial_screen="home")
+        async with app.run_test(size=(width, 50)) as pilot:
+            await pilot.pause()
+            await app.push_screen(HomeScreen())
+            await pilot.pause()
+            return [
+                key.key_display
+                for key in app.screen.query(FooterKey)
+                if key.region.x + key.region.width > width or key.region.width <= 0
+            ]
+
+    assert asyncio.run(offscreen_at(MIN_WIDTH)) == [], (
+        f"Expert footer is incomplete at the documented minimum of "
+        f"{MIN_WIDTH} columns"
+    )
+    assert asyncio.run(offscreen_at(MIN_WIDTH - 1)) != [], (
+        f"the footer now fits below {MIN_WIDTH} columns; lower the documented "
+        f"minimum in docs/submissions/Phasmid_Demo_Runbook.md"
+    )
+
+
+def test_luks_binding_is_hidden_while_the_luks_layer_is_disabled():
+    """A binding for a switched-off subsystem should not cost footer columns.
+
+    LUKS mode is disabled by default and `action_luks_panel` does nothing
+    but say so, yet `l LUKS` occupied eight columns of a row that was
+    already overflowing. Hiding it is what brings the full footer within
+    123 columns instead of 131.
+    """
+    from phasmid.tui.screens.home import HomeScreen
+
+    screen = HomeScreen.__new__(HomeScreen)
+
+    with mock.patch("phasmid.tui.screens.home.PHASMID_LUKS_MODE", "disabled"):
+        # Textual reads False as "disabled and not shown"; None would keep the
+        # cell and only grey it, freeing no columns.
+        assert screen.check_action("luks_panel", ()) is False
+
+    with mock.patch("phasmid.tui.screens.home.PHASMID_LUKS_MODE", "enabled"):
+        assert screen.check_action("luks_panel", ()) is True
+
+    assert screen.check_action("open_vessel", ()) is True
