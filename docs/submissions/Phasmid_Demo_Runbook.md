@@ -1,11 +1,12 @@
 # Phasmid — Live Demo 実施細部要領 / Demo Runbook
 
 **対象:** DEF CON Demo Labs 本番の実機デモ（Deck Slide 24）。プレゼン30分のうち**約7分**を割り当て、**Q&A/交流15分を必ず確保**する。
-**画面:** 実TUI（Local Disclosure Control）＋**ローカルWebUI（物体キューの提示に必須）**。
+**画面:** 実TUI（Local Disclosure Control）が本編。ローカルWebUI は Step 5 のローカル境界の提示にのみ使う（保管層が別なので本編には接続しない）。
 
 > **情報の確度について**
 > - **本書は 0.3.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果に基づく。** 〔要確認〕は原則として解消済み。実機で確認していない項目のみ §9 末尾に明示する。
-> - **前版からの重要な変更:** Step 2 の画面が違っていた（Faces ではなく Open Vessel 系）。Step 4 の参照先が違っていた（Operator Log ではなく Audit）。物体キューの提示は **WebUI が主、TUI が従**に変わった。Generate Plausibility は**実測4分のため壇上から外した**。
+> - **前版からの重要な変更:** Step 2 の画面が違っていた（Faces ではなく Open Vessel の `Add File`）。Step 4 の参照先が違っていた（Operator Log ではなく Audit）。Step 3b（物体なしでの失敗）を新設した。Generate Plausibility は**実測4分のため壇上から外した**。
+> - **保管層が2つ並存している。** TUI は `*.vessel`、WebUI の Store/Retrieve と Doctor の Dummy Profile 検査は `vault.bin`。**混ぜると話が繋がらない**（→ §4 Step 2 の注記）。
 > - **注意:** 0.1.4 までは起動直後が Expert 相当の単層画面だった。それ以前の手順書のキー順は**そのままでは通らない**。
 
 ---
@@ -30,15 +31,18 @@
 |---|---|---|---|---|
 | 0 | オリエンテーション | 0:20 | TUI Simple | TUIホーム提示 |
 | 1 | Vessel 作成（Create） | 0:50 | TUI Simple | Prepare |
-| 2 | 物体キュー登録（Bind） | 1:10 | **WebUI** | Bind（cue≠key） |
-| 3a | 復元 成功（Operate） | 0:40 | **WebUI** | Operate |
-| 3b | **復元 失敗（物体なし）** | 0:40 | **WebUI** | **★cue≠key の証明** |
+| 2 | 物体キュー登録（Bind） | 1:10 | TUI | Bind（cue≠key） |
+| 3a | 復元 成功（Operate） | 0:40 | TUI | Operate |
+| 3b | **復元 失敗（物体なし）** | 0:40 | TUI | **★cue≠key の証明** |
 | 4 | Audit（plausibility） | 0:50 | TUI Expert | 誠実性の可視化 |
-| 5 | Silent Standby | 1:20 | TUI | Disclose / 山場 |
-| 6 | ラップ | 0:10 | TUI Simple | 締め |
+| 5 | WebUI（ローカル境界） | 0:40 | WebUI | ローカル境界 |
+| 6 | Silent Standby | 1:20 | TUI | Disclose / 山場 |
+| 7 | ラップ | 0:10 | TUI Simple | 締め |
 
 > **時計運用:** 開始 ~19:20。**26:00 を超えたら残手順を口頭要約**して締めへ。
-> **旧版との違い:** WebUI 単独ステップ（旧 Step 5）を廃止し Step 2/3 に統合、Step 3b を新設した。
+> **Step 3b は新設。** 物体の有無だけを変えた対比がなければ、cue≠key は実証されない。
+> **Step 2/3 は TUI で行う。** WebUI の Store/Retrieve は Vessel ではなく `vault.bin`
+> を操作するため、Vessel を使うデモ本編には接続しない（§4 Step 2 の注記を参照）。
 
 ---
 
@@ -118,48 +122,62 @@
   `Entropy high / random-like (8.00 bits/byte)` を見せると Slide 19 の直接的裏付けになる。
 - **失敗時:** 作成が滞れば既存デモVesselを **`o` (Open)** して以降を継続。
 
-### Step 2 — Object cue via WebUI（1:10｜Bind, ★cue≠key）
+### Step 2 — Object cue: Bind（1:10｜Bind, ★cue≠key｜TUI）
 
-> **旧版からの変更:** 旧版はこれを `f` (Faces) と記載していたが**誤り**。Faces 画面は
-> ラベルと可信性プロファイルの管理画面で、**カメラに一切関与しない**。物体キューを
-> 扱うのは Open Vessel 系のフロー（`Add File`）である。
-> さらに、TUI には**カメラ映像も一致状態の表示もない**。観客には何も見えない。
-> **WebUI にはライブ映像と一致バッジがある。ここは WebUI で見せる。**
+> **重要（保管層の分離）:** 本プロジェクトには**2つの保管層が並存している**。
+>
+> | 経路 | 操作対象 |
+> |---|---|
+> | TUI `o` Open Vessel | `*.vessel`（Vessel / Face モデル） |
+> | **WebUI Store / Retrieve** | **`vault.bin`（旧レイヤ）** — `web_server.py` の `vault = PhasmidVault("vault.bin")` |
+> | Doctor の Dummy Profile 検査 | `vault.bin` / `.state/dummy_profile`（旧レイヤ、→ #157） |
+> | TUI Audit / Inspect | `*.vessel` |
+>
+> **WebUI に Vessel 対応の Store/Retrieve は存在しない。** したがって WebUI で保存しても
+> Step 1 で作った Vessel は一切変化せず、Step 4 の Audit にも現れない。
+> **Step 2/3 は必ず TUI で行うこと。**
+>
+> 旧版が `f` (Faces) と記載していたのは誤り。Faces 画面はラベルと可信性プロファイルの
+> 管理画面で、カメラに一切関与しない。物体キューを扱うのは `o` Open Vessel の
+> `Add File` である（`capture_reference=True` を渡す唯一の経路）。
 
-- **操作:** TUI で **`w`** を押して WebUI を起動。プロジェクタをラップトップの
-  ブラウザに切替。**Store** 画面へ。ファイルを選び、パスフレーズを入力し、
-  **物体をカメラに提示**。
-- **画面期待:**
-  - **Camera Preview** にライブ映像
-  - 右上の **`objectBadge`** が `Unavailable` → `Detected` → **`Matched`（緑）** と遷移
-  - 一致するとカメラ枠が視覚的に強調される
-- **発話（EN）:** "Now the object cue. I show an everyday object to the camera — you can see exactly what the device sees, and the badge turns green when it has a stable match. Remember: this is a **cue, not a key**. It gates the operation; it is not the encryption key. A photograph of this object unlocks nothing."
-- **注意:** ここが概念の要。**必ず cue≠key を口頭で言い切る。**
+- **操作:** **`o`（Open）** → `Y` → Operation を **`Add File`** に変更
+  （Select はフォーカスして `Enter` → `↓` → `Enter`）→ **Input file** にファイルパス →
+  **Passphrase** と **Restricted recovery passphrase** → **物体をカメラの前に配置** →
+  `Tab` で `Run Operation` → `Enter`。
+- **画面期待:** `Stored N,NNN bytes in travel.vessel.`
+  `VESSEL STATUS` の `Face Files` が増える。
+- **発話（EN）:** "Now the object cue. I hold an everyday object in front of the camera while I store this file. Remember: this is a **cue, not a key**. It gates the operation; it is not the encryption key. A photograph of it unlocks nothing."
+- **注意:** **TUI はカメラ映像も一致状態も表示しない**（→ #158）。この段階では観客に
+  何が起きているか見えない。**だから Step 3b の対比が必須**である。
 - **失敗時:** 認識が不安定なら距離/照明を微調整。起動スクリプトの既定
   `PHASMID_RECOGNITION_MODE=demo` で確定的に見せられる。
-- **TUIで代替する場合:** `o`（Open）→ Operation を **`Add File`** に変更 → 入力ファイル →
-  パスフレーズ2つ → `Run Operation`。**ただし画面には何も表示されない**ので、
-  Step 3b の失敗対比が一層重要になる。
 
-### Step 3a — 復元 成功（0:40｜Operate｜WebUI）
+### Step 3a — 復元 成功（0:40｜Operate｜TUI）
 
-- **操作:** **Retrieve** 画面へ。物体を提示し、バッジが **Matched** になるのを待ってから
-  パスフレーズを入力して実行。
+- **操作:** **`o`（Open）** → `Y` → Operation は **`Recover File`**（既定）→
+  **Output file** にパス → **Passphrase** → **物体をカメラの前に配置** → `Run Operation`。
+- **画面期待:** `Recovered N,NNN bytes to <path>.`（緑）
 - **発話（EN）:** "Same object, correct password — the file comes back."
-- **画面期待:** 復元成功。
 
-### Step 3b — 復元 失敗（0:40｜★cue≠key の証明｜WebUI）
+### Step 3b — 復元 失敗（0:40｜★cue≠key の証明｜TUI）
 
 > **本書で最も重要なステップ。旧版には存在しなかった。**
 > 成功例だけでは物体キューが効いていることを**何も証明していない**。観客には
 > 「パスワードを打ったらファイルが出た」としか見えない。**対比だけが証明になる。**
+> **実機で検証済み**（両側を確認）。
 
 - **操作:** **物体をカメラの視野から外す**（退ける、または手で覆う）。
-  **パスフレーズは全く同じものを入力**して、もう一度 Retrieve を実行。
-- **画面期待:** バッジが **Matched にならない**まま、約10秒後に失敗。
-  TUIで同じことをすると `no bound object matched` のエラーになる。
-- **発話（EN）:** "Same file. Same password. Only the object is gone. The device waits ten seconds for a match, does not get one, and refuses. That is what 'the cue gates the operation' means — and notice it tells you almost nothing about *why* it failed. That is deliberate."
+  **他の項目は一切変えず**、もう一度 `Run Operation`。
+- **画面期待:** 約10秒後、赤で **`Open Vessel / no bound object matched`**。
+  出力ファイルは作られない。
+- **発話（EN）:** "Same file. Same password. Same everything — only the object is gone. The device waits ten seconds for a match, does not get one, and refuses. That is what 'the cue gates the operation' means — and notice it tells you almost nothing about *why* it failed. That is deliberate."
 - **注意:** **ここで間を取る。** これが cue≠key の唯一の実証である。
+  可能なら**この直後に物体を戻して再実行し、成功させる**。
+  失敗→成功の往復まで見せると「壊れたのではない」ことまで示せる。
+- **注意（ロックアウト）:** TUI 経路は失敗を記録しない（`retrieve_file` は
+  `limiter.check()` のみで `record_failure` を呼ばない）ので、**何度失敗させても
+  ロックしない。** WebUI 経路は5回失敗で60秒ロックするため、リハーサルは TUI で行うこと。
 - **技術的裏付け（質問された場合）:** `collect_auth_sequence()` が
   `wait_for_reference_match(timeout=10.0)` を呼び、不一致なら `match_none` を返す。
   この値は復号の入力そのもの（`_read_face_namespace` に渡る）なので、
@@ -186,7 +204,25 @@
 - **注意:** **`d`（Doctor）は開かない。** 上部の `! SYSTEM: 7 WARN — press [d] to review`
   について質問された場合は §6 の答えを使う。
 
-### Step 5 — Silent Standby（1:20｜★Disclose 山場｜TUI）
+### Step 5 — Local WebUI（0:40｜ローカル境界｜WebUI）
+
+> **役割を限定すること。** WebUI の Store/Retrieve は `vault.bin` を操作するので、
+> **ここでファイルを保存したり復元したりしてはいけない。** Step 1〜4 で見せた Vessel と
+> 別の入れ物になり、話が繋がらなくなる。このステップは**「同じ操作面がローカル境界の
+> 内側にも用意されている」ことを見せるだけ**に留める。
+
+- **操作:** TUI で **`w`** を押して起動。プロジェクタをラップトップのブラウザに切替、
+  事前に `/unlock` を通しておいたタブを提示。**画面を見せるだけで操作はしない。**
+- **画面期待:** ブラウザ上部に赤帯
+  `WEBUI ACTIVE — INTERFACE IS EXPOSED — ACCESS FROM TRUSTED NETWORK ONLY`。
+  TUI 側にも `WEBUI ACTIVE AT http://10.12.194.1:8000 - PRESS [w] TO RETRACT`。
+- **発話（EN）:** "The same device also serves a local web interface — bound to loopback by default. Reaching it from a tethered laptop over USB is an explicit opt-in that binds only the USB interface, and it still needs an access token. It never touches a network. Both ends say plainly that the interface is exposed."
+- **注意:** **`w` を押して30秒以内に `Ctrl+S` を押さないこと。** 起動通知には
+  アクセストークンが含まれており、表示中に Standby へ入るとトークンが秘匿画面に残る。
+  修正済みだが、余裕を持って進めること。
+- **失敗時:** 起動が遅ければ口頭説明に留め、TUIへ戻る（時間優先）。
+
+### Step 6 — Silent Standby（1:20｜★Disclose 山場｜TUI）
 
 - **操作:** **`Ctrl+S`** を押下。復帰は **`Ctrl+R`** または **`Esc`**。
 - **注意（キーの所在）:** `Ctrl+S` はフッタに表示されない設計。**指で覚えておくこと。**
@@ -215,7 +251,7 @@
 - **注意:** **本デモの山。** ゆっくり、間を取る。倫理（Slide 21）に接続して締める。
 - **失敗時:** 遷移が出なければ録画の該当箇所を提示。「これが唯一の"魔法に見える"部分。実体はStateマシンです」と補足。
 
-### Step 6 — ラップ（0:10）
+### Step 7 — ラップ（0:10）
 
 - **発話（EN）:** "That's Prepare, Bind, Operate, Disclose — on real hardware. Come try it at the table."
 - **操作:** **`Esc`** で Simple Operator へ戻す。プロジェクタ入力をスライドへ復帰（Slide 25）。
@@ -233,7 +269,7 @@
   URLが **`10.12.194.1:8000`（IP直指定）** かを確認。`127.0.0.1` と `phasmid-pi.local` は
   ラップトップからは**到達しない**。最悪、Step 2/3 をTUIに落とす
   （ただし Step 3b の失敗対比だけは必ず見せる）。
-- **時間超過:** 26:00 到達で Step 4 を飛ばし、**Step 3b と Step 5 だけは必ず見せる**。
+- **時間超過:** 26:00 到達で Step 4 と Step 5 を飛ばし、**Step 3b と Step 6 だけは必ず見せる**。
 
 ---
 
@@ -318,6 +354,24 @@ Vessel を作ると **Face が2つ自動生成される**（`face_a` / `face_b`�
 生成した face に対して `create_face(label=...)` を実行しても、
 `dummy_file_count` / `dummy_total_size` / plausibility level・score はすべて保持される。
 回帰テスト `test_labelling_a_face_preserves_its_generated_dummy_profile` で固定した。
+
+**保管層が2つ並存している（ソース確認済み）**
+
+| 経路 | 操作対象 | 根拠 |
+|---|---|---|
+| TUI `o` Open Vessel（Add/Recover/List/Remove） | `*.vessel` | `VesselWorkflowService` |
+| TUI Audit / Inspect | `*.vessel` | `AuditService` / `InspectionService` |
+| **WebUI Store / Retrieve** | **`vault.bin`** | `web_server.py` の `vault = PhasmidVault("vault.bin")` |
+| **Doctor の Dummy Profile 4件** | **`vault.bin` / `.state/dummy_profile`** | `dummy_container_path()` / `dummy_profile_dir()` |
+
+**WebUI に Vessel 対応の Store/Retrieve は存在しない**（`web_server.py` は
+`VesselWorkflowService` を一切 import していない）。`operator_inspect` は
+アップロードされたファイルを読むだけで、デバイス上の Vessel には触れない。
+
+したがって **WebUI で保存しても Vessel は変化せず、Audit にも現れない。**
+デモ本編（Step 1〜4）と WebUI を同じ流れとして見せてはいけない。
+#157 の Doctor 問題も同じ根に由来する — Doctor は「使われていない層」ではなく
+**WebUI が現に使っている層**を見ている。
 
 **物体キューが実際に効いていることの根拠**
 
