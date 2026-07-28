@@ -54,7 +54,7 @@ def resolve_web_vessel() -> Path | None:
         return None
     # Most recently opened wins, so the interface follows whichever Vessel the
     # operator is actually working in rather than whichever sorts first.
-    existing.sort(key=lambda item: (item.last_opened or "", str(item.path)))
+    existing.sort(key=lambda item: (item.last_opened_at or "", str(item.path)))
     return Path(existing[-1].path)
 
 

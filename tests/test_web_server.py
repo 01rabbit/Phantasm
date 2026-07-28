@@ -1666,6 +1666,62 @@ class WebTargetResolutionTests(unittest.TestCase):
             ):
                 self.assertEqual(resolve_web_vessel(), vessel)
 
+    def test_registry_selection_runs_against_real_vessel_metadata(self):
+        """Exercise the registry branch with a Vessel that exists on disk.
+
+        The first version sorted on `VesselMeta.last_opened`, which is not a
+        field - it is `last_opened_at`. Every override-based test returned
+        before reaching that line, and a registry test using a non-existent
+        path also returned early, so the branch that runs on any device with
+        a registered Vessel raised AttributeError and nothing caught it until
+        mypy did. The path has to exist for the sort to be reached at all.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.models.vessel import VesselMeta
+        from phasmid.services import web_target_service
+
+        self.assertFalse(hasattr(VesselMeta(name="x", path="/x"), "last_opened"))
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            older = Path(tmpdir) / "backup.vessel"
+            newer = Path(tmpdir) / "travel.vessel"
+            older.write_bytes(b"\x00" * 32)
+            newer.write_bytes(b"\x00" * 32)
+
+            registered = [
+                VesselMeta(
+                    name="backup.vessel",
+                    path=str(older),
+                    last_opened_at="2026-07-28T09:00:00+00:00",
+                ),
+                VesselMeta(
+                    name="travel.vessel",
+                    path=str(newer),
+                    last_opened_at="2026-07-28T10:00:00+00:00",
+                ),
+            ]
+
+            os.environ.pop("PHASMID_WEB_VESSEL", None)
+            with mock.patch(
+                "phasmid.services.vessel_service.VesselService.list_all",
+                return_value=registered,
+            ):
+                # Most recently opened wins, so the interface follows the
+                # Vessel the operator is actually working in.
+                self.assertEqual(web_target_service.resolve_web_vessel(), newer)
+
+    def test_no_registered_vessel_falls_back_rather_than_raising(self):
+        from phasmid.services import web_target_service
+
+        os.environ.pop("PHASMID_WEB_VESSEL", None)
+        with mock.patch(
+            "phasmid.services.vessel_service.VesselService.list_all",
+            return_value=[],
+        ):
+            self.assertIsNone(web_target_service.resolve_web_vessel())
+
     def test_missing_override_does_not_silently_fall_through(self):
         from phasmid.services.web_target_service import resolve_web_vessel
 

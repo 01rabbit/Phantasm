@@ -1002,6 +1002,7 @@ async def retrieve(request: Request, password: str = Form(...)):
         return {"error": text.NO_VALID_ENTRY_FOUND}
 
     vessel_path = resolve_web_vessel()
+    result: bytes | None
     for mode in access_cue_service.modes():
         if vessel_path is not None:
             try:
