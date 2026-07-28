@@ -702,7 +702,8 @@ class VesselWorkflowService:
             return "Free space is filled. The file you disclose is still one you store yourself."
         if profile.plausibility_level == "MEDIUM":
             return (
-                "Add more size variation or increase occupancy for a stronger baseline."
+                "Free space is partly filled. Filling more is optional; "
+                "the file you disclose is one you store yourself."
             )
         return "Free space is largely empty. Filling it is optional; the file you disclose is one you store yourself."
 

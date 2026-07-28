@@ -647,6 +647,24 @@ def _check_luks_statuses() -> list[DoctorCheck]:
     return checks
 
 
+_DUMMY_ADVISORY_ENV = (
+    "PHASMID_DUMMY_PROFILE_DIR",
+    "PHASMID_DUMMY_CONTAINER_PATH",
+)
+
+
+def _dummy_advisory_configured() -> bool:
+    """True when the operator has pointed the advisory at their own material.
+
+    A variable set to an empty or blank string counts as unset. Blanking a
+    variable is how an operator turns a setting off, and ``Path("")`` is the
+    current working directory, which exists everywhere - taking it as a
+    configured path would silently measure whatever directory the console was
+    launched from and report its size as the container's.
+    """
+    return any(os.environ.get(name, "").strip() for name in _DUMMY_ADVISORY_ENV)
+
+
 def _check_dummy_profile_plausibility() -> list[DoctorCheck]:
     """Advisory over material the operator points this at.
 
@@ -660,12 +678,17 @@ def _check_dummy_profile_plausibility() -> list[DoctorCheck]:
     on. Unconfigured now reports "not configured" rather than a deficiency:
     an advisory nobody asked for is not a finding.
 
+    Whether the advisory is wanted is decided by the environment variables,
+    not by whether the default paths happen to exist. The container default
+    is the literal ``vault.bin``, which is also the CLI's default vessel name
+    and the WebUI's legacy fallback, so any device that has ever stored a
+    file without naming a Vessel has that path - testing for it would hand
+    the whole warning storm back to an operator who never asked for this.
+
     Volume is all this measures. Whether the material is convincing is not
     something the tool can judge, and it does not claim to.
     """
-    profile_dir = Path(dummy_profile_dir())
-    container = Path(dummy_container_path())
-    if not profile_dir.exists() and not container.exists():
+    if not _dummy_advisory_configured():
         return [
             DoctorCheck(
                 name=name,

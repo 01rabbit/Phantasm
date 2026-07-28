@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import unittest
+import unittest.mock  # `unittest.mock` is not bound by `import unittest` alone
 from pathlib import Path
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -329,7 +330,7 @@ class CLITests(unittest.TestCase):
             cli.main()
 
         self.assertIn(("inspect_plausibility", "travel.vessel", "face_b"), events)
-        self.assertIn("Plausibility metadata ready", output.getvalue())
+        self.assertIn("Free-space filler measured", output.getvalue())
 
     def test_cli_file_add_uses_shared_workflow(self):
         output = io.StringIO()
