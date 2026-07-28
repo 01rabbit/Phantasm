@@ -13,14 +13,8 @@ from pathlib import Path
 from ..config import (
     debug_enabled,
     doctor_recent_seconds,
-    dummy_container_path,
-    dummy_min_file_count,
-    dummy_min_size_mb,
-    dummy_occupancy_warn,
-    dummy_profile_dir,
     state_dir,
 )
-from ..dummy_profile_eval import evaluate_dummy_profile, human_bytes
 from ..luks_layer import LuksConfig, LuksLayer, LuksMode
 from ..models.doctor import DoctorCheck, DoctorLevel, DoctorResult
 from ..process_hardening import hardening_status
@@ -647,66 +641,31 @@ def _check_luks_statuses() -> list[DoctorCheck]:
     return checks
 
 
-def _check_dummy_profile_plausibility() -> list[DoctorCheck]:
-    evaluation = evaluate_dummy_profile(
-        dummy_profile_dir=dummy_profile_dir(),
-        container_path=dummy_container_path(),
-        min_size_mb=dummy_min_size_mb(),
-        min_file_count=dummy_min_file_count(),
-        occupancy_warn_threshold=dummy_occupancy_warn(),
-    )
-    warning_level = DoctorLevel.WARN if evaluation.warnings else DoctorLevel.OK
-    ratio_pct = evaluation.occupancy_ratio * 100.0
+def _check_disclosure_reporting_location() -> list[DoctorCheck]:
+    """Point at where free-space reporting actually lives.
 
-    checks = [
+    Four checks used to report a filler profile here. They read
+    ``.state/dummy_profile``, which nothing writes - every reference to it in
+    the tree is a reader, and the one module that could populate it has no
+    operator-reachable entry point. They could not pass on any device, and
+    they contradicted the Audit screen, which reads the Vessel and is correct.
+
+    Free-space filler is a per-Vessel, per-face property. This is a host
+    check with no Vessel context, so it reports where to look instead of
+    reporting a number it cannot obtain.
+    """
+    return [
         DoctorCheck(
-            name="Dummy Profile Size",
-            level=warning_level,
-            message=(
-                f"dummy profile size: {human_bytes(evaluation.dummy_size_bytes)}; "
-                f"container size: {human_bytes(evaluation.container_size_bytes)}"
-            ),
-        ),
-        DoctorCheck(
-            name="Dummy Profile File Count",
-            level=warning_level,
-            message=f"dummy profile file count: {evaluation.file_count}",
-        ),
-        DoctorCheck(
-            name="Dummy Profile Occupancy Ratio",
-            level=warning_level,
-            message=f"occupancy ratio: {ratio_pct:.2f}%",
-        ),
-        DoctorCheck(
-            name="Dummy Profile Size Distribution",
+            name="Free Space Reporting",
             level=DoctorLevel.INFO,
-            message=(
-                "file size distribution: "
-                f"min={human_bytes(evaluation.min_file_size)}, "
-                f"p50={human_bytes(evaluation.p50_file_size)}, "
-                f"max={human_bytes(evaluation.max_file_size)}"
+            message="Free space filler is reported per Face under Audit",
+            detail=(
+                "This check covers the host. Material disclosed under "
+                "pressure is supplied by the operator and is not assessed "
+                "here or anywhere else."
             ),
-        ),
+        )
     ]
-    if evaluation.warnings:
-        checks.append(
-            DoctorCheck(
-                name="Dummy Profile Plausibility",
-                level=DoctorLevel.WARN,
-                message="Dummy profile plausibility assessment: LOW",
-                detail="; ".join(evaluation.warnings),
-            )
-        )
-    else:
-        checks.append(
-            DoctorCheck(
-                name="Dummy Profile Plausibility",
-                level=DoctorLevel.OK,
-                message="Dummy profile plausibility assessment: baseline thresholds met",
-                detail="Operational plausibility is advisory, not a technical guarantee.",
-            )
-        )
-    return checks
 
 
 def run_doctor_checks(output_dir: str | None = None) -> DoctorResult:
@@ -729,7 +688,7 @@ def run_doctor_checks(output_dir: str | None = None) -> DoctorResult:
     ]
 
     checks += _check_luks_statuses()
-    checks += _check_dummy_profile_plausibility()
+    checks += _check_disclosure_reporting_location()
 
     checks += [
         _check_process_hardening(),

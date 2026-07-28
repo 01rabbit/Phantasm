@@ -6,7 +6,7 @@
 > **情報の確度について**
 > - **本書は 0.3.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果に基づく。** 〔要確認〕は原則として解消済み。実機で確認していない項目のみ §9 末尾に明示する。
 > - **前版からの重要な変更:** Step 2 の画面が違っていた（Faces ではなく Open Vessel の `Add File`）。Step 4 の参照先が違っていた（Operator Log ではなく Audit）。Step 3b（物体なしでの失敗）を新設した。Fill Free Space は**実測4分のため壇上から外した**。**囮ファイルは運用者が用意する**ものとし、生成機能は空き領域の填充に位置づけ直した。
-> - **WebUI の Store/Retrieve は Vessel 経路に統一済み。** かつては TUI が `*.vessel`、WebUI が別の `vault.bin` を操作しており話が繋がらなかったが、現在は両者とも `resolve_web_vessel()` が解決した同じ Vessel を `VesselWorkflowService` 経由で操作する（Vessel 未登録時のみ旧 `vault.bin` にフォールバック）。Doctor の Dummy Profile 検査だけは今も旧層 `vault.bin` / `.state/dummy_profile` を見ている（→ #157、§4 Step 2 の注記）。
+> - **WebUI の Store/Retrieve は Vessel 経路に統一済み。** かつては TUI が `*.vessel`、WebUI が別の `vault.bin` を操作しており話が繋がらなかったが、現在は両者とも `resolve_web_vessel()` が解決した同じ Vessel を `VesselWorkflowService` 経由で操作する（Vessel 未登録時のみ旧 `vault.bin` にフォールバック）。Doctor が旧層 `.state/dummy_profile` を見ていた4項目は削除した（#157）。あのパスはどの操作でも生成されず、警告が永久に消えなかった。
 > - **注意:** 0.1.4 までは起動直後が Expert 相当の単層画面だった。それ以前の手順書のキー順は**そのままでは通らない**。
 
 ---
@@ -20,7 +20,6 @@
 | **マウスでボタンを押す** | SSH越しのターミナルではクリックイベントがTextualに届かない。ボタンはフォーカスされるだけで発火しない | **`Tab` / `Shift+Tab` で移動し `Enter`**。全操作をキーボードで行う |
 | **壇上で Fill Free Space を実行** | 64 MiB / 15% で**実測約4分**。枠は1:20 | **事前に埋めておき**、壇上では **Inspect Free Space** のみ |
 | **囮ファイルをツールに作らせる** | 生成される填充物は汎用ファイルであり、開示材料としての真実味がない | **囮は運用者が用意する。** 真のファイルによく似た偽ファイルを自分で保存する |
-| **`d`（Doctor）を開く** | Dummy Profile の4件は旧 `vault.bin` 層を見ており、生成済みでも `0 B / LOW` と報告する。Audit画面と矛盾して見える | 可信性の話は **`a`（Audit）** で行う |
 | **素の `phasmid` で起動** | libcamera のログがTUIを破壊する／WebUIがラップトップから見えない／トークンが毎回変わる／`Ctrl+S` が効かないことがある | **`scripts/pi_zero2w/run_demo_console.sh`** を使う |
 | **成功例だけを見せる** | 物体キューが効いていることの証明にならない。観客にはただのパスワード復号に見える | **物体なしの失敗を必ず見せる**（Step 3b） |
 
@@ -88,7 +87,7 @@
 - [ ] TUIを **Simple Operator 画面**で待機。
 - [ ] **`! SYSTEM: n WARN` は Simple 画面には出ない**（Expert専用）。内容を確認したい場合は
       `e` を押し、**確認後 `Esc` で Simple に戻しておくこと。**
-- [ ] WARN 7件の内訳を把握（→ §6）。質問された場合の答えを用意。
+- [ ] WARN の内訳を把握（→ §6）。すべてホスト自身の事実。質問された場合の答えを用意。
 - [ ] デモ用パスフレーズ／物体プロップを手元に。**実秘匿は使わない**。
 - [ ] Silent Standby は **`Ctrl+S`**（既定）。復帰は **`Ctrl+R`** または **`Esc`**。
       **フッタに出ないので指で覚えておく。**
@@ -140,11 +139,10 @@
 > |---|---|
 > | TUI `o` Open Vessel | `*.vessel`（`VesselWorkflowService`） |
 > | **WebUI Store / Retrieve** | **同じ `*.vessel`**（`resolve_web_vessel()` が解決した Vessel に対し `VesselWorkflowService` を呼ぶ。Vessel 未登録時のみ旧 `vault.bin` にフォールバック） |
-> | Doctor の Dummy Profile 検査 | `vault.bin` / `.state/dummy_profile`（旧レイヤのまま、→ #157） |
 > | TUI Audit / Inspect | `*.vessel` |
 >
-> **旧版時点では TUI と WebUI が別レイヤ（`*.vessel` / `vault.bin`）を操作しており、
-> #157 の Doctor 不整合はその名残である。** 現在は統一済みで、WebUI で保存すれば
+> **旧版時点では TUI と WebUI が別レイヤ（`*.vessel` / `vault.bin`）を操作していた。**
+> 現在は統一済みで、WebUI で保存すれば
 > Step 1 で作った Vessel に反映され、Step 4 の Audit にも現れる。
 >
 > それでも **Step 2〜3b は必ず TUI で行うこと。** 理由は保管層が分離しているからではない。
@@ -215,11 +213,11 @@
   ```
 - **発話（EN）:** "**Audit** reports per face. Note what it does *not* claim: it does not tell me my cover story is convincing. The file I would hand over is one I wrote and stored myself — the tool cannot judge whether it is believable, and it does not pretend to. All it reports here is how much free space is filled, so an otherwise empty container does not read as empty. Judging the cover story is the operator's job, and the tool is honest about that boundary."
 - **注意（旧版の誤り）:** 旧版は「**Operator Log の Dummy Profile 指標を指す**」と
-  指示していたが、**あの4行は Doctor 由来で、Vessel の生成結果を反映しない**
-  （旧 `vault.bin` / `.state/dummy_profile` 層を見ている）。生成済みでも `0 B / LOW` と
-  出るため、読み上げると矛盾が露見する。**必ず Audit 画面を指すこと。**
-- **注意:** **`d`（Doctor）は開かない。** 上部の `! SYSTEM: 7 WARN — press [d] to review`
-  について質問された場合は §6 の答えを使う。
+  指示していたが、あの4行は Doctor 由来で Vessel を反映しなかった。**該当の検査は
+  削除済み**（#157）。可信性ではなく空き領域の話として、**Audit 画面を指すこと。**
+- **任意:** **`d`（Doctor）を開いてよい。** 生成されないパスを見ていた4項目を削除したので、
+  残る警告はこのホスト自身の事実だけになった（→ §6）。「ツールが自分の動作環境を
+  正直に報告する」実例として使える。
 
 ### Step 5 — Local WebUI（0:40｜ローカル境界｜WebUI）
 
@@ -290,19 +288,23 @@
 
 ---
 
-## 6. `! SYSTEM: 7 WARN` の内訳（質問対策）
+## 6. `! SYSTEM: n WARN` の内訳（質疑対策）
 
-Expert画面に出る7件の内訳。**いずれも想定内**である。
+Expert画面の警告は**すべてこのホスト自身についての事実**である。実測（新品状態）:
 
 | 件数 | 内容 | 説明 |
 |---|---|---|
-| 4 | Dummy Profile Size / File Count / Occupancy Ratio / Plausibility | **既知の不整合。** これらは旧 `vault.bin` / `.state/dummy_profile` を検査しており、Vessel の Face に生成した可信性プロファイルを参照しない。Vessel側の実態は Audit 画面（Step 4）が示す |
-| 2 | Swap active / Compressed swap (zram) enabled | ツールが**自ホストを正直に報告**している。無効化すれば消えるが、Pi Zero 2 W では実用上有効にしている |
-| 1 | `/tmp` is world-writable | 同上 |
+| 1 | `/tmp` is world-writable | 取り出したファイルが他ユーザーから読める |
+| 2 | Swap active / Compressed swap (zram) enabled | Pi Zero 2 W では実用上有効にしている。無効化すれば消える |
 
-- **発話（EN、質問された場合）:** "It warns about its own host — swap is on, so pages can hit disk. It's telling me the truth about an environment it doesn't control. Four of those warnings point at a legacy check path we're consolidating; the Vessel-level view is under Audit."
+**かつて出ていた Dummy Profile 4件は削除した**（#157）。あれは
+`.state/dummy_profile` を読んでいたが、**このパスはどの操作でも生成されない** —
+参照は全て読み取りで、書き込みうる唯一のモジュールに運用者から到達する入口がない。
+どの端末でも永久に警告のままで、しかも Audit 画面と矛盾していた。
+空き領域の填充は Face 単位の属性であり、Vessel を持たないホスト検査の担当ではない。
+Doctor には Audit を指す INFO 1件（`Free Space Reporting`）だけが残る。
 
----
+- **発話（EN、質問された場合）:** "It warns about its own host — swap is on, so pages can hit disk, and /tmp is world-writable. It is telling me the truth about an environment it does not control. It used to warn about the quality of a decoy as well; we removed that, because the file you would hand over is one you wrote, and the tool has no way to judge whether it is believable."
 
 ## 7. 安全・運用注意 / Safety
 
@@ -379,7 +381,6 @@ Vessel を作ると **Face が2つ自動生成される**（`face_a` / `face_b`�
 | TUI `o` Open Vessel（Add/Recover/List/Remove） | `*.vessel` | `VesselWorkflowService` |
 | TUI Audit / Inspect | `*.vessel` | `AuditService` / `InspectionService` |
 | **WebUI Store / Retrieve** | **同じ `*.vessel`**（`resolve_web_vessel()` が解決） | `web_server.py` が `VesselWorkflowService().add_payload` / `.retrieve_payload` を呼ぶ。Vessel 未登録時のみ `vault.bin` にフォールバック |
-| **Doctor の Dummy Profile 4件** | **`vault.bin` / `.state/dummy_profile`（旧レイヤのまま）** | `dummy_container_path()` / `dummy_profile_dir()` |
 
 `web_server.py` は現在 `VesselWorkflowService` と
 `services/web_target_service.resolve_web_vessel()` を import しており、Store/Retrieve は
@@ -388,10 +389,12 @@ TUI が使うのと同じ Vessel に対して動作する（Vessel が1つも登
 読むだけで、デバイス上の Vessel には触れない点は変わらない。
 
 **旧版時点では両経路が別レイヤ（TUI=`*.vessel` / WebUI=`vault.bin`）を操作していた。**
-#157 の Doctor 不整合はその名残であり、Doctor は今も「使われていない層」ではなく
-**かつてWebUIが使っていた旧層**を見続けている。現時点でWebUIを本編から外している
-理由は分離ではなく、統合経路を壇上ではまだ実機で通していないことと、Store/Retrieve の
-判定がどちらの経路でも物体キュー照合に依存しCIでは検証できないこと、の2点である。
+Doctor が旧層を見ていた4項目は削除済み（#157）。**あのパス `.state/dummy_profile` は
+どの操作でも生成されない** — 参照は全て読み取りで、書き込みうる唯一のモジュールに
+運用者から到達する入口がなく、どの端末でも永久に警告のままだった。
+現時点でWebUIを本編から外している理由は保管層の分離ではなく、統合経路を壇上では
+まだ実機で通していないことと、Store/Retrieve の判定がどちらの経路でも物体キュー照合に
+依存しCIでは検証できないこと、の2点である。
 
 **物体キューが実際に効いていることの根拠**
 
@@ -414,8 +417,10 @@ TUI が使うのと同じ Vessel に対して動作する（Vessel が1つも登
 
 **Doctor の baseline（新品状態）**
 
-`run_doctor_checks()`（非TUI、`services/doctor_service.py`）は27チェックを返し、
-うち **7 WARN**（内訳は §6）。zram を無効化すれば5件まで下がる。
+`run_doctor_checks()`（非TUI、`services/doctor_service.py`）は **23チェック**を返す。
+`.state/dummy_profile` を読んでいた4項目を削除した結果（#157）、警告は**ホスト自身の
+事実のみ**になった: `/tmp` world-writable、Swap、Compressed swap の3件（この開発
+コンテナでは1件）。zram と swap を無効化すれば1件まで下がる。
 
 **最小端末幅: 123桁**（#160 で確定）
 
