@@ -523,15 +523,18 @@ Phasmid explicitly does not aim to provide:
 ## Coercion-Safe Delaying Architecture
 
 Phasmid implements a coercion-safe delaying architecture to increase uncertainty,
-delay confident conclusions, and provide plausible controlled disclosure.
+delay confident conclusions, and route disclosure toward material the operator
+prepared and stored ahead of time.
 
 ### Security Claims
 
-- Separates coerced disclosure path from true disclosure path using pre-configured
-  controlled-disclosure datasets.
+- Separates coerced disclosure path from true disclosure path: the coerced path opens
+  a file the operator prepared and stored ahead of time in a Face separate from the
+  protected Face. Phasmid never fabricates that material.
 - Avoids immediate proof by ensuring no single observation confirms or denies
   the existence of protected content.
-- Increases adversarial analysis cost through context-consistent pre-configured content.
+- Increases adversarial analysis cost because distinguishing the disclosed Face from
+  the protected Face takes investigation time.
 - Silent Standby removes sensitive UI state on a configurable hotkey trigger.
 - Coercion-safe recognition mode routes low-confidence recognition to the
   controlled-disclosure path rather than an obvious access-denied response.
@@ -542,33 +545,37 @@ delay confident conclusions, and provide plausible controlled disclosure.
 - Phasmid does not forge or tamper with filesystem metadata, kernel logs, or timestamps.
 - Phasmid does not conceal the existence of the software itself.
 - Silent Standby does not erase key material from process memory.
-- Pre-configured disclosure content is not guaranteed to be indistinguishable under
-  expert forensic analysis.
+- Operator-supplied disclosure material is not guaranteed to be indistinguishable
+  from the protected content under expert forensic analysis, and Phasmid does not judge
+  whether it is convincing — that is the operator's responsibility.
 
 ### Assumptions
 
-- The operator has pre-populated a plausible controlled-disclosure dataset before
-  any coercive event.
-- The controlled-disclosure dataset is internally consistent with the declared
-  operational context template.
+- The operator has stored disclosure material they prepared themselves in the
+  disclosure Face before any coercive event, and optionally filled free space so the
+  container does not read as empty.
+- That material's plausibility comes from the operator having prepared it themselves;
+  Phasmid does not fabricate it or vouch for it.
 - The operator activates standby before a coercive party reaches the active UI state.
 - The host operating system is not compromised at the time of standby activation.
 
 ### Known Limitations
 
 - Standby is a UI-layer operation; it does not erase in-memory key material.
-- Controlled-disclosure content plausibility depends entirely on operator preparation.
+- The credibility of the disclosed material depends entirely on the operator's own
+  preparation; Phasmid does not assess it.
 - Recognition confidence routing does not verify physical coercion context.
-- Plausibility warnings are advisory; they do not verify adversarial perception.
+- Free-space occupancy warnings are advisory and measure volume only; they do not
+  verify adversarial perception or judge believability.
 
 ### Allowed Behaviors
 
-- Plausible controlled disclosure using pre-configured content.
+- Disclosure of operator-supplied material stored ahead of any coercive event.
 - Privacy-preserving standby transitions that remove sensitive UI state.
 - Ambiguity-preserving workflows.
 - Configurable hotkey-triggered standby.
-- Operational context template-guided content structure.
-- Local plausibility reports.
+- Operational context template-guided free-space filler structure.
+- Local free-space occupancy reports.
 
 ### Disallowed Behaviors
 

@@ -33,7 +33,7 @@ Phasmid is a local-only coercion-aware disclosure-control prototype for constrai
 
 In an Arsenal demo, Phasmid demonstrates how encrypted local storage can separate coerced disclosure from true disclosure without claiming forensic invisibility or anti-forensic evasion.
 
-The demo flow shows creation of an encrypted local Vessel, selection of a context-consistent Disclosure Face, generation and evaluation of a plausible disclosure dataset, Silent Standby transition that removes sensitive UI state, coercion-safe fallback toward controlled disclosure, and explicit claims and non-claims.
+The demo flow shows creation of an encrypted local Vessel, selection of a context-consistent Disclosure Face, the operator storing disclosure material they prepared themselves in that Face (Phasmid never fabricates it), an optional free-space-filling step so the container does not read as empty, Silent Standby transition that removes sensitive UI state, coercion-safe fallback toward controlled disclosure, and explicit claims and non-claims.
 
 ## Not Anti-Forensics
 

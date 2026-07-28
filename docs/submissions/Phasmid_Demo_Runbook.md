@@ -6,7 +6,7 @@
 > **情報の確度について**
 > - **本書は 0.3.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果に基づく。** 〔要確認〕は原則として解消済み。実機で確認していない項目のみ §9 末尾に明示する。
 > - **前版からの重要な変更:** Step 2 の画面が違っていた（Faces ではなく Open Vessel の `Add File`）。Step 4 の参照先が違っていた（Operator Log ではなく Audit）。Step 3b（物体なしでの失敗）を新設した。Fill Free Space は**実測4分のため壇上から外した**。**囮ファイルは運用者が用意する**ものとし、生成機能は空き領域の填充に位置づけ直した。
-> - **WebUI の Store/Retrieve は Vessel 経路に統一済み。** かつては TUI が `*.vessel`、WebUI が別の `vault.bin` を操作しており話が繋がらなかったが、現在は両者とも `resolve_web_vessel()` が解決した同じ Vessel を `VesselWorkflowService` 経由で操作する（Vessel 未登録時のみ旧 `vault.bin` にフォールバック）。Doctor の Dummy Profile 助言は既定パスが生成されないため永久に警告していたが、未設定時は警告しないよう変更した（#157）。運用者が自分の素材を指させれば分量を報告する。
+> - **WebUI の Store/Retrieve は Vessel 経路に統一済み。** かつては TUI が `*.vessel`、WebUI が別の `vault.bin` を操作しており話が繋がらなかったが、現在は両者とも `resolve_web_vessel()` が解決した同じ Vessel を `VesselWorkflowService` 経由で操作する（Vessel 未登録時のみ旧 `vault.bin` にフォールバック）。Doctor の Dummy Profile 助言は、既定パスの存在有無ではなく `PHASMID_DUMMY_PROFILE_DIR` / `PHASMID_DUMMY_CONTAINER_PATH` が設定されているかどうかで判定するよう変更し、未設定端末での永久警告を解消した（#157）。運用者が自分の素材を指させれば分量を報告する。
 > - **注意:** 0.1.4 までは起動直後が Expert 相当の単層画面だった。それ以前の手順書のキー順は**そのままでは通らない**。
 
 ---
@@ -213,8 +213,11 @@
   ```
 - **発話（EN）:** "**Audit** reports per face. Note what it does *not* claim: it does not tell me my cover story is convincing. The file I would hand over is one I wrote and stored myself — the tool cannot judge whether it is believable, and it does not pretend to. All it reports here is how much free space is filled, so an otherwise empty container does not read as empty. Judging the cover story is the operator's job, and the tool is honest about that boundary."
 - **注意（旧版の誤り）:** 旧版は「**Operator Log の Dummy Profile 指標を指す**」と
-  指示していたが、あの4行は Doctor 由来で Vessel を反映しなかった。**該当の検査は
-  削除済み**（#157）。可信性ではなく空き領域の話として、**Audit 画面を指すこと。**
+  指示していたが、あの4行は Doctor 由来で Vessel を反映しなかった。**検査自体は
+  削除していない**（#157 で解決済み。Doctor 側は環境変数 `PHASMID_DUMMY_PROFILE_DIR` /
+  `PHASMID_DUMMY_CONTAINER_PATH` が未設定なら `not configured` を返すだけであり、
+  空き領域の実測値は Vessel を反映する Audit 画面が担う）。可信性ではなく空き領域の
+  話として、**Audit 画面を指すこと。**
 - **任意:** **`d`（Doctor）を開いてよい。** 未設定の助言が警告を出さなくなったので、
   残る警告はこのホスト自身の事実だけになった（→ §6）。「ツールが自分の動作環境を
   正直に報告する」実例として使える。
@@ -299,10 +302,13 @@ Expert画面の警告は**すべてこのホスト自身についての事実**�
 
 **かつて出ていた Dummy Profile 4件の警告は解消した**（#157）。この検査は
 `PHASMID_DUMMY_PROFILE_DIR` / `PHASMID_DUMMY_CONTAINER_PATH` で**運用者が
-自分の用意した素材を指させる助言機能**だが（`docs/CONFIGURATION.md`）、既定パスは
-どの操作でも生成されないため、未設定のまま全端末で永久に警告していた。
-未設定時は `not configured` として報告するよう変更した。**検査自体は残っている** —
-運用者が素材を指させば、その**分量**（サイズ・ファイル数・占有率）を報告する。
+自分の用意した素材を指させる助言機能**だが（`docs/CONFIGURATION.md`）、判定は
+**この2つの環境変数が空でない値に設定されているかどうか**で行うよう変更した。
+既定パスの存在有無では判定しない — コンテナ側の既定値は `vault.bin` で、これは
+CLI の Vessel 既定名と同一であるため、パス存在で判定すると**一度でもファイルを
+保管した全端末で警告が復活する**ことになる。未設定時は `not configured` として
+報告する。**検査自体は残っている** —
+運用者が環境変数で素材を指させば、その**分量**（サイズ・ファイル数・占有率）を報告する。
 **説得力があるかどうかは判定しない。** それは運用者の領分である。
 
 - **発話（EN、質問された場合）:** "It warns about its own host — swap is on, so pages can hit disk, and /tmp is world-writable. It is telling me the truth about an environment it does not control. It used to warn about the quality of a decoy as well; we removed that, because the file you would hand over is one you wrote, and the tool has no way to judge whether it is believable."
@@ -390,10 +396,12 @@ TUI が使うのと同じ Vessel に対して動作する（Vessel が1つも登
 読むだけで、デバイス上の Vessel には触れない点は変わらない。
 
 **旧版時点では両経路が別レイヤ（TUI=`*.vessel` / WebUI=`vault.bin`）を操作していた。**
-Doctor の Dummy Profile 助言は既定パス `.state/dummy_profile` を見ており、**そのパスは
-どの操作でも生成されない**ため全端末で永久に警告していた。未設定時は警告しないよう
-変更した（#157）。運用者が `PHASMID_DUMMY_PROFILE_DIR` で自分の素材を指させれば機能する。
-現時点でWebUIを本編から外している理由は保管層の分離ではなく、統合経路を壇上では
+Doctor の Dummy Profile 助言は、`PHASMID_DUMMY_PROFILE_DIR` /
+`PHASMID_DUMMY_CONTAINER_PATH` が空でない値に設定されているかどうかで判定するよう
+変更した（#157）。既定パスの存在有無では判定しない — コンテナ側の既定値 `vault.bin`
+は CLI の Vessel 既定名と同一のため、パス存在で判定すると一度でもファイルを保管した
+全端末で警告が復活してしまう。運用者がどちらかの変数で自分の素材を指させれば、
+検査はその分量を報告する。現時点でWebUIを本編から外している理由は保管層の分離ではなく、統合経路を壇上では
 まだ実機で通していないことと、Store/Retrieve の判定がどちらの経路でも物体キュー照合に
 依存しCIでは検証できないこと、の2点である。
 
@@ -446,4 +454,5 @@ Dummy Profile 助言が未設定時に警告しなくなった結果（#157）�
 **未検証項目**
 
 - なし（本節の項目はすべて実機または回帰テストで確定済み）。
-  残る既知の未解決事項は Issue #157（Doctor の参照層）と #158（TUI の照合表示）を参照。
+  #157（Doctor の Dummy Profile 助言が既定パス判定のため未設定端末で永久に警告していた
+  問題）は本改訂で解決済み。残る既知の未解決事項は #158（TUI の照合表示）のみ。

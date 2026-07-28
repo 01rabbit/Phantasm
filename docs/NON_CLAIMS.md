@@ -56,10 +56,10 @@ Each item includes a brief rationale to keep review and deployment decisions exp
 ## Coercion-Safe Delaying Non-Claims
 
 - Phasmid does not guarantee permanent secrecy against unlimited forensic analysis.  
-  Rationale: the coercion-safe architecture increases uncertainty and investigation cost; it does not eliminate the adversary's eventual ability to distinguish dummy from protected content.
+  Rationale: the coercion-safe architecture increases uncertainty and investigation cost; it does not eliminate the adversary's eventual ability to distinguish the disclosed decoy from the protected content.
 
-- Phasmid does not claim that dummy content is indistinguishable under expert forensic analysis.  
-  Rationale: an expert forensic examiner with sufficient time may identify structural differences between dummy and true content.
+- Phasmid does not claim that the operator's decoy content is indistinguishable from the protected content under expert forensic analysis.  
+  Rationale: an expert forensic examiner with sufficient time may identify structural differences between the two; the decoy is the operator's own file, not tool-generated content designed to fool analysis.
 
 - Phasmid does not forge or tamper with filesystem metadata, kernel logs, or timestamps.  
   Rationale: anti-forensic tampering is an explicitly disallowed behavior.
@@ -70,5 +70,5 @@ Each item includes a brief rationale to keep review and deployment decisions exp
 - Phasmid does not detect or verify physical coercion context.  
   Rationale: coercion-safe recognition mode routes based on recognition confidence, not on verified coercion state.
 
-- Dummy plausibility is entirely dependent on operator preparation.  
-  Rationale: the plausibility report is advisory; a trivially empty or inconsistent dummy profile reduces survivability.
+- The free-space filler occupancy report does not judge whether the operator's own disclosure material is convincing.  
+  Rationale: the tool measures volume — file count, size, occupancy ratio — not persuasiveness. Assessing whether a cover story holds up under scrutiny is the operator's responsibility, not the tool's; a trivially empty container still reduces survivability regardless of what the operator discloses.
