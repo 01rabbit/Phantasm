@@ -1689,9 +1689,7 @@ def test_all_tui_screens_mount_and_keep_key_names(tmp_path, monkeypatch):
                     failures.append(f"{name} failed to mount: {exc!r}")
                     continue
                 await pilot.pause()
-                widgets = list(app.screen.query(Static)) + list(
-                    app.screen.query(Label)
-                )
+                widgets = list(app.screen.query(Static)) + list(app.screen.query(Label))
                 for widget in widgets:
                     try:
                         text = widget.visual.plain
