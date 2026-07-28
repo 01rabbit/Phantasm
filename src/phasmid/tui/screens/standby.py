@@ -73,7 +73,7 @@ class StandbyScreen(OperatorScreen):
     }
     StandbyScreen #maintenance-panel {
         height: 10;
-        border: solid $text-muted;
+        border: solid $foreground-muted;
         padding: 1 2;
         color: $text-muted;
         margin: 0 0 1 0;

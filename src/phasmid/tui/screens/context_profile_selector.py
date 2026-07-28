@@ -46,7 +46,7 @@ class ContextProfileSelectorScreen(OperatorScreen):
     }
     ContextProfileSelectorScreen #detail-panel {
         height: 8;
-        border: solid $text-muted;
+        border: solid $foreground-muted;
         padding: 0 1;
         margin: 0 0 1 0;
         color: $text;
