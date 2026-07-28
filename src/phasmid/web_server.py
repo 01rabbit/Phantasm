@@ -69,6 +69,7 @@ from .services.vessel_workflow_service import VesselWorkflowService
 from .services.web_target_service import (
     LEGACY_CONTAINER_PATH,
     face_for_mode,
+    forget_face_contents,
     resolve_web_container,
     resolve_web_vessel,
 )
@@ -211,6 +212,11 @@ def display_entry_label(entry_id):
 
 def active_vault() -> PhasmidVault:
     return resolve_web_container(vault)
+
+
+def _other_mode(mode: str) -> str:
+    others = [item for item in access_cue_service.modes() if item != mode]
+    return others[0] if others else mode
 
 
 def resolve_entry(entry_id):
@@ -949,6 +955,10 @@ async def store(
             "entry_state": entry_state,
         }
     except Exception:
+        # The operator is deliberately told nothing specific, but swallowing
+        # the cause entirely made a broken container indistinguishable from a
+        # rejected passphrase for whoever has to debug the device.
+        LOG.exception("Store failed")
         return {"error": text.STORE_OPERATION_FAILED}
 
 
@@ -1012,7 +1022,16 @@ async def retrieve(request: Request, password: str = Form(...)):
                     selector=face_for_mode(mode),
                     cue_sequence=auth_sequence,
                 )
+            except (ValueError, FileNotFoundError, PermissionError):
+                # Expected control flow: wrong password, no bound object
+                # matched, nothing stored, or the limiter refusing. Try the
+                # next mode, exactly as a None result did before.
+                continue
             except Exception:
+                # Anything else is a fault, not an authentication outcome.
+                # Falling through silently would make a broken container or a
+                # bad state file look identical to a mistyped password.
+                LOG.exception("Vessel-backed retrieval failed unexpectedly")
                 continue
             result, filename, password_role = (
                 payload,
@@ -1069,6 +1088,7 @@ async def purge_other(
     )
     mode = resolve_entry(entry_id)
     active_vault().purge_other_mode(mode)
+    forget_face_contents(_other_mode(mode))
     audit_event("restricted_local_update", accessed_entry="local_entry", source="web")
     return {"status": text.UNMATCHED_ENTRY_CLEARED}
 
@@ -1081,6 +1101,7 @@ async def emergency_brick(request: Request, confirmation: str = Form(...)):
     enforce_rate_limit(request)
     require_restricted_action("clear_local_access_path", request, confirmation)
     active_vault().silent_brick()
+    forget_face_contents()
     audit_event("access_path_cleared", source="web")
     return {"status": text.LOCAL_ACCESS_PATH_CLEARED}
 
@@ -1093,6 +1114,7 @@ async def emergency_initialize(request: Request, confirmation: str = Form(...)):
     enforce_rate_limit(request)
     require_restricted_action("initialize_container", request, confirmation)
     active_vault().format_container(rotate_access_key=True)
+    forget_face_contents()
     success, message = access_cue_service.clear_references()
     if not success:
         return {"error": message}
@@ -1117,6 +1139,7 @@ async def web_panic_trigger(request: Request, secret_trigger: str = Form(...)):
     except HTTPException:
         raise HTTPException(status_code=404) from None
     active_vault().silent_brick()
+    forget_face_contents()
     audit_event("access_path_cleared", source="web_panic")
     return {"status": text.CRITICAL_STATE_CLEARED}
 
@@ -1216,6 +1239,7 @@ def _maybe_auto_purge(accessed_mode, source):
         return False
 
     active_vault().purge_other_mode(accessed_mode)
+    forget_face_contents(_other_mode(accessed_mode))
     audit_event(
         "restricted_local_update",
         accessed_entry="local_entry",
@@ -1229,6 +1253,7 @@ def _purge_for_password_role(accessed_mode, password_role, source):
     if password_role != PhasmidVault.PURGE_ROLE:
         return False
     active_vault().purge_other_mode(accessed_mode)
+    forget_face_contents(_other_mode(accessed_mode))
     audit_event(
         "restricted_local_update",
         accessed_entry="local_entry",

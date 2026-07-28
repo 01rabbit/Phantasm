@@ -1743,19 +1743,95 @@ class WebTargetResolutionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             vessel = Path(tmpdir) / "travel.vessel"
             vessel.write_bytes(b"\x00" * (1024 * 1024))
-            fallback = object()
             with mock.patch.dict(
                 os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
             ):
                 resolved = web_server.active_vault()
-            self.assertIsNot(resolved, fallback)
+            # web_server.vault is the real fallback the code under test would
+            # return if resolution failed. Comparing against a throwaway
+            # object() instead proved nothing at all.
+            self.assertIsNot(resolved, web_server.vault)
             self.assertIn("travel.vessel", str(resolved.path))
 
-    def test_store_and_retrieve_no_longer_bypass_the_vessel(self):
-        store_src = inspect.getsource(web_server.store)
-        retrieve_src = inspect.getsource(web_server.retrieve)
+        os.environ.pop("PHASMID_WEB_VESSEL", None)
+        with mock.patch(
+            "phasmid.services.vessel_service.VesselService.list_all",
+            return_value=[],
+        ):
+            self.assertIs(web_server.active_vault(), web_server.vault)
 
-        self.assertIn("add_payload", store_src)
-        self.assertIn("retrieve_payload", retrieve_src)
-        self.assertIn("resolve_web_vessel", store_src)
-        self.assertIn("resolve_web_vessel", retrieve_src)
+    def test_endpoint_round_trip_lands_in_the_vessel_not_the_legacy_container(self):
+        """Drive the real endpoints, not the source text.
+
+        The previous version of this test called inspect.getsource() and
+        asserted that the strings "add_payload" and "resolve_web_vessel"
+        appeared somewhere in the function bodies. That passes for any code
+        that merely mentions those names - it would have kept passing if the
+        call were unreachable, mis-wired, or writing to the wrong face.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.services import vessel_service as vessel_service_mod
+        from phasmid.services.vessel_workflow_service import VesselWorkflowService
+
+        payload = b"stored through the web interface\n"
+
+        async def run(tmpdir):
+            vessel = Path(tmpdir) / "travel.vessel"
+            VesselWorkflowService().create_vessel(vessel, "8M")
+            legacy_before = web_server.vault.path
+
+            request = SimpleNamespace(
+                client=SimpleNamespace(host="127.0.0.1"),
+                url=SimpleNamespace(path="/store"),
+            )
+            upload = UploadFile(filename="notes.md", file=_BytesFile(payload))
+
+            with mock.patch.dict(
+                os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+            ):
+                with mock.patch.object(
+                    web_server, "_capture_entry_binding", return_value=(True, "")
+                ):
+                    # Every Form(...) default must be supplied explicitly:
+                    # calling the endpoint as a plain function bypasses
+                    # FastAPI's dependency resolution, so an omitted argument
+                    # arrives as the Form sentinel rather than as its default.
+                    stored = await web_server.store(
+                        request,
+                        file=upload,
+                        password="correct horse battery",
+                        secondary_passphrase="",
+                        restricted_recovery_password="restricted recovery only",
+                        local_note_label="",
+                        entry_hint="",
+                        overwrite=False,
+                        overwrite_confirmation="",
+                    )
+            self.assertTrue(stored.get("success"), stored)
+
+            # The file is in the Vessel, reachable by the console's own API.
+            listing = VesselWorkflowService().list_files(
+                vessel,
+                "correct horse battery",
+                selector="face_a",
+                cue_sequence=["reference_dummy_matched"],
+            )
+            self.assertIn("notes.md", [item.name for item in listing.files])
+
+            # And the legacy container was not the thing that got written.
+            self.assertEqual(web_server.vault.path, legacy_before)
+            return vessel
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            with (
+                mock.patch.dict(
+                    os.environ, {"PHASMID_STATE_DIR": str(state_dir)}, clear=False
+                ),
+                mock.patch.object(
+                    vessel_service_mod, "config_dir", lambda: Path(tmpdir)
+                ),
+            ):
+                asyncio.run(run(tmpdir))

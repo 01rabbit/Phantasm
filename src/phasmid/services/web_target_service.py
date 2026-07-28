@@ -76,6 +76,51 @@ def resolve_web_container(fallback: PhasmidVault) -> PhasmidVault:
         return fallback
 
 
+def forget_face_contents(mode: str | None = None) -> None:
+    """Reset registry metadata after a container-level destructive operation.
+
+    Purge, clear and re-initialise rewrite raw container bytes; they know
+    nothing about the registry, which keeps file counts, occupancy, the
+    plausibility profile and the credentials flag per face. Left untouched
+    those figures survive the data they describe, so the console would go on
+    reporting stored files and a high-plausibility profile for a face whose
+    bytes are gone - the operator would believe a clear had not taken
+    effect, or that data still existed to disclose.
+
+    Passing a mode resets only the face that maps to it; omitting it resets
+    both, which is what a whole-container operation means.
+    """
+    vessel_path = resolve_web_vessel()
+    if vessel_path is None:
+        return
+    faces = ["face_a", "face_b"] if mode is None else [face_for_mode(mode)]
+    try:
+        from .vessel_service import VesselService
+
+        registry = VesselService()
+        for face in faces:
+            registry.touch_face(
+                vessel_path,
+                _FACE_IDS[face],
+                occupancy=0,
+                file_count=0,
+                dummy_profile={},
+                credentials_initialized=False,
+            )
+    except Exception:
+        # Best effort: the destructive operation itself already succeeded and
+        # must not be reported as failed because bookkeeping could not follow.
+        return
+
+
+_FACE_IDS = {
+    "dummy": "face_a",
+    "secret": "face_b",
+    "face_a": "face_a",
+    "face_b": "face_b",
+}
+
+
 def face_for_mode(mode: str) -> str:
     """Face selector matching an access mode.
 
