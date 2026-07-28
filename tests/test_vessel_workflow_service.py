@@ -929,3 +929,122 @@ class VesselWorkflowServiceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WebAndConsoleShareStorageTests(unittest.TestCase):
+    """The WebUI and the operator console must act on the same container.
+
+    They did not: the console worked on Vessels while `web_server` held a
+    module-level `PhasmidVault("vault.bin")` and stored straight through it.
+    A file saved from a browser therefore never appeared in any Vessel, in
+    Audit, or in VESSEL STATUS - two operator surfaces on one device
+    disagreeing about what was stored.
+    """
+
+    def _patch_registry_dir(self, tmpdir: str):
+        return mock.patch.object(vessel_service_mod, "config_dir", lambda: Path(tmpdir))
+
+    def test_payload_stored_by_the_web_path_is_readable_by_the_console(self):
+        from phasmid.services.web_target_service import face_for_mode
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+            payload = b"# field notes\nrecovered through the console\n"
+
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+
+                # What the WebUI does: bytes from an upload, addressed by the
+                # access mode rather than by a face id.
+                svc.add_payload(
+                    vessel_path,
+                    "notes.md",
+                    payload,
+                    "correct horse battery",
+                    restricted_passphrase="restricted recovery only",
+                    selector=face_for_mode("dummy"),
+                    cue_sequence=["reference_dummy_matched"],
+                )
+
+                # What the console sees afterwards.
+                listing = svc.list_files(
+                    vessel_path,
+                    "correct horse battery",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                self.assertIn("notes.md", [item.name for item in listing.files])
+
+                recovered, result = svc.retrieve_payload(
+                    vessel_path,
+                    "correct horse battery",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                self.assertEqual(recovered, payload)
+                self.assertEqual(result.filename, "notes.md")
+                self.assertEqual(result.bytes_retrieved, len(payload))
+                self.assertIsNone(result.output_path)
+
+    def test_add_payload_preserves_files_already_in_the_face(self):
+        """Writing through PhasmidVault directly would clobber the namespace.
+
+        A face holds a JSON namespace of many files, not one payload. Anyone
+        unifying the two surfaces by simply repointing `PhasmidVault` at a
+        `.vessel` path would overwrite that namespace and destroy whatever
+        the face already held, so the shared entry point has to go through
+        the namespace like the console does.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+            first = Path(tmpdir) / "first.txt"
+            first.write_text("stored from the console", encoding="utf-8")
+
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+                svc.add_file(
+                    vessel_path,
+                    first,
+                    "correct horse battery",
+                    "restricted recovery only",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                svc.add_payload(
+                    vessel_path,
+                    "second.txt",
+                    b"stored from the browser",
+                    "correct horse battery",
+                    restricted_passphrase="restricted recovery only",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+
+                listing = svc.list_files(
+                    vessel_path,
+                    "correct horse battery",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                self.assertEqual(
+                    {"first.txt", "second.txt"},
+                    {item.name for item in listing.files},
+                )

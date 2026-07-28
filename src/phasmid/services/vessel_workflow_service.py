@@ -817,11 +817,55 @@ class VesselWorkflowService:
         no_object_binding: bool = False,
         emergency_password: str | None = None,
     ) -> StorePayloadResult:
-        vessel = Path(vessel_path).expanduser().resolve()
         payload_path = Path(input_path).expanduser().resolve()
-        mode = self.resolve_mode(selector)
         if not payload_path.is_file():
             raise FileNotFoundError(f"input file not found: {payload_path}")
+        result = self.add_payload(
+            vessel_path,
+            payload_path.name,
+            payload_path.read_bytes(),
+            open_passphrase,
+            restricted_passphrase=restricted_passphrase,
+            selector=selector,
+            cue_sequence=cue_sequence,
+            capture_reference=capture_reference,
+            object_image_path=object_image_path,
+            camera_object=camera_object,
+            no_object_binding=no_object_binding,
+            emergency_password=emergency_password,
+        )
+        return StorePayloadResult(
+            vessel_path=result.vessel_path,
+            input_path=payload_path,
+            bytes_stored=result.bytes_stored,
+            mode=result.mode,
+        )
+
+    def add_payload(
+        self,
+        vessel_path: str | Path,
+        filename: str,
+        payload: bytes,
+        open_passphrase: str,
+        restricted_passphrase: str | None = None,
+        selector: str = "face_a",
+        cue_sequence: list[str] | None = None,
+        capture_reference: bool = False,
+        object_image_path: str | None = None,
+        camera_object: bool = False,
+        no_object_binding: bool = False,
+        emergency_password: str | None = None,
+    ) -> StorePayloadResult:
+        """Store bytes already in memory into a Vessel face.
+
+        Same path as :meth:`add_file` - object binding, face namespace and
+        all - for callers that never had the payload on disk. The WebUI
+        receives uploads as bytes, and writing them to a temporary file just
+        to hand back a path would put plaintext on disk for no reason.
+        """
+        vessel = Path(vessel_path).expanduser().resolve()
+        name = Path(filename).name or "payload.bin"
+        mode = self.resolve_mode(selector)
         if not vessel.exists():
             raise FileNotFoundError(f"vessel file not found: {vessel}")
 
@@ -861,8 +905,7 @@ class VesselWorkflowService:
         if not isinstance(files, dict):
             raise ValueError("face namespace is invalid")
 
-        payload = payload_path.read_bytes()
-        files[payload_path.name] = {
+        files[name] = {
             "data_b64": base64.b64encode(payload).decode("ascii"),
             "size": len(payload),
             "added_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -891,7 +934,7 @@ class VesselWorkflowService:
         )
         return StorePayloadResult(
             vessel_path=vessel,
-            input_path=payload_path,
+            input_path=Path(name),
             bytes_stored=len(payload),
             mode=mode,
         )
@@ -1256,6 +1299,39 @@ class VesselWorkflowService:
             emergency_password=emergency_password,
         )
 
+    def retrieve_payload(
+        self,
+        vessel_path: str | Path,
+        open_passphrase: str,
+        selector: str | None = None,
+        cue_sequence: list[str] | None = None,
+        use_attempt_limiter: bool = False,
+        object_image_path: str | None = None,
+        camera_object: bool = False,
+        no_object_binding: bool = False,
+    ) -> tuple[bytes, RetrievePayloadResult]:
+        """Recover a stored payload as bytes, without writing it to disk.
+
+        Same path as :meth:`retrieve_file` including the object-cue check.
+        The bytes are returned alongside the result rather than carried on
+        it, so a plaintext payload never ends up in the dataclass repr that
+        the CLI and the operator log print.
+        """
+        collected: dict[str, bytes] = {}
+        result = self.retrieve_file(
+            vessel_path,
+            open_passphrase,
+            output_path=None,
+            selector=selector,
+            cue_sequence=cue_sequence,
+            use_attempt_limiter=use_attempt_limiter,
+            object_image_path=object_image_path,
+            camera_object=camera_object,
+            no_object_binding=no_object_binding,
+            _payload_sink=collected,
+        )
+        return collected.get("data", b""), result
+
     def retrieve_file(
         self,
         vessel_path: str | Path,
@@ -1267,6 +1343,7 @@ class VesselWorkflowService:
         object_image_path: str | None = None,
         camera_object: bool = False,
         no_object_binding: bool = False,
+        _payload_sink: dict[str, bytes] | None = None,
     ) -> RetrievePayloadResult:
         vessel = Path(vessel_path).expanduser().resolve()
         if not vessel.exists():
@@ -1357,6 +1434,8 @@ class VesselWorkflowService:
         if not isinstance(item, dict):
             raise ValueError("stored file metadata is invalid")
         data = base64.b64decode(str(item.get("data_b64", "")).encode("ascii"))
+        if _payload_sink is not None:
+            _payload_sink["data"] = data
         filename = chosen.name
         password_role = PhasmidVault.OPEN_ROLE
         accessed_mode = self.resolve_mode(accessed_selector)

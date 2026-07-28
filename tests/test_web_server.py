@@ -1639,3 +1639,67 @@ class _BytesFile:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WebTargetResolutionTests(unittest.TestCase):
+    """The WebUI must act on the same container as the operator console.
+
+    `web_server` held a module-level `PhasmidVault("vault.bin")` and stored
+    and retrieved straight through it while the console worked on Vessels,
+    so the two surfaces on one device disagreed about what was stored.
+    """
+
+    def tearDown(self):
+        os.environ.pop("PHASMID_WEB_VESSEL", None)
+
+    def test_explicit_override_selects_the_vessel(self):
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.services.web_target_service import resolve_web_vessel
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vessel = Path(tmpdir) / "travel.vessel"
+            vessel.write_bytes(b"\x00" * 32)
+            with mock.patch.dict(
+                os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+            ):
+                self.assertEqual(resolve_web_vessel(), vessel)
+
+    def test_missing_override_does_not_silently_fall_through(self):
+        from phasmid.services.web_target_service import resolve_web_vessel
+
+        with mock.patch.dict(
+            os.environ, {"PHASMID_WEB_VESSEL": "/nonexistent/x.vessel"}, clear=False
+        ):
+            self.assertIsNone(resolve_web_vessel())
+
+    def test_destructive_operations_follow_the_resolved_target(self):
+        """Purge and clear must not wipe the fallback while the Vessel survives.
+
+        Otherwise the emergency controls report success having cleared a file
+        nobody uses, leaving the container the operator actually filled
+        intact - the operator believes the device is clear when it is not.
+        """
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vessel = Path(tmpdir) / "travel.vessel"
+            vessel.write_bytes(b"\x00" * (1024 * 1024))
+            fallback = object()
+            with mock.patch.dict(
+                os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+            ):
+                resolved = web_server.active_vault()
+            self.assertIsNot(resolved, fallback)
+            self.assertIn("travel.vessel", str(resolved.path))
+
+    def test_store_and_retrieve_no_longer_bypass_the_vessel(self):
+        store_src = inspect.getsource(web_server.store)
+        retrieve_src = inspect.getsource(web_server.retrieve)
+
+        self.assertIn("add_payload", store_src)
+        self.assertIn("retrieve_payload", retrieve_src)
+        self.assertIn("resolve_web_vessel", store_src)
+        self.assertIn("resolve_web_vessel", retrieve_src)
