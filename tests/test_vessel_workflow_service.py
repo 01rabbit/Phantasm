@@ -1048,3 +1048,202 @@ class WebAndConsoleShareStorageTests(unittest.TestCase):
                     {"first.txt", "second.txt"},
                     {item.name for item in listing.files},
                 )
+
+
+class RetrievalSelectionTests(unittest.TestCase):
+    """Which file an unnamed retrieval returns.
+
+    The WebUI never names a file, so whatever this picks is what the operator
+    gets back. Three separate defects have landed here already: alphabetical
+    first (unreachable later stores), generated filler outranking a real
+    upload, and same-second ties falling back to the alphabetical order the
+    selection exists to avoid.
+    """
+
+    def _patch_registry_dir(self, tmpdir: str):
+        return mock.patch.object(vessel_service_mod, "config_dir", lambda: Path(tmpdir))
+
+    def _env(self, tmpdir):
+        return mock.patch.dict(
+            os.environ,
+            {"PHASMID_STATE_DIR": str(Path(tmpdir) / "state")},
+            clear=False,
+        )
+
+    def test_generated_filler_never_shadows_an_operator_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vessel = Path(tmpdir) / "travel.vessel"
+            note = Path(tmpdir) / "note.txt"
+            note.write_text("operator content", encoding="utf-8")
+            with self._env(tmpdir), self._patch_registry_dir(tmpdir):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel, "8M")
+                svc.add_file(
+                    vessel,
+                    note,
+                    "correct horse battery",
+                    "restricted recovery only",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                svc.generate_dummy_profile(
+                    vessel,
+                    "correct horse battery",
+                    "restricted recovery only",
+                    selector="face_a",
+                    target_occupancy="15%",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                data, result = svc.retrieve_payload(
+                    vessel,
+                    "correct horse battery",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                self.assertEqual(result.filename, "note.txt")
+                self.assertEqual(data, b"operator content")
+
+    def test_same_second_stores_return_the_later_one(self):
+        """added_at has one-second granularity; two stores can tie."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vessel = Path(tmpdir) / "travel.vessel"
+            fixed = "2026-07-28T00:00:00Z"
+            with self._env(tmpdir), self._patch_registry_dir(tmpdir):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel, "8M")
+                with mock.patch("time.strftime", lambda *a, **k: fixed):
+                    for name, body in (
+                        ("zzz_first.txt", b"first"),
+                        ("aaa_second.txt", b"second"),
+                    ):
+                        svc.add_payload(
+                            vessel,
+                            name,
+                            body,
+                            "correct horse battery",
+                            restricted_passphrase="restricted recovery only",
+                            selector="face_a",
+                            cue_sequence=["reference_dummy_matched"],
+                        )
+                data, result = svc.retrieve_payload(
+                    vessel,
+                    "correct horse battery",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                # Both records carry the same added_at, so a name-based
+                # tie-break would return zzz_first only by alphabetical luck.
+                self.assertEqual(result.filename, "aaa_second.txt")
+                self.assertEqual(data, b"second")
+
+    def test_generation_does_not_overwrite_a_colliding_operator_file(self):
+        """Filler names come from a fixed pool and can collide."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vessel = Path(tmpdir) / "travel.vessel"
+            with self._env(tmpdir), self._patch_registry_dir(tmpdir):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel, "8M")
+                svc.add_payload(
+                    vessel,
+                    "seed.txt",
+                    b"seed",
+                    "correct horse battery",
+                    restricted_passphrase="restricted recovery only",
+                    selector="face_b",
+                    cue_sequence=["reference_secret_matched"],
+                )
+                generated = svc.generate_dummy_profile(
+                    vessel,
+                    "correct horse battery",
+                    "restricted recovery only",
+                    selector="face_b",
+                    target_occupancy="15%",
+                    cue_sequence=["reference_secret_matched"],
+                )
+                self.assertGreater(generated.profile.dummy_file_count, 0)
+                listing = svc.list_files(
+                    vessel,
+                    "correct horse battery",
+                    selector="face_b",
+                    cue_sequence=["reference_secret_matched"],
+                )
+                filler_name = next(
+                    item.name for item in listing.files if item.name != "seed.txt"
+                )
+
+                svc.add_payload(
+                    vessel,
+                    filler_name,
+                    b"operator content that must survive",
+                    "correct horse battery",
+                    restricted_passphrase="restricted recovery only",
+                    selector="face_b",
+                    cue_sequence=["reference_secret_matched"],
+                )
+                svc.generate_dummy_profile(
+                    vessel,
+                    "correct horse battery",
+                    "restricted recovery only",
+                    selector="face_b",
+                    target_occupancy="15%",
+                    cue_sequence=["reference_secret_matched"],
+                )
+                data, _result = svc.retrieve_payload(
+                    vessel,
+                    "correct horse battery",
+                    selector="face_b",
+                    cue_sequence=["reference_secret_matched"],
+                    filename=filler_name,
+                )
+                self.assertEqual(data, b"operator content that must survive")
+
+    def test_named_file_that_does_not_exist_is_an_error_not_a_substitution(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vessel = Path(tmpdir) / "travel.vessel"
+            with self._env(tmpdir), self._patch_registry_dir(tmpdir):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel, "8M")
+                svc.add_payload(
+                    vessel,
+                    "present.txt",
+                    b"here",
+                    "correct horse battery",
+                    restricted_passphrase="restricted recovery only",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                with self.assertRaises(FileNotFoundError):
+                    svc.retrieve_payload(
+                        vessel,
+                        "correct horse battery",
+                        selector="face_a",
+                        cue_sequence=["reference_dummy_matched"],
+                        filename="absent.txt",
+                    )
+
+    def test_output_path_name_is_a_hint_and_still_falls_back(self):
+        """Recovering README.md to recovered.md is ordinary usage."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vessel = Path(tmpdir) / "travel.vessel"
+            out = Path(tmpdir) / "recovered.md"
+            with self._env(tmpdir), self._patch_registry_dir(tmpdir):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel, "8M")
+                svc.add_payload(
+                    vessel,
+                    "README.md",
+                    b"# readme",
+                    "correct horse battery",
+                    restricted_passphrase="restricted recovery only",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                result = svc.retrieve_file(
+                    vessel,
+                    "correct horse battery",
+                    output_path=out,
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                self.assertEqual(result.filename, "README.md")
+                self.assertEqual(out.read_bytes(), b"# readme")

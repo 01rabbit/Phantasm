@@ -1994,18 +1994,27 @@ class WebVesselBehaviourTests(unittest.TestCase):
             with env, registry:
                 asyncio.run(run(tmpdir))
 
-    def test_forget_face_contents_clears_the_destroy_credential(self):
-        """A wipe must not carry a pre-wipe destroy credential across it.
+    def test_container_wipe_clears_credentials_but_a_face_purge_does_not(self):
+        """Two different operations, two different scopes.
 
-        Otherwise a passphrase compromised before a re-initialise still
-        authorises destruction of whatever is stored afterwards - which is
-        the situation the re-initialise exists to end.
+        A whole-container wipe must not carry a pre-wipe destroy credential
+        across it: a passphrase compromised beforehand would still authorise
+        destruction of whatever is stored afterwards, which is the situation
+        the re-initialise exists to end.
+
+        A per-face content purge must NOT do that. Clearing one face's files
+        is not a reason to silently drop the physical-object requirement or
+        invalidate the destroy passphrase for it, and the operator is told
+        only that an entry was cleared.
         """
         import tempfile
         from pathlib import Path
 
         from phasmid.services.vessel_workflow_service import VesselWorkflowService
-        from phasmid.services.web_target_service import forget_face_contents
+        from phasmid.services.web_target_service import (
+            forget_container_contents,
+            forget_face_contents,
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             env, registry = self._vessel_env(tmpdir)
@@ -2031,15 +2040,27 @@ class WebVesselBehaviourTests(unittest.TestCase):
                 with mock.patch.dict(
                     os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
                 ):
-                    forget_face_contents()
+                    # A per-face purge clears content bookkeeping only.
+                    forget_face_contents("dummy")
+                self.assertTrue(
+                    svc._verify_face_emergency_password(
+                        vessel, "face_a", "restricted recovery only"
+                    ),
+                    "a content purge silently invalidated the destroy passphrase",
+                )
+                meta = svc._get_meta(vessel)
+                face = next(f for f in meta.faces if f.face_id == "face_a")
+                self.assertEqual(face.file_count, 0)
+                self.assertEqual(face.occupancy, 0)
 
+                with mock.patch.dict(
+                    os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+                ):
+                    # A whole-container wipe takes the credentials with it.
+                    forget_container_contents()
                 self.assertFalse(
                     svc._verify_face_emergency_password(
                         vessel, "face_a", "restricted recovery only"
                     ),
                     "the destroy credential survived a whole-container wipe",
                 )
-                meta = svc._get_meta(vessel)
-                face = next(f for f in meta.faces if f.face_id == "face_a")
-                self.assertEqual(face.file_count, 0)
-                self.assertEqual(face.occupancy, 0)

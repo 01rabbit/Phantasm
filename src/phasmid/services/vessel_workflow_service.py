@@ -501,6 +501,16 @@ class VesselWorkflowService:
             )
         return sorted(records, key=lambda record: record.name)
 
+    def _next_store_seq(self, files: dict[str, object]) -> int:
+        highest = 0
+        for item in files.values():
+            if isinstance(item, dict):
+                try:
+                    highest = max(highest, int(item.get("store_seq", 0)))
+                except (TypeError, ValueError):
+                    continue
+        return highest + 1
+
     def _current_timestamp(self) -> str:
         return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
@@ -923,6 +933,11 @@ class VesselWorkflowService:
             "size": len(payload),
             "added_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "origin": "manual",
+            # added_at has one-second granularity, so two stores in the same
+            # second tie and the tie-break falls back to the name - which is
+            # the alphabetical ordering this selection exists to avoid. A
+            # counter makes "most recent" mean what it says.
+            "store_seq": self._next_store_seq(files),
         }
         if emergency_password is None:
             emergency_password = restricted_passphrase
@@ -1134,6 +1149,15 @@ class VesselWorkflowService:
         specs = self._build_generated_file_specs(target_bytes)
         max_payload = self.plaintext_capacity(vessel, selector)
         for filename, payload in specs:
+            existing = files.get(filename)
+            if (
+                isinstance(existing, dict)
+                and str(existing.get("origin", "")) != _GENERATED_PLAUSIBILITY_ORIGIN
+            ):
+                # Filler names are drawn from a fixed pool, so one can collide
+                # with a file the operator stored. Overwriting it would destroy
+                # real content as a side effect of building a decoy.
+                continue
             files[filename] = self._generated_entry(filename, payload)
             encoded, _namespace_name = self._encode_namespace(namespace)
             if len(encoded) > max_payload:
@@ -1456,7 +1480,22 @@ class VesselWorkflowService:
                 == _GENERATED_PLAUSIBILITY_ORIGIN
             )
         ] or files
-        chosen = max(operator_files, key=lambda record: (record.added_at, record.name))
+
+        def _store_order(record: FaceFileRecord) -> tuple[str, int, str]:
+            entry = (
+                raw_files_for_origin.get(record.name)
+                if isinstance(raw_files_for_origin, dict)
+                else None
+            )
+            seq = 0
+            if isinstance(entry, dict):
+                try:
+                    seq = int(entry.get("store_seq", 0))
+                except (TypeError, ValueError):
+                    seq = 0
+            return (record.added_at, seq, record.name)
+
+        chosen = max(operator_files, key=_store_order)
         if filename:
             # An explicit request names one file. Quietly substituting another
             # would hand back content the caller did not ask for.

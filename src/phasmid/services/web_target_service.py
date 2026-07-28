@@ -79,46 +79,68 @@ def resolve_web_container(fallback: PhasmidVault) -> PhasmidVault:
 
 
 def forget_face_contents(mode: str | None = None) -> None:
-    """Reset registry metadata after a container-level destructive operation.
+    """Reset the stored-content bookkeeping for a face after a purge.
 
-    Purge, clear and re-initialise rewrite raw container bytes; they know
-    nothing about the registry, which keeps file counts, occupancy, the
-    plausibility profile and the credentials flag per face. Left untouched
-    those figures survive the data they describe, so the console would go on
-    reporting stored files and a high-plausibility profile for a face whose
-    bytes are gone - the operator would believe a clear had not taken
-    effect, or that data still existed to disclose.
+    A purge rewrites raw container bytes and knows nothing about the
+    registry, which keeps file counts, occupancy and the plausibility profile
+    per face. Left untouched those figures survive the data they describe, so
+    the console would go on reporting stored files and a high-plausibility
+    profile for a face whose bytes are gone.
 
-    Passing a mode resets only the face that maps to it; omitting it resets
-    both, which is what a whole-container operation means.
+    Only content bookkeeping is reset. The object binding and the
+    destroy-password hash are credentials, not content: clearing one face's
+    files must not quietly remove the physical-object requirement or
+    invalidate the destroy passphrase for it. Whole-container wipes use
+    :func:`forget_container_contents` instead.
     """
+    _reset_faces(
+        ["face_a", "face_b"] if mode is None else [face_for_mode(mode)],
+        credentials=False,
+    )
+
+
+def forget_container_contents() -> None:
+    """Reset everything after a whole-container wipe.
+
+    Re-initialise and clear destroy the container outright, so the
+    credentials go with it. Carrying a destroy-password hash across a
+    re-initialise would leave a passphrase compromised beforehand still able
+    to authorise destruction of whatever is stored afterwards, which is the
+    situation the re-initialise exists to end.
+    """
+    _reset_faces(["face_a", "face_b"], credentials=True)
+
+
+def _reset_faces(faces: list[str], *, credentials: bool) -> None:
     vessel_path = resolve_web_vessel()
     if vessel_path is None:
         return
-    faces = ["face_a", "face_b"] if mode is None else [face_for_mode(mode)]
     try:
         from .vessel_service import VesselService
 
         registry = VesselService()
         for face in faces:
-            # Reset everything destroy_face() resets. Leaving the object
-            # binding and the destroy-password hash behind would carry a
-            # pre-wipe credential across a re-initialise, so a passphrase
-            # compromised before the wipe would still authorise destruction
-            # of whatever is stored afterwards - the wipe is meant to end
-            # exactly that.
-            registry.touch_face(
-                vessel_path,
-                _FACE_IDS[face],
-                status="available",
-                occupancy=0,
-                file_count=0,
-                dummy_profile={},
-                object_binding={},
-                emergency_auth={},
-                credentials_initialized=False,
-                object_binding_initialized=False,
-            )
+            if credentials:
+                registry.touch_face(
+                    vessel_path,
+                    _FACE_IDS[face],
+                    status="available",
+                    occupancy=0,
+                    file_count=0,
+                    dummy_profile={},
+                    object_binding={},
+                    emergency_auth={},
+                    credentials_initialized=False,
+                    object_binding_initialized=False,
+                )
+            else:
+                registry.touch_face(
+                    vessel_path,
+                    _FACE_IDS[face],
+                    occupancy=0,
+                    file_count=0,
+                    dummy_profile={},
+                )
     except Exception:
         # Best effort: the destructive operation itself already succeeded and
         # must not be reported as failed because bookkeeping could not follow.

@@ -69,6 +69,7 @@ from .services.vessel_workflow_service import VesselWorkflowService
 from .services.web_target_service import (
     LEGACY_CONTAINER_PATH,
     face_for_mode,
+    forget_container_contents,
     forget_face_contents,
     resolve_web_container,
     resolve_web_vessel,
@@ -1109,7 +1110,7 @@ async def emergency_brick(request: Request, confirmation: str = Form(...)):
     enforce_rate_limit(request)
     require_restricted_action("clear_local_access_path", request, confirmation)
     active_vault().silent_brick()
-    forget_face_contents()
+    forget_container_contents()
     audit_event("access_path_cleared", source="web")
     return {"status": text.LOCAL_ACCESS_PATH_CLEARED}
 
@@ -1122,7 +1123,7 @@ async def emergency_initialize(request: Request, confirmation: str = Form(...)):
     enforce_rate_limit(request)
     require_restricted_action("initialize_container", request, confirmation)
     active_vault().format_container(rotate_access_key=True)
-    forget_face_contents()
+    forget_container_contents()
     success, message = access_cue_service.clear_references()
     if not success:
         return {"error": message}
@@ -1147,7 +1148,7 @@ async def web_panic_trigger(request: Request, secret_trigger: str = Form(...)):
     except HTTPException:
         raise HTTPException(status_code=404) from None
     active_vault().silent_brick()
-    forget_face_contents()
+    forget_container_contents()
     audit_event("access_path_cleared", source="web_panic")
     return {"status": text.CRITICAL_STATE_CLEARED}
 
