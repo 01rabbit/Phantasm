@@ -1821,7 +1821,13 @@ class WebTargetResolutionTests(unittest.TestCase):
             self.assertIn("notes.md", [item.name for item in listing.files])
 
             # And the legacy container was not the thing that got written.
+            # Comparing web_server.vault.path to itself proves nothing; the
+            # question is whether the legacy file was created at all.
             self.assertEqual(web_server.vault.path, legacy_before)
+            self.assertFalse(
+                Path(web_server.vault.path).exists(),
+                "the legacy container was written despite a Vessel being resolved",
+            )
             return vessel
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1835,3 +1841,205 @@ class WebTargetResolutionTests(unittest.TestCase):
                 ),
             ):
                 asyncio.run(run(tmpdir))
+
+
+class WebVesselBehaviourTests(unittest.TestCase):
+    """End-to-end behaviour of the Vessel-backed WebUI endpoints."""
+
+    def tearDown(self):
+        web_server._rate_limit.clear()
+        web_server._access_attempts._state.clear()
+
+    def _vessel_env(self, tmpdir):
+        from pathlib import Path
+
+        from phasmid.services import vessel_service as vessel_service_mod
+
+        return (
+            mock.patch.dict(
+                os.environ,
+                {"PHASMID_STATE_DIR": str(Path(tmpdir) / "state")},
+                clear=False,
+            ),
+            mock.patch.object(vessel_service_mod, "config_dir", lambda: Path(tmpdir)),
+        )
+
+    def test_retrieve_returns_the_bytes_that_store_wrote(self):
+        """The retrieve endpoint's Vessel branch had no test at all.
+
+        The store side was covered, so a retrieve wired to the wrong face, or
+        returning the wrong record, would have shipped green.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.services.vessel_workflow_service import VesselWorkflowService
+
+        payload = b"round trip through the web interface\n"
+
+        async def run(tmpdir):
+            vessel = Path(tmpdir) / "travel.vessel"
+            VesselWorkflowService().create_vessel(vessel, "8M")
+            request = SimpleNamespace(
+                client=SimpleNamespace(host="127.0.0.1"),
+                url=SimpleNamespace(path="/store"),
+            )
+            upload = UploadFile(filename="notes.md", file=_BytesFile(payload))
+
+            with mock.patch.dict(
+                os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+            ):
+                with mock.patch.object(
+                    web_server, "_capture_entry_binding", return_value=(True, "")
+                ):
+                    stored = await web_server.store(
+                        request,
+                        file=upload,
+                        password="correct horse battery",
+                        secondary_passphrase="",
+                        restricted_recovery_password="restricted recovery only",
+                        local_note_label="",
+                        entry_hint="",
+                        overwrite=False,
+                        overwrite_confirmation="",
+                    )
+                    self.assertTrue(stored.get("success"), stored)
+
+                    retrieve_request = SimpleNamespace(
+                        client=SimpleNamespace(host="127.0.0.1"),
+                        url=SimpleNamespace(path="/retrieve"),
+                    )
+                    with mock.patch.object(
+                        web_server.access_cue_service,
+                        "auth_sequence",
+                        return_value=["reference_dummy_matched"],
+                    ):
+                        response = await web_server.retrieve(
+                            retrieve_request, password="correct horse battery"
+                        )
+
+            chunks = []
+            iterator = getattr(response, "body_iterator", None)
+            if iterator is not None:
+                async for chunk in iterator:
+                    chunks.append(chunk if isinstance(chunk, bytes) else chunk.encode())
+            body = b"".join(chunks) or getattr(response, "body", b"")
+            self.assertEqual(body, payload)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env, registry = self._vessel_env(tmpdir)
+            with env, registry:
+                asyncio.run(run(tmpdir))
+
+    def test_restricted_recovery_passphrase_does_not_disclose(self):
+        """Design decision: under duress the device must not disclose.
+
+        The restricted recovery passphrase is a destroy credential in the
+        Vessel layer, not a retrieval one. The legacy container returned the
+        payload for it and purged the other face; routing the WebUI onto
+        Vessels deliberately does not carry that behaviour over. Pinned here
+        so the difference cannot be reintroduced by accident in either
+        direction.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.services.vessel_workflow_service import VesselWorkflowService
+
+        async def run(tmpdir):
+            vessel = Path(tmpdir) / "travel.vessel"
+            VesselWorkflowService().create_vessel(vessel, "8M")
+            request = SimpleNamespace(
+                client=SimpleNamespace(host="127.0.0.1"),
+                url=SimpleNamespace(path="/store"),
+            )
+            upload = UploadFile(filename="notes.md", file=_BytesFile(b"sensitive"))
+
+            with mock.patch.dict(
+                os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+            ):
+                with mock.patch.object(
+                    web_server, "_capture_entry_binding", return_value=(True, "")
+                ):
+                    await web_server.store(
+                        request,
+                        file=upload,
+                        password="correct horse battery",
+                        secondary_passphrase="",
+                        restricted_recovery_password="restricted recovery only",
+                        local_note_label="",
+                        entry_hint="",
+                        overwrite=False,
+                        overwrite_confirmation="",
+                    )
+                    retrieve_request = SimpleNamespace(
+                        client=SimpleNamespace(host="127.0.0.1"),
+                        url=SimpleNamespace(path="/retrieve"),
+                    )
+                    with mock.patch.object(
+                        web_server.access_cue_service,
+                        "auth_sequence",
+                        return_value=["reference_dummy_matched"],
+                    ):
+                        response = await web_server.retrieve(
+                            retrieve_request, password="restricted recovery only"
+                        )
+
+            # A plain dict error, not a file response: nothing was disclosed.
+            self.assertIsInstance(response, dict)
+            self.assertIn("error", response)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env, registry = self._vessel_env(tmpdir)
+            with env, registry:
+                asyncio.run(run(tmpdir))
+
+    def test_forget_face_contents_clears_the_destroy_credential(self):
+        """A wipe must not carry a pre-wipe destroy credential across it.
+
+        Otherwise a passphrase compromised before a re-initialise still
+        authorises destruction of whatever is stored afterwards - which is
+        the situation the re-initialise exists to end.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.services.vessel_workflow_service import VesselWorkflowService
+        from phasmid.services.web_target_service import forget_face_contents
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env, registry = self._vessel_env(tmpdir)
+            with env, registry:
+                vessel = Path(tmpdir) / "travel.vessel"
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel, "8M")
+                svc.add_payload(
+                    vessel,
+                    "notes.md",
+                    b"data",
+                    "correct horse battery",
+                    restricted_passphrase="restricted recovery only",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                self.assertTrue(
+                    svc._verify_face_emergency_password(
+                        vessel, "face_a", "restricted recovery only"
+                    )
+                )
+
+                with mock.patch.dict(
+                    os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+                ):
+                    forget_face_contents()
+
+                self.assertFalse(
+                    svc._verify_face_emergency_password(
+                        vessel, "face_a", "restricted recovery only"
+                    ),
+                    "the destroy credential survived a whole-container wipe",
+                )
+                meta = svc._get_meta(vessel)
+                face = next(f for f in meta.faces if f.face_id == "face_a")
+                self.assertEqual(face.file_count, 0)
+                self.assertEqual(face.occupancy, 0)

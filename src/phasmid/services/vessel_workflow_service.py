@@ -1442,9 +1442,32 @@ class VesselWorkflowService:
         # made every later store unreachable for callers that name neither -
         # the WebUI names neither, so a second upload to the same entry
         # silently became unretrievable through the interface that wrote it.
-        chosen = max(files, key=lambda record: (record.added_at, record.name))
-        desired_name = filename or (Path(output_path).name if output_path else "")
-        if desired_name:
+        # Generated plausibility filler shares the face and is written with the
+        # same timestamp format, so a profile generated after a real upload
+        # would otherwise win "most recent" and be handed back in its place.
+        raw_files_for_origin = namespace.get("files", {})
+        operator_files = [
+            record
+            for record in files
+            if not (
+                isinstance(raw_files_for_origin, dict)
+                and isinstance(raw_files_for_origin.get(record.name), dict)
+                and raw_files_for_origin[record.name].get("origin")
+                == _GENERATED_PLAUSIBILITY_ORIGIN
+            )
+        ] or files
+        chosen = max(operator_files, key=lambda record: (record.added_at, record.name))
+        if filename:
+            # An explicit request names one file. Quietly substituting another
+            # would hand back content the caller did not ask for.
+            match = next((record for record in files if record.name == filename), None)
+            if match is None:
+                raise FileNotFoundError(f"no stored file named {filename}")
+            chosen = match
+        elif output_path is not None:
+            # The output name is a hint, not a request: recovering README.md
+            # to recovered.md is ordinary usage, so a miss falls back.
+            desired_name = Path(output_path).name
             chosen = next(
                 (record for record in files if record.name == desired_name),
                 chosen,

@@ -33,7 +33,9 @@ def resolve_web_vessel() -> Path | None:
 
     Returns None when nothing is registered, leaving callers to fall back to
     the legacy container so a device that has never created a Vessel keeps
-    working.
+    working. Pointing the override at a path that does not exist also returns
+    None, which is the deterministic way to exercise that fallback without
+    depending on whatever Vessels happen to be registered on the machine.
     """
     override = os.environ.get(WEB_VESSEL_ENV, "").strip()
     if override:
@@ -99,13 +101,23 @@ def forget_face_contents(mode: str | None = None) -> None:
 
         registry = VesselService()
         for face in faces:
+            # Reset everything destroy_face() resets. Leaving the object
+            # binding and the destroy-password hash behind would carry a
+            # pre-wipe credential across a re-initialise, so a passphrase
+            # compromised before the wipe would still authorise destruction
+            # of whatever is stored afterwards - the wipe is meant to end
+            # exactly that.
             registry.touch_face(
                 vessel_path,
                 _FACE_IDS[face],
+                status="available",
                 occupancy=0,
                 file_count=0,
                 dummy_profile={},
+                object_binding={},
+                emergency_auth={},
                 credentials_initialized=False,
+                object_binding_initialized=False,
             )
     except Exception:
         # Best effort: the destructive operation itself already succeeded and

@@ -954,10 +954,15 @@ async def store(
             "message": text.PROTECTED_ENTRY_SAVED,
             "entry_state": entry_state,
         }
+    except (ValueError, FileNotFoundError, PermissionError, RuntimeError):
+        # Expected: rejected passphrase, unknown selector, missing container,
+        # limiter, or the camera not being ready. Not worth a traceback, and
+        # those messages carry the container path.
+        return {"error": text.STORE_OPERATION_FAILED}
     except Exception:
-        # The operator is deliberately told nothing specific, but swallowing
-        # the cause entirely made a broken container indistinguishable from a
-        # rejected passphrase for whoever has to debug the device.
+        # Anything else is a fault. The operator is still told nothing
+        # specific, but swallowing it entirely left whoever has to debug the
+        # device with no signal at all.
         LOG.exception("Store failed")
         return {"error": text.STORE_OPERATION_FAILED}
 
@@ -1022,10 +1027,13 @@ async def retrieve(request: Request, password: str = Form(...)):
                     selector=face_for_mode(mode),
                     cue_sequence=auth_sequence,
                 )
-            except (ValueError, FileNotFoundError, PermissionError):
+            except (ValueError, FileNotFoundError, PermissionError, RuntimeError):
                 # Expected control flow: wrong password, no bound object
-                # matched, nothing stored, or the limiter refusing. Try the
-                # next mode, exactly as a None result did before.
+                # matched, nothing stored, the limiter refusing, or the camera
+                # not being ready - RuntimeError is what the object-binding
+                # path raises for an unavailable frame, which is an ordinary
+                # state here, not a fault. Try the next mode, exactly as a
+                # None result did before.
                 continue
             except Exception:
                 # Anything else is a fault, not an authentication outcome.
