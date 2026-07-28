@@ -229,6 +229,19 @@ class HomeScreen(OperatorScreen):
         self._run_startup_checks()
         self._log("Vessel list refreshed.")
 
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        # Footer cells sit at fixed offsets, so anything past the terminal
+        # width is simply not drawn - and `w` (WebUI), an app-level binding
+        # appended after the screen's own, is the first to be lost. Every
+        # binding this screen shows costs columns, so a binding for a
+        # subsystem that is switched off should not spend any: LUKS is
+        # disabled by default and its panel only reports that fact.
+        # Textual treats False as "disabled and not shown"; None would keep
+        # the cell and only grey it out, which would not free any columns.
+        if action == "luks_panel" and PHASMID_LUKS_MODE.strip().lower() == "disabled":
+            return False
+        return True
+
     def action_luks_panel(self) -> None:
         if PHASMID_LUKS_MODE.strip().lower() == "disabled":
             self.app.notify("LUKS layer is disabled.", severity="warning")

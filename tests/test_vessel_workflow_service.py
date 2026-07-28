@@ -454,6 +454,64 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                 self.assertIn("face_a:", labels["Plausibility Summary"])
                 self.assertNotIn("generated_", labels["Plausibility Summary"])
 
+    def test_labelling_a_face_preserves_its_generated_dummy_profile(self):
+        """`create_face` on a populated slot must not re-initialise it.
+
+        Creating a Vessel auto-provisions both faces, so the Create Face
+        button never creates anything - it always targets an existing slot to
+        attach a label. Whether that wiped an already-generated decoy profile
+        was never established, and the failure mode would be quiet: roughly
+        four minutes of generation discarded, with the operator still
+        believing a high-plausibility decoy was in place. It only surfaces
+        under exactly the conditions the profile exists for.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+
+                generated = svc.generate_dummy_profile(
+                    vessel_path,
+                    "correct horse battery",
+                    "restricted recovery only",
+                    selector="face_a",
+                    target_occupancy="15%",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                self.assertGreater(generated.profile.dummy_file_count, 0)
+
+                labelled = svc.create_face(vessel_path, "face_a", label="travel")
+                self.assertEqual(labelled.face.face_id, "face_a")
+                self.assertEqual(labelled.face.label, "travel")
+
+                after = svc.inspect_dummy_profile(vessel_path, "face_a")
+                self.assertEqual(
+                    after.profile.dummy_file_count,
+                    generated.profile.dummy_file_count,
+                )
+                self.assertEqual(
+                    after.profile.dummy_total_size,
+                    generated.profile.dummy_total_size,
+                )
+                self.assertEqual(
+                    after.profile.plausibility_level,
+                    generated.profile.plausibility_level,
+                )
+                self.assertEqual(
+                    after.profile.plausibility_score,
+                    generated.profile.plausibility_score,
+                )
+
     def test_dummy_profile_clear_preserves_manual_face_content(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             state_dir = Path(tmpdir) / "state"
