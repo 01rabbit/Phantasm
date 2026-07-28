@@ -99,9 +99,17 @@ class FaceManagerScreen(OperatorScreen):
         yield Label("Target occupancy", classes="field-label")
         yield Input(value="15%", id="target-occupancy")
         yield Static("", id="plausibility-summary")
-        yield Button("Inspect Plausibility", id="inspect-plausibility-btn")
-        yield Button("Generate Plausibility", id="generate-plausibility-btn")
-        yield Button("Clear Plausibility", id="clear-plausibility-btn")
+        yield Static(
+            "The file you disclose under pressure is one you store yourself, "
+            "on the Face you intend to hand over.\nFiller below only occupies "
+            "free space so an otherwise empty container does not read as empty. "
+            "It is not the disclosure material.",
+            id="filler-note",
+            classes="field-label",
+        )
+        yield Button("Inspect Free Space", id="inspect-plausibility-btn")
+        yield Button("Fill Free Space", id="generate-plausibility-btn")
+        yield Button("Clear Filler", id="clear-plausibility-btn")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -153,7 +161,7 @@ class FaceManagerScreen(OperatorScreen):
             or "-"
         )
         summary.update(
-            "Plausibility Profile\n"
+            "Free Space Filler\n"
             f"Level: {profile.plausibility_level}  "
             f"Score: {profile.plausibility_score}  "
             f"Files: {profile.dummy_file_count}\n"
@@ -212,13 +220,13 @@ class FaceManagerScreen(OperatorScreen):
             target = self.query_one("#target-occupancy", Input).value.strip() or "15%"
             if not passphrase or not restricted:
                 self.app.notify(
-                    "Both passphrases are required for plausibility generation.",
+                    "Both passphrases are required to fill free space.",
                     severity="error",
                 )
                 return
             if self._generating:
                 self.app.notify(
-                    "Plausibility generation is already running.",
+                    "Free space is already being filled.",
                     severity="warning",
                 )
                 return
@@ -233,7 +241,7 @@ class FaceManagerScreen(OperatorScreen):
             restricted = self.query_one("#restricted-passphrase", Input).value
             if not passphrase or not restricted:
                 self.app.notify(
-                    "Both passphrases are required to clear generated content.",
+                    "Both passphrases are required to clear filler.",
                     severity="error",
                 )
                 return
@@ -251,9 +259,9 @@ class FaceManagerScreen(OperatorScreen):
             self._refresh_table()
             self.app.notify(profile_result.recommended_action, severity="information")
 
-    # -- Plausibility generation ------------------------------------------
+    # -- Free space filler -------------------------------------------------
     #
-    # Generation writes megabytes of decoy files and was measured at roughly
+    # Filling writes megabytes into free space and was measured at roughly
     # four minutes for a 64 MiB Vessel at 15% occupancy on a Pi Zero 2 W.
     # Called inline from the button handler it froze the whole UI for that
     # long with no feedback, which is indistinguishable from a crash. It runs
@@ -283,10 +291,10 @@ class FaceManagerScreen(OperatorScreen):
         except NoMatches:
             return
         summary.update(
-            "Generating plausibility profile...\n"
+            "Filling free space...\n"
             f"Elapsed: {minutes:02d}:{seconds:02d}\n"
-            "Writing decoy files into the Vessel. This takes several minutes\n"
-            "on low-power hardware. The console stays responsive."
+            "Writing filler into the Vessel's free space. This takes several\n"
+            "minutes on low-power hardware. The console stays responsive."
         )
 
     @work(thread=True, exclusive=True, group="plausibility")

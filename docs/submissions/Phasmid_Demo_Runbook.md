@@ -5,7 +5,7 @@
 
 > **情報の確度について**
 > - **本書は 0.3.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果に基づく。** 〔要確認〕は原則として解消済み。実機で確認していない項目のみ §9 末尾に明示する。
-> - **前版からの重要な変更:** Step 2 の画面が違っていた（Faces ではなく Open Vessel の `Add File`）。Step 4 の参照先が違っていた（Operator Log ではなく Audit）。Step 3b（物体なしでの失敗）を新設した。Generate Plausibility は**実測4分のため壇上から外した**。
+> - **前版からの重要な変更:** Step 2 の画面が違っていた（Faces ではなく Open Vessel の `Add File`）。Step 4 の参照先が違っていた（Operator Log ではなく Audit）。Step 3b（物体なしでの失敗）を新設した。Fill Free Space は**実測4分のため壇上から外した**。**囮ファイルは運用者が用意する**ものとし、生成機能は空き領域の填充に位置づけ直した。
 > - **WebUI の Store/Retrieve は Vessel 経路に統一済み。** かつては TUI が `*.vessel`、WebUI が別の `vault.bin` を操作しており話が繋がらなかったが、現在は両者とも `resolve_web_vessel()` が解決した同じ Vessel を `VesselWorkflowService` 経由で操作する（Vessel 未登録時のみ旧 `vault.bin` にフォールバック）。Doctor の Dummy Profile 検査だけは今も旧層 `vault.bin` / `.state/dummy_profile` を見ている（→ #157、§4 Step 2 の注記）。
 > - **注意:** 0.1.4 までは起動直後が Expert 相当の単層画面だった。それ以前の手順書のキー順は**そのままでは通らない**。
 
@@ -18,7 +18,8 @@
 | やってはいけない | 理由 | 代わりに |
 |---|---|---|
 | **マウスでボタンを押す** | SSH越しのターミナルではクリックイベントがTextualに届かない。ボタンはフォーカスされるだけで発火しない | **`Tab` / `Shift+Tab` で移動し `Enter`**。全操作をキーボードで行う |
-| **壇上で Generate Plausibility を実行** | 64 MiB / 15% で**実測約4分**。枠は1:20 | **事前生成**しておき、壇上では **Inspect Plausibility** のみ |
+| **壇上で Fill Free Space を実行** | 64 MiB / 15% で**実測約4分**。枠は1:20 | **事前に埋めておき**、壇上では **Inspect Free Space** のみ |
+| **囮ファイルをツールに作らせる** | 生成される填充物は汎用ファイルであり、開示材料としての真実味がない | **囮は運用者が用意する。** 真のファイルによく似た偽ファイルを自分で保存する |
 | **`d`（Doctor）を開く** | Dummy Profile の4件は旧 `vault.bin` 層を見ており、生成済みでも `0 B / LOW` と報告する。Audit画面と矛盾して見える | 可信性の話は **`a`（Audit）** で行う |
 | **素の `phasmid` で起動** | libcamera のログがTUIを破壊する／WebUIがラップトップから見えない／トークンが毎回変わる／`Ctrl+S` が効かないことがある | **`scripts/pi_zero2w/run_demo_console.sh`** を使う |
 | **成功例だけを見せる** | 物体キューが効いていることの証明にならない。観客にはただのパスワード復号に見える | **物体なしの失敗を必ず見せる**（Step 3b） |
@@ -34,7 +35,7 @@
 | 2 | 物体キュー登録（Bind） | 1:10 | TUI | Bind（cue≠key） |
 | 3a | 復元 成功（Operate） | 0:40 | TUI | Operate |
 | 3b | **復元 失敗（物体なし）** | 0:40 | TUI | **★cue≠key の証明** |
-| 4 | Audit（plausibility） | 0:50 | TUI Expert | 誠実性の可視化 |
+| 4 | Audit（空き領域と境界） | 0:50 | TUI Expert | 誠実性の可視化 |
 | 5 | WebUI（ローカル境界） | 0:40 | WebUI | ローカル境界 |
 | 6 | Silent Standby | 1:20 | TUI | Disclose / 山場 |
 | 7 | ラップ | 0:10 | TUI Simple | 締め |
@@ -65,10 +66,17 @@
       `LIBCAMERA_LOG_LEVELS` / `PHASMID_WEBUI_EXPOSE_GADGET` / `PHASMID_WEB_TOKEN` /
       `PHASMID_RECOGNITION_MODE=demo` と `stty -ixon` を設定する。**素の起動では
       デモが成立しない**（→ §0）。
-- [ ] **【重要】Generate Plausibility を事前実行しておく**（約4分）。
-      `e` → `f` → パスフレーズ2つ → `Tab` で Generate → `Enter`。
-      経過時間が表示され画面は固まらない。完了後 `Plausibility Profile` が
-      `Level: HIGH` になっていることを確認。
+- [ ] **【重要】囮ファイルを自分で用意し、開示する Face に保存しておく。**
+      真のファイルによく似た、公開して差し支えない偽ファイルを1つ作る
+      （例: 同種の書式・同程度の分量の下書き）。`o` → `Add File` で
+      **開示用 Face（face_a）** に、**偽ファイル用パスフレーズ**で保存する。
+      **ツールに囮を生成させない。** 生成される填充物は空き領域を埋めるだけで、
+      開示材料にはならない。
+- [ ] 真のファイルを **face_b** に、**真ファイル用パスフレーズ**と
+      **破壊用パスフレーズ**で保存しておく。用意するパスフレーズは3つ:
+      真の復号用・真の破壊用・偽の復号用。
+- [ ] （任意）**Fill Free Space を事前実行**（約4分）。空き領域を埋め、
+      容器が不自然に空でないようにする。経過時間が表示され画面は固まらない。
 - [ ] ラップトップのブラウザで `http://10.12.194.1:8000/unlock` を開き、
       トークン（既定 `phasmid-demo-token`）を入力して**Homeまで進めた状態でタブを用意**。
       ※ `phasmid-pi.local` は使わない。**IPアドレス直指定**。
@@ -90,8 +98,9 @@
 ## 3. 初期状態 & リセット / Initial state & reset
 
 - **初期状態:** Simple Operator 画面。Vessels は空（`No protected storage found.`）。
-- **可信性プロファイル:** **事前生成済みの Vessel を別途用意しておく。** Step 1 で作る
-  Vessel は空のままでよく、Step 4 では生成済みの方を見せる。**壇上で生成しないこと。**
+- **囮と真のファイル:** **運用者が用意した2ファイルを保存済みの Vessel を別途用意しておく。**
+  Step 1 で作る Vessel は空のままでよく、Step 2〜4 では準備済みの方を使う。
+  **囮をツールに生成させないこと。壇上で空き領域の填充も実行しないこと。**
 - **各サイクル後リセット:** §8 を実施。
 
 ---
@@ -189,20 +198,22 @@
   この値は復号の入力そのもの（`_read_face_namespace` に渡る）なので、
   **照合を迂回して復元することはできない。**
 
-### Step 4 — Audit: plausibility（0:50｜誠実性の可視化｜TUI Expert）
+### Step 4 — Audit: 空き領域と、ツールが判定しないこと（0:50｜誠実性の可視化｜TUI Expert）
 
 - **操作:** **`e`（Expert）→ `a`（Audit）**。
-  **`Plausibility Baseline` セクション**を指す。
+  **`Free Space Filler` セクション**を指す。
 - **画面期待:**
   ```
-  Plausibility Baseline
-    Tracked Vessels        1
-    Tracked Faces          2
-    High baseline faces    1
-    Medium baseline faces  0
-    Low baseline faces     1
+  Free Space Filler
+    Tracked Vessels                     1
+    Tracked Faces                       2
+    Faces with free space filled        1
+    Faces partially filled              0
+    Faces with little or no filler      1
+    Disclosure material                 operator-supplied; filler is not
+                                        disclosure material
   ```
-- **発話（EN）:** "**Audit** scores each face independently. One face has a high-plausibility decoy profile; the other is still weak, and the tool says so rather than letting me believe otherwise. If the decoy isn't plausible, you should know before you need it."
+- **発話（EN）:** "**Audit** reports per face. Note what it does *not* claim: it does not tell me my cover story is convincing. The file I would hand over is one I wrote and stored myself — the tool cannot judge whether it is believable, and it does not pretend to. All it reports here is how much free space is filled, so an otherwise empty container does not read as empty. Judging the cover story is the operator's job, and the tool is honest about that boundary."
 - **注意（旧版の誤り）:** 旧版は「**Operator Log の Dummy Profile 指標を指す**」と
   指示していたが、**あの4行は Doctor 由来で、Vessel の生成結果を反映しない**
   （旧 `vault.bin` / `.state/dummy_profile` 層を見ている）。生成済みでも `0 B / LOW` と
@@ -310,8 +321,8 @@ Expert画面に出る7件の内訳。**いずれも想定内**である。
 ## 8. 終了後リセット / Teardown（次サイクル・次回のため）
 
 - [ ] デモVesselを削除/初期化。
-- [ ] **次サイクル用に Plausibility を再生成（約4分）。** サイクル間に時間がない場合は、
-      生成済みVesselを複数用意しておき差し替える。
+- [ ] **次サイクル用に囮ファイルを保存し直す。** 空き領域の填充（約4分）まで戻す場合は、
+      填充済みVesselを複数用意しておき差し替える。
 - [ ] Silent Standby を `active` に復帰（`Ctrl+R`）。
 - [ ] WebUIプロセス停止（`w`、またはinactivity auto-kill 10分待機）。
 - [ ] ブラウザタブを `/unlock` 済みの状態に戻す。
@@ -394,7 +405,7 @@ TUI が使うのと同じ Vessel に対して動作する（Vessel が1つも登
 
 | 操作 | 実測 |
 |---|---|
-| Generate Plausibility（64 MiB / 15% ≒ 9.6 MB） | **約4分** |
+| Fill Free Space（64 MiB / 15% ≒ 9.6 MB） | **約4分** |
 | カメラ初期化（libcamera / imx708） | 約0.6秒 |
 | 物体照合タイムアウト | 10秒（`collect_auth_sequence`） |
 | Textual アイドル時CPU | 約20〜25%（画面フォーカス時 約50%） |

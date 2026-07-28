@@ -523,14 +523,14 @@ def _build_tui_parser() -> argparse.ArgumentParser:
 
     plausibility_cmd = "dum" + "my"
     plausibility_p = subparsers.add_parser(
-        plausibility_cmd, help="Manage plausibility baseline content"
+        plausibility_cmd, help="Manage free-space filler for a Face"
     )
     plausibility_subparsers = plausibility_p.add_subparsers(
         dest="plausibility_command",
         metavar="plausibility_command",
     )
     plausibility_generate_p = plausibility_subparsers.add_parser(
-        "generate", help="Generate plausibility baseline files for a Face"
+        "generate", help="Fill a Face's free space with filler"
     )
     plausibility_generate_p.add_argument("vessel", help="Path to Vessel file")
     plausibility_generate_p.add_argument("--face", default="face_a", help="Face id")
@@ -540,7 +540,7 @@ def _build_tui_parser() -> argparse.ArgumentParser:
     plausibility_generate_p.add_argument("--restricted-passphrase-file")
 
     plausibility_inspect_p = plausibility_subparsers.add_parser(
-        "inspect", help="Inspect plausibility baseline metadata for a Face"
+        "inspect", help="Inspect free-space filler metadata for a Face"
     )
     plausibility_inspect_p.add_argument("vessel", help="Path to Vessel file")
     plausibility_inspect_p.add_argument("--face", default="face_a", help="Face id")
