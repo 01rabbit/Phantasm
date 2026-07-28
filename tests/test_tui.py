@@ -1576,3 +1576,44 @@ def test_expert_entry_refreshes_simple_home_on_return(monkeypatch):
     assert pushed["callback"] is not None, "no return callback: list would go stale"
     pushed["callback"](None)
     assert refreshed == [True]
+
+
+def test_key_name_brackets_survive_rich_markup_parsing():
+    """`[x]` in a user-facing string is Rich markup, not a literal key name.
+
+    Unescaped, Rich strips the bracketed key name entirely instead of
+    rendering it, so operators never see which key to press. Every string
+    that names a key in brackets must escape it (`\\[x]`) so the plain
+    rendered text still contains the key name.
+    """
+    from rich.text import Text
+
+    from phasmid.tui.screens.base import OperatorScreen
+
+    samples = [
+        (OperatorScreen._WEBUI_WARNING_FALLBACK, "[w]"),
+        (
+            "Normal controls are ready. Press \\[e] Expert for diagnostics "
+            "and technical detail.",
+            "[e]",
+        ),
+        (
+            "[bold]Choose an action:[/bold]  \\[o] Open selected   "
+            "\\[n] New protected storage   \\[g] Guided help\n"
+            "[dim]Advanced diagnostics and forensic detail are available "
+            "under \\[e] Expert.[/dim]",
+            "[o]",
+        ),
+        (
+            "[bold]No protected storage found.[/bold]\n"
+            "Press \\[n] to create one, or \\[g] for guided help.",
+            "[n]",
+        ),
+        (
+            "[yellow]! SYSTEM: 7 WARN — press \\[d] to review[/yellow]",
+            "[d]",
+        ),
+    ]
+    for markup, key in samples:
+        plain = Text.from_markup(markup).plain
+        assert key in plain, f"key name {key!r} stripped from: {plain!r}"

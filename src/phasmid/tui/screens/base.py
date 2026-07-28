@@ -25,7 +25,7 @@ class OperatorScreen(Screen):
     }
     """
 
-    _WEBUI_WARNING_FALLBACK = "WEBUI ACTIVE - PRESS [w] TO RETRACT"
+    _WEBUI_WARNING_FALLBACK = "WEBUI ACTIVE - PRESS \\[w] TO RETRACT"
 
     def webui_warning_banner(self) -> Static:
         return Static(
@@ -38,7 +38,7 @@ class OperatorScreen(Screen):
         app = cast("PhasmidApp", self.app)
         access_url = app.webui_svc.access_url()
         if access_url:
-            return f"WEBUI ACTIVE AT {access_url} - PRESS [w] TO RETRACT"
+            return f"WEBUI ACTIVE AT {access_url} - PRESS \\[w] TO RETRACT"
         return self._WEBUI_WARNING_FALLBACK
 
     def refresh_webui_status(self) -> None:

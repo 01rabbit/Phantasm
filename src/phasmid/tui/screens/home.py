@@ -137,7 +137,7 @@ class HomeScreen(OperatorScreen):
         app = cast("PhasmidApp", self.app)
         is_running = app.webui_svc.is_running()
         warning.update_message(
-            self.webui_running_message().replace(" - PRESS [w] TO RETRACT", "")
+            self.webui_running_message().replace(" - PRESS \\[w] TO RETRACT", "")
         )
         warning.display = is_running
 
@@ -204,12 +204,12 @@ class HomeScreen(OperatorScreen):
             badge.update(
                 f"[bold red]✗ SYSTEM: {fail_count} FAIL"
                 + (f", {warn_count} WARN" if warn_count else "")
-                + " — press [d] to review[/bold red]"
+                + " — press \\[d] to review[/bold red]"
             )
             badge.display = True
         elif warn_count:
             badge.update(
-                f"[yellow]! SYSTEM: {warn_count} WARN — press [d] to review[/yellow]"
+                f"[yellow]! SYSTEM: {warn_count} WARN — press \\[d] to review[/yellow]"
             )
             badge.display = True
         else:
