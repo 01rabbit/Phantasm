@@ -891,12 +891,10 @@ def _print_plausibility_result(result) -> None:
         or "-"
     )
     info(
-        "Plausibility summary: "
+        "Free space filler: "
         f"files={summary.dummy_file_count}, "
         f"size={summary.dummy_total_size} bytes, "
-        f"occupancy={summary.occupancy_ratio * 100:.2f}%, "
-        f"score={summary.plausibility_score}, "
-        f"level={summary.plausibility_level}"
+        f"occupancy={summary.occupancy_ratio * 100:.2f}%"
     )
     info(f"File type mix: {distribution}")
     info(f"Recommended action: {result.recommended_action}")
@@ -929,9 +927,7 @@ def _run_plausibility_generate_command(args) -> int:
         except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
             error(str(exc))
             return 1
-        success(
-            f"Plausibility baseline updated for [bold]{result.face.face_id}[/bold]."
-        )
+        success(f"Free space filled for [bold]{result.face.face_id}[/bold].")
         _print_plausibility_result(result)
         return 0
     finally:
@@ -946,7 +942,7 @@ def _run_plausibility_inspect_command(args) -> int:
     except (FileNotFoundError, ValueError, OSError) as exc:
         error(str(exc))
         return 1
-    success(f"Plausibility metadata ready for [bold]{result.face.face_id}[/bold].")
+    success(f"Free-space filler measured for [bold]{result.face.face_id}[/bold].")
     _print_plausibility_result(result)
     return 0
 
@@ -977,9 +973,7 @@ def _run_plausibility_clear_command(args) -> int:
         except (PermissionError, FileNotFoundError, ValueError, OSError) as exc:
             error(str(exc))
             return 1
-        success(
-            f"Plausibility baseline cleared for [bold]{result.face.face_id}[/bold]."
-        )
+        success(f"Filler cleared for [bold]{result.face.face_id}[/bold].")
         _print_plausibility_result(result)
         return 0
     finally:

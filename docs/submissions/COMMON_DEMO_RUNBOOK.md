@@ -10,7 +10,7 @@ Show Phasmid as a local-only coercion-aware storage prototype for constrained de
 
 1. Vessel/container creation
 2. Context profile selection
-3. Plausible disclosure dataset preparation
+3. Operator-supplied decoy placement, plus optional free-space filling
 4. Silent Standby transition
 5. Coercion-safe fallback behavior
 6. Claims/non-claims display
@@ -32,16 +32,16 @@ Speak line:
 - Show profile intent and expected file distribution.
 
 Speak line:
-`Profile selection controls disclosure consistency, not cryptographic keys.`
+`Profile selection shapes the optional free-space filler, not cryptographic keys and not the operator's own disclosure material.`
 
-### 3) Plausible disclosure dataset
+### 3) Operator-supplied decoy and free-space fill
 
-- Generate or load profile-consistent files.
-- Run plausibility report.
-- Show warnings if profile is weak or sparse.
+- Store the operator's own decoy file in the disclosure Face — Phasmid does not generate it.
+- Optionally run Fill Free Space and show the occupancy report.
+- Show warnings if occupancy is low or sparse.
 
 Speak line:
-`Plausibility is prepared in advance; it is not fabricated during pressure.`
+`The decoy is the operator's own file, prepared in advance; the filler only occupies free space and is never disclosure material.`
 
 ### 4) Silent Standby
 

@@ -160,13 +160,16 @@ class FaceManagerScreen(OperatorScreen):
             )
             or "-"
         )
+        # Volume only. A "Level: HIGH / Score: 87" line under this heading
+        # reads as a verdict on how convincing the disclosure material is,
+        # which is exactly what the note below this panel disclaims and what
+        # the tool cannot judge - the disclosed file is one the operator
+        # wrote. What can honestly be reported is how much space is occupied.
         summary.update(
             "Free Space Filler\n"
-            f"Level: {profile.plausibility_level}  "
-            f"Score: {profile.plausibility_score}  "
-            f"Files: {profile.dummy_file_count}\n"
-            f"Occupancy: {profile.occupancy_ratio * 100:.2f}%  "
+            f"Filler files: {profile.dummy_file_count}  "
             f"Size: {profile.dummy_total_size} bytes\n"
+            f"Free space occupied: {profile.occupancy_ratio * 100:.2f}%\n"
             f"Types: {distribution}"
         )
 

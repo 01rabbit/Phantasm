@@ -16,7 +16,7 @@ Subtitle:
 
 Phasmid is a field-evaluation prototype for local-only coercion-aware storage on Raspberry Pi Zero 2 W-class constrained devices. In high-pressure operations, cryptography can remain correct while disclosure behavior becomes the operational failure point. Phasmid addresses that gap through local-only controlled disclosure behavior.
 
-The system implements Janus Eidolon System (JES), a two-slot local storage architecture that separates visible disclosure from protected local state. It provides context profile templates, plausible disclosure datasets, Silent Standby transitions, and coercion-safe fallback routing.
+The system implements Janus Eidolon System (JES), a two-slot local storage architecture that separates visible disclosure from protected local state. It provides context profile templates, operator-supplied disclosure material with an optional free-space filler, Silent Standby transitions, and coercion-safe fallback routing.
 
 Phasmid does not claim forensic invisibility or anti-forensic evasion. The demo presents a constrained-device prototype focused on safer disclosure behavior and reduced over-disclosure risk under inspection or seizure pressure.
 

@@ -46,13 +46,17 @@ Phasmid implements a three-component coercion-safe delaying architecture:
    on a configurable hotkey. States: `active`, `standby`, `sealed`, `dummy_disclosure`.
    Recovery requires re-authentication. Standby does not erase key material from memory.
 
-2. **Plausible Dummy Dataset** — Pre-configured context-consistent content for
-   controlled disclosure. Generated before any coercive event. Guided by context
-   profiles. Evaluated by the plausibility report.
+2. **Free Space Filler** — The disclosure content itself is the operator's own file,
+   stored by the operator in the disclosure Face; Phasmid never fabricates it. The
+   filler is a separate, optional step that occupies unused space in a Face so an
+   otherwise-empty container does not read as empty. Generated before any coercive
+   event, guided by context profiles, and reported by volume (size, file count,
+   occupancy ratio) — not judged for how convincing it is.
 
 3. **Context Profile Templates** — Schemas that define expected content for a given
    operational context (`travel`, `field_engineer`, `researcher`, `maintenance`,
-   `archive`). Guide dummy generation and plausibility validation.
+   `archive`). Guide the optional free-space filler's content; they do not validate
+   whether operator-supplied disclosure material is plausible.
 
 Recognition modes control response to low-confidence recognition:
 

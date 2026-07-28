@@ -2,6 +2,9 @@
 
 **Deck:** Phasmid_DEFCON_DemoLabs.pptx（全26枚 / 各スライドに同内容のスピーカーノート埋め込み済み）
 **Presenter:** Makoto Sugita (Mr.Rabbit / 01rabbit)
+**改訂 v4:** 製品モデルの確定を反映。**囮ファイルはツールが作らない — 利用者が用意する。** 生成機能は「空き領域の填充」へ降格し、Slide 14・21・22 の記述を差し替え。**強要下では開示しない**（制限パスフレーズは破壊資格であり取出資格ではない）ことを Slide 21 で明言。**パスフレーズは3つ**（真の復号／真の破壊／偽の復号）を Slide 12 に明示。Slide 24 のデモ手順を実機ランブック（8ステップ）と一致させ、**Step 3b（物体なしでの失敗）** を山場として新設。**ステッカーは未作成のため Slide 25・26 の言及を削除**し、卓上デモへの導線に差し替え。
+> 旧 v3: 実装（silent_brick／purge／emergency_daemon）と整合させ、Slide 6・21 の「破壊しない」記述を撤回。核心を「**Phasmid destroys, but never fabricates**（破壊はする／偽造・隠蔽はしない）」へ変更し、owner-triggered destruction の存在と §2232 リスクを開示。
+> 旧 v2: 軍歴＝着想源＋inverse framing（Slide 2）、REAL CASE(2026)（Slide 4）、国境事案 Q&A を追加。
 
 ## 枠のルール / Format
 - **1枠45分・毎時00分開始・45分ハード停止（非交渉）。** 推奨は「コンテンツ30分＋Q&A/交流15分」。
@@ -12,7 +15,7 @@
 1. 各スライドは「経過時刻」を目標に。**遅れたら深掘りスライド（STRIDE / Crypto core / Guards）を短縮**して取り戻す。
 2. デモは山場。**約7分で切り上げ**、時計を見て延伸しない。
 3. 深い技術論争は歓迎しつつ**Q&Aへ誘導**（"find me after" / "let's go deep in Q&A"）。
-4. object-cue の「cue≠key」、倫理（Allowed/Disallowed）の2点は**必ず明瞭に**。信頼の核。
+4. **必ず明瞭に言い切る3点。** ①object-cue の「cue≠key」、②**囮は利用者が用意する（ツールは偽造しない）**、③倫理（Allowed/Disallowed／強要下では開示しない）。信頼の核。
 
 ## 時間配分（目安） / Timing map
 | 区間 | スライド | 経過 |
@@ -24,7 +27,7 @@
 | 機構 | 12 Pillars → 16 Flow | 08:50–13:50 |
 | 内部・実機 | 17 Tech → 20 Guards | 13:50–17:05 |
 | 倫理・限界 | 21 Ethics → 22 Scope | 17:05–19:05 |
-| **デモ** | 23 Divider → 24 Demo | 19:05–26:20 |
+| **デモ（全TUI・8ステップ）** | 23 Divider → 24 Demo | 19:05–26:20 |
 | 締め | 25 Quick start → 26 Closing | 26:20–~27:30 |
 | **Q&A・卓上デモ・交流** | — | ~27:30–45:00 |
 
@@ -36,24 +39,24 @@
 **EN:** "Hey, thanks for coming. This is **Phasmid** — the reference build of what I call the **Janus Eidolon System**. Local-only, coercion-aware storage, built for the moment someone has both your device *and* you. I'm Makoto Sugita — Mr. Rabbit."
 **JA:** 掴みは短く。バナーを一度指す。時計スタート。
 
-## [00:30] Slide 2 — whoami
-**EN:** "Quick background: independent security researcher and open-source tool developer, penetration tester by trade, CISSP. I turn offensive experience into defensive tools — deception, delaying action, coercion-aware design. You may have seen my other work, the Azazel system and the PAKURI family, at Black Hat Arsenal, BSides, SecTor, CODE BLUE. Find me at **01rabbit** on GitHub."
-**JA:** 経歴は流す。ハンドルを指す。
+## [00:30] Slide 2 — whoami（軍歴＝着想源 / inverse framing）
+**EN:** "A quick note on where I come from: like a lot of people in this room, I started in uniform — a former Japan Ground Self-Defense Force officer, a Second Lieutenant, in a cyber unit. My work since has mostly been offensive — and offensive work is really about the **person, not just the algorithm**; the weakest link is human. Phasmid points that lesson the other way: **it doesn't protect the key, it protects the person holding it.** Day-to-day I'm an independent researcher and open-source tool developer, pen tester, CISSP — you may have seen the Azazel system or the PAKURI family at Black Hat Arsenal, BSides, SecTor, CODE BLUE. Find me at **01rabbit** on GitHub."
+**JA:** 経歴は着想源として淡々と、武勇伝化しない。"person, not the algorithm" と "protects the person" は必ず言い切る。左カード先頭に軍歴1行あり。ハンドルを指す。約0:55。
 
 ## [01:10] Slide 3 — Agenda
 **EN:** "Here's the plan for the next half hour. First the problem — compelled access. Then the core idea, **Janus**. How it works — the object cue and coercion-safe delaying. A look under the hood — crypto, guards, the actual hardware. Then the honest limits — ethics and scope. And I'll finish with a **live demo** and how to run it yourself. I'll keep time for questions at the end."
 **JA:** 6項目を指でなぞる。期待値を固定。
 
-## [01:40] Slide 4 — The Problem
-**EN:** "Here's what Phasmid is built for. Attackers today don't need to break your crypto. They take the **device** — at a border, a checkpoint, an arrest — and they ask you to **unlock it**. And full-disk encryption is all-or-nothing: the moment you open it under pressure, **everything** is exposed. That's over-disclosure."
-**JA:** 3枚を左→右で指す。淡々と、しかし重く。
+## [01:40] Slide 4 — The Problem（＋実事例 REAL CASE）
+**EN:** "Here's what Phasmid is built for. Attackers today don't need to break your crypto. They take the **device** — at a border, a checkpoint, an arrest — and they ask you to **unlock it**. And full-disk encryption is all-or-nothing: the moment you open it under pressure, **everything** is exposed. That's over-disclosure. And this isn't theoretical anymore: this year a US citizen was federally charged after a duress feature wiped his phone at a border search — the first known case of its kind. **The scenario on this slide now has a court date.**"
+**JA:** 3枚を左→右で指す。淡々と、しかし重く。最後に下段の **REAL CASE** 行を一度指す。係争中の個別事案の是非には踏み込まない（事実の提示のみ）。
 
 ## [02:40] Slide 5 — Meme（pick your fate）
 **EN:** "So you get three bad options. **Refuse** — and you escalate. **Comply** with full-disk encryption — and you hand over everything. Or... **controlled disclosure** — show what's visible, protect the rest. Same demand, very different blast radius."
 **JA:** 軽く笑いを取る。緊張を一度ほぐす。
 
 ## [03:10] Slide 6 — What it is / isn't
-**EN:** "Let me be precise. Phasmid is a **field-evaluation research prototype** for disclosure control — not casual file encryption, local-only by default. And it is **not** a replacement for audited full-disk encryption, not hardware-backed keys, not a magic delete button, and not a complete answer to compelled disclosure. I'll keep drawing that line the whole way through."
+**EN:** "Let me be precise. Phasmid is a **field-evaluation research prototype** for disclosure control — not casual file encryption, local-only by default. And it is **not** a replacement for audited full-disk encryption, not hardware-backed keys, not a risk-free delete — it *can* destroy data, and that is legally hazardous — and not a complete answer to compelled disclosure. I'll keep drawing that line the whole way through."
 **JA:** 誠実さを最初に宣言。IS/NOTを左右で。
 
 ## [04:00] Slide 7 — Core idea: Janus
@@ -76,17 +79,17 @@
 **EN:** "Underneath, narrow local layers — entry points, the restricted-action policy, the crypto core, local state, and the deployment boundary. And none of this is folklore: it's documented — a full specification, the threat model, the formal Janus spec, and the delaying-architecture design. Read it, poke holes in it."
 **JA:** 流し気味。文書充実＝真剣な研究。
 
-## [08:50] Slide 12 — Three pillars
-**EN:** "Three moving parts. One — an **encrypted local vessel**: authenticated encryption, password-derived keys. Two — **object-cue operation**; I'll come right back to this, it's the fun part. Three — **controlled disclosure**: workflows that separate what's shown from what's protected."
-**JA:** ②を予告して引っ張る。
+## [08:50] Slide 12 — Three pillars（＋3つのパスフレーズ）
+**EN:** "Three moving parts. One — an **encrypted local vessel**: authenticated encryption, password-derived keys. Two — **object-cue operation**; I'll come right back to this, it's the fun part. Three — **controlled disclosure**. And that third one is concrete, not a slogan: you set **three credentials**. One opens the real file. One opens the decoy. And one **destroys** the real file. Three passwords, three very different outcomes — and only you know which is which."
+**JA:** ②を予告して引っ張る。**3パスフレーズはここが初出。** 指で3つ数えて見せると残る。破壊資格の意味は Slide 21 まで引っ張る。
 
 ## [09:40] Slide 13 — The object is a cue, not a key　★見せ場
-**EN:** "Here's the fun part. You show an everyday **object** to the camera to operate the access gate — nothing to type, nothing that looks like a secret. But this is the part people get wrong, so let me be clear: the object is a **cue, not a key**. It drives operation and policy checks. It is **not** the encryption key. A photo of the object unlocks nothing. The crypto stays with Argon2id and AES-GCM — the object just decides whether you get to act."
-**JA:** ゆっくり。cue≠key を二度言う。手元の物体を掲げると効果的。
+**EN:** "Here's the fun part. You show an everyday **object** to the camera to operate the access gate — nothing to type, nothing that looks like a secret. But this is the part people get wrong, so let me be clear: the object is a **cue, not a key**. It drives operation and policy checks. It is **not** the encryption key. A photo of the object unlocks nothing. The crypto stays with Argon2id and AES-GCM — the object just decides whether you get to act. **And you'll watch this fail live in a few minutes** — same file, same password, no object."
+**JA:** ゆっくり。cue≠key を二度言う。手元の物体を掲げると効果的。**最後の一文で Step 3b を予告する。** 実証を約束しておくとデモの山が強くなる。
 
-## [11:00] Slide 14 — Coercion-safe delaying
-**EN:** "This is what makes it coercion-*safe*. **Silent Standby** — a hotkey drops the sensitive UI into a harmless state; recovery needs re-auth. A **plausible dummy dataset**, prepared *before* any coercion and scored for plausibility. And **context profiles** — travel, field engineer, researcher — that shape what 'normal' looks like. In coercion-safe mode, a low-confidence match routes to the dummy path instead of failing loudly. The goal isn't magic invisibility — it's uncertainty and delay."
-**JA:** Silent Standby をデモで見せると予告。認識モードの帯を指す。
+## [11:00] Slide 14 — Coercion-safe delaying　★製品モデルの核心
+**EN:** "This is what makes it coercion-*safe*. **Silent Standby** — a hotkey drops the sensitive UI into a harmless state; recovery needs re-auth. Then the material itself, and I want to be exact about this: **the file you would hand over is one *you* wrote and stored yourself**, before any coercion. **Phasmid does not manufacture your cover story.** A generated dataset would not survive five minutes of questioning by someone holding your passport — realism has to come from your own material, not from my random-text generator. What the tool *does* offer is a **filler** that occupies free space, so an otherwise empty container doesn't read as empty. That's a volume problem, and volume is something software can actually solve. And **context profiles** — travel, field engineer, researcher — tell you what 'normal' should look like, so you know what to prepare. In coercion-safe mode, a low-confidence match routes to the disclosure face instead of failing loudly. The goal isn't magic invisibility — it's **uncertainty and delay**."
+**JA:** **本トークで最も誤解されやすい点。** 「ツールが囮を作る」と思われた瞬間に設計の真実味が全部落ちる。**「囮は利用者が用意する」と「填充は空き領域対策に過ぎない」を分けて言い切る。** Silent Standby はデモで見せると予告。認識モードの帯を指す。
 
 ## [12:20] Slide 15 — Design principles
 **EN:** "The design principle is **restraint**. The vault file alone isn't meant to be enough. Normal flows don't reveal structure or recovery. And metadata reduction is best-effort — I call it support, not sanitization. Restraint is the feature, not a limitation."
@@ -101,7 +104,7 @@
 **JA:** 数値は帯を指す程度。詳細は次/Q&A。
 
 ## [14:40] Slide 18 — Field hardware（実機）　★エンゲージ
-**EN:** "And here's the actual thing. A Pi Zero 2 W in a 3D-printed case, a camera for the object cue, on a little tripod. By default the WebUI binds **localhost only** — on-device access, no network. If you want to reach it from a laptop over the USB link, that's an explicit opt-in, and it binds **that one USB interface** — never all interfaces, never Wi-Fi. It's meant to read as an unremarkable small gadget. It's right here on the table — come look, and try it, after the talk."
+**EN:** "And here's the actual thing. A Pi Zero 2 W in a 3D-printed case, a camera for the object cue, on a little tripod. The WebUI is reached over **USB at localhost** — it never touches a network. It's meant to read as an unremarkable small gadget. It's right here on the table — come look, and try it, after the talk."
 **JA:** 現物を指す／持ち上げる。卓上デモ・Q&Aへの導線。
 
 ## [15:40] Slide 19 — Cryptographic core (v3)
@@ -113,28 +116,49 @@
 **JA:** 俯瞰で。個別値はQ&A。
 
 ## [17:05] Slide 21 — Design ethics: will & won't　★倫理
-**EN:** "Now the ethics — and this matters, especially in this room. Phasmid **allows** plausible controlled disclosure, standby, ambiguity-preserving workflows. It **explicitly disallows** rootkits, kernel-level hiding, anti-forensic destruction, forensic-tool bypass, and fabricating false events or timestamps. It increases uncertainty and delays confident conclusions — it does **not** claim forensic invisibility. This line is deliberate, and it's in the code."
-**JA:** フォレンジック/法執行の聴衆へ誠実に。目を合わせる。信頼獲得点。
+**EN:** "Now the ethics — and this matters, especially in this room. The line I draw is simple: **Phasmid destroys, but it never fabricates.** It will not plant rootkits, hide processes, bypass forensic tools, forge timestamps, fake system events, or tamper with metadata to deceive an examiner — **and it will not write your cover story for you either.** What it **does** give the owner is a duress response — **owner-triggered destruction**: a silent brick overwrites the whole container with random data, and purge drops one face. Now notice what that means for the three credentials I mentioned. **Under coercion, the restricted credential destroys. It does not quietly disclose something false.** There is no fake unlock that hands an examiner a forgery with my name on it — because the moment I fabricate evidence for you, I have built the thing I just said I wouldn't. I'm telling you plainly that destruction exists, because the honest thing is to also say it's **dangerous**. Destroying data at the moment of seizure can itself be a crime — that's the border case on the problem slide, charged under a US destruction-of-evidence statute. Phasmid gives you the capability; it does **not** advise using it against lawful process, and legality is jurisdiction-dependent. The auto-fire path especially: understand your jurisdiction before you ever enable it. I won't comment on that active case or give legal advice."
+**JA:** 破壊機能の存在を隠さず認める。「destroyはする／fabricateはしない」を明確に言い切る。**「強要下では開示しない」＝制限パスフレーズは破壊資格であり取出資格ではない**——Slide 12 の3パスフレーズと結線する。§2232（border case）を利用者リスクとして開示。自動発火経路は特に危険——有効化前に管轄確認を促す。可視キャプションを指す。推奨・法律助言はしない。
 
 ## [18:15] Slide 22 — Scope, honestly drawn
-**EN:** "Scope, drawn honestly. Software-existence concealment: **out**. Data-existence deniability: **partial**. Controlled disclosure: **in, and central**. Coercion-aware fallback: **in**. And what it never claims — perfect deniability, forensic immunity, secure deletion on flash, protection from a compromised host. No snake oil. Okay — enough talk. Let me show you."
-**JA:** 誠実さの締め。最後の一文でデモへ橋渡し。
+**EN:** "Scope, drawn honestly. Software-existence concealment: **out**. Data-existence deniability: **partial**. Controlled disclosure: **in, and central**. Coercion-aware fallback: **in**. And what it never claims — perfect deniability, forensic immunity, secure deletion on flash, protection from a compromised host. **And one more it never claims: that your cover story is convincing.** It can tell you how much space is occupied. It cannot tell you whether anyone will believe you, and it doesn't pretend to. No snake oil. Okay — enough talk. Let me show you."
+**JA:** 誠実さの締め。**非主張リストの5つ目「説得力は判定しない」は口頭で足す**（スライドは下段キャプション）。最後の一文でデモへ橋渡し。
 
 ## [19:05] Slide 23 — LIVE DEMO（章扉）
 **EN:** "Alright — live demo."
 **JA:** 呼吸を整え実機へ。プロジェクタ入力をTUIへ切替。**バックアップ録画の頭出しを確認。**
 
 ## [19:20] Slide 24 — Live demo（実TUI）　★中心 / 約7分
-**EN（最小限・手を動かしながら）:** "This is the real TUI — **Local Disclosure Control**. The home screen is deliberately small — four actions, nothing else. Under pressure you do not want a wall of options. I'll **create protected storage**, then open **Expert** controls with one key: set the object cue under **Faces**, run the **Guided** flow, check dummy-profile plausibility in **Audit**, launch the local **WebUI**, then trigger **Silent Standby** and show the dummy disclosure."
-**JA:** 詳細手順は別紙 **Phasmid_Demo_Runbook** を参照。キー順（0.3.0 実機確認済み）: `n` New → `e` Expert → `f` Faces → `g` Guided → `a` Audit → `w` WebUI → `Ctrl+S` Silent Standby（復帰 `Ctrl+R`）。話しすぎない／画面を指す／各ステップで一呼吸。**7分で切り上げ、Q&Aに15分以上を残す。** 失敗時は録画へ切替し設計点を口頭補強。
+**EN（最小限・手を動かしながら）:** "This is the real TUI — **Local Disclosure Control**. I'll **create a vessel**. I'll **store a file** while holding an everyday object in front of the camera. I'll **recover it** with the object — it comes back. Then watch this: **same file, same password, same everything — only the object is gone.** Ten seconds, and it refuses. That is what 'the cue gates the operation' means. Then **Audit** — and notice what it *doesn't* claim. Then the local **WebUI** over USB, and **Silent Standby**. Watch the bottom bar."
+
+**JA デモ手順:** 詳細は別紙 **`docs/submissions/Phasmid_Demo_Runbook.md`（8ステップ）** に従う。要点のみ：
+
+| # | 手順 | 目安 | 要点 |
+|---|---|---|---|
+| 0 | オリエンテーション | 0:20 | Simple 画面の6キーを指す。最小面も coercion-aware 設計の一部 |
+| 1 | `n` Create Vessel | 0:50 | ヘッダなし・マジックバイトなし |
+| 2 | `o` Open → **Add File**（物体を構える） | 1:10 | **Faces 画面ではない。** カメラを使うのは Add File だけ |
+| 3a | `o` Open → Recover（物体あり） | 0:40 | "Same object, correct password — the file comes back." |
+| **3b** | **Recover（物体なし）→ 約10秒後に失敗** | 0:40 | **★本デモの証明。ここで必ず間を取る。** 可能なら物体を戻して往復させる |
+| 4 | `e` → `a` Audit | 0:50 | `Free Space Filler` を指す。**判定しないことを誇る** |
+| 5 | `w` WebUI（見せるだけ） | 0:40 | 露出バナーを両端で見せる。**操作はしない** |
+| 6 | `Ctrl+S` Silent Standby | 1:20 | **山場。** WebUI も同時に落ちる。ゆっくり |
+| 7 | `Esc` で復帰・ラップ | 0:10 | Prepare→Bind→Operate→Disclose を一言で |
+
+**JA 注意:**
+- **マウスは使わない。** SSH越しではクリックが Textual に届かない。`Tab` / `Enter` のみ。
+- **端末幅123桁以上。** 下回ると Expert フッタから `w WebUI` が無言で消える。
+- **`Fill Free Space` は壇上で実行しない**（実測約4分）。事前に埋めておき `Inspect` のみ。
+- **囮ファイルは事前に自分で用意し保存しておく。** 壇上でツールに生成させない。
+- **成功例だけを見せない。** Step 3b の対比が無ければ cue≠key は何も証明していない。
+- **7分で切り上げ、Q&Aに15分以上を残す。** 26:00 を超えたら残手順を口頭要約。失敗時は録画へ切替し設計点を口頭補強。
 
 ## [26:20] Slide 25 — Quick start
 **EN:** "Want to try it? Clone the repo, cd in, run `./phasmid` — first run sets up a venv and opens the console. Research software, Apache-2.0. Evaluate it locally, in field-test conditions — not as production protection."
-**JA:** URLを指す。ステッカーへ繋ぐ。
+**JA:** URLを指す。**ステッカーは作成していないので言及しない。** 卓上デモ（実機を触ってもらう）へ繋ぐ。
 
 ## [26:50] Slide 26 — Closing → Q&A
-**EN:** "That's **Phasmid** — local-only, coercion-aware storage, honest limits included. Code, threat model, and architecture are all on GitHub at **01rabbit**. Grab a sticker — and please, come break it. I've got time for questions."
-**JA:** 約27分で着地。残り約18分をQ&A・卓上デモ・交流へ。**45分で必ず終了。**
+**EN:** "That's **Phasmid** — local-only, coercion-aware storage, honest limits included. Code, threat model, and architecture are all on GitHub at **01rabbit**. The device is right here on the table — come try it, and please, come break it. I've got time for questions."
+**JA:** 約27分で着地。残り約18分をQ&A・卓上デモ・交流へ。**ステッカーは未作成のため実機体験への導線に差し替え済み。45分で必ず終了。**
 
 ---
 
@@ -147,11 +171,17 @@
 - **「LUKSとの関係は?」** → TUIのLUKS連携に触れつつ、Phasmidは*開示制御の層*でありFDEの代替ではない（Slide 6・22）。
 - **「否認可能性は?」** → データ存在の否認は*部分的*、完全否認は*非主張*（Slide 22）。
 - **「押収後、本当に守れるのか?」** → ホスト侵害・カーネル奪取は*対象外*（Slide 8）。増やすのは不確実性と時間（Slide 21）。
-- **「object-cueは生体認証/鍵?」** → 否。*cueであってkeyではない*（Slide 13）。
-- **「法的に問題は?」** → 破壊・偽造・アンチフォレンジックは*設計上禁止*（Slide 21）。合法性は管轄依存であり助言はしない。
+- **「object-cueは生体認証/鍵?」** → 否。*cueであってkeyではない*（Slide 13）。壇上で失敗を実演済み（Step 3b）。
+- **「囮ファイルはツールが作るのか?」** → **否。利用者が用意する。** *"The tool has no idea what a believable version of your life looks like. You do. What it generates is filler for free space — that's a volume problem, and it says so. It never claims the filler is what you hand over."*（Slide 14・22）
+- **「plausibility score は何を測っているのか?」** → **空き領域の占有率であって、説得力ではない。** Audit も Doctor も**分量しか報告しない**。旧版はこれを可信性として表示していたが、判定できないものを判定しているように見えるため撤去した。
+- **「強要されてパスワードを言わされたら?」** → 渡すのは**偽ファイル用のパスフレーズ**で、自分で用意した囮が開く。**制限（duress）パスフレーズは破壊資格であり、開示はしない。** 偽の中身を自動生成して差し出す経路は**意図的に持っていない**——それは偽造だから（Slide 21）。
+- **「WebUIとTUIで見えるものが違うのでは?」** → **保管層は統一済み。** 以前は TUI が `*.vessel`、WebUI が別の `vault.bin` を操作していたが、現在は両者とも同じ Vessel を操作する。ただし**デモ本編では WebUI で保存・復元しない**——統合経路を壇上でまだ実機検証しておらず、判定が物体キュー照合に依存するため CI でも検証できないため。
+- **「法的に問題は?」** → 偽造・改ざん・隠蔽（fabricate/forge/hide）は*行わない*。一方 **owner-triggered の破壊（silent-brick／purge）は実装されており、法的に危険**（§2232型）。合法性は管轄依存であり助言はしない（Slide 21）。
+- **「あの国境の duress-wipe 訴追事案をどう見る?」** → *"That case turns on a destructive act. Phasmid actually **includes** owner-triggered destruction — silent-brick and purge — so this risk applies directly to anyone who uses it. I'm not going to pretend otherwise, and I'm not going to advise using it against lawful process. Legality is jurisdiction-dependent, this is a research prototype, and I won't comment on an active prosecution or give legal advice. The design principle is that Phasmid destroys but never fabricates."* 個別事案の是非・政治的背景には立ち入らない。破壊機能の存在は隠さず、利用者リスクとして開示する。
 
 # コンティンジェンシー / Contingency
 - **押している（+3分以上）:** Slide 9・19・20 を各1行に圧縮。Slide 11 は口頭一言でスキップ可。
-- **巻いている（-3分以上）:** Slide 8・14・21 を丁寧に。デモで Audit と WebUI を実演拡張。
+- **巻いている（-3分以上）:** Slide 8・14・21 を丁寧に。デモで Audit と Doctor を実演拡張。
 - **デモ不調:** 章扉（23）で頭出しした録画へ即切替。「設計点は録画でも成立する」と明言し、口頭で Prepare→Bind→Operate→Disclose を辿る。
-- **時計運用:** 19:20 でデモ開始、**26:00 を超えたら残手順を口頭要約**して締めへ。45:00 厳守。
+- **物体認識が不安定:** 起動スクリプトの既定は `demo` モード。それでも不安定なら `coercion_safe` の低信頼→開示面ルートを**設計意図として逆手に説明**する。
+- **時計運用:** 19:20 でデモ開始、**26:00 を超えたら残手順を口頭要約**して締めへ。**Step 3b と Step 6 だけは何があっても見せる。** 45:00 厳守。

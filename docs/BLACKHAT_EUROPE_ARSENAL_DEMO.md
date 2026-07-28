@@ -25,9 +25,9 @@ Show context profile selection before disclosure preparation. Reviewer-friendly 
 - `field_engineer`
 - `maintenance`
 
-### Demo 3: Plausible Dummy Dataset
+### Demo 3: Operator-Supplied Decoy and Free Space Filler
 
-Show dummy dataset generation and the plausibility report. Explain that dummy data is not decoration; it is part of the controlled-disclosure safety model and must be prepared before any compelled-access scenario.
+Show the operator storing their own decoy file in the disclosure Face — Phasmid never fabricates it, because a tool-generated dataset has no credibility as a cover story. Then show the optional Free Space Filler step and its occupancy report, and be explicit that this filler only occupies unused space; it is not disclosure material and the tool does not judge whether the operator's decoy is convincing.
 
 ### Demo 4: Silent Standby
 
@@ -50,7 +50,7 @@ Show the claims and non-claims documentation. Emphasize:
 ## Reviewer Takeaways
 
 - Phasmid reframes encrypted storage around compelled-access safety.
-- It treats disclosure plausibility and fail-closed behavior as security properties.
+- It treats honest disclosure behavior — the operator's own decoy, plus fail-closed handling — as a security property, and is explicit that judging a cover story's credibility stays the operator's job, not the tool's.
 - It is a research prototype with explicit claims and non-claims.
 - It is suitable for live demonstration because it has visible CLI/TUI flows and local-only behavior.
 
@@ -61,7 +61,7 @@ Show the claims and non-claims documentation. Emphasize:
 - TUI opens.
 - Demo Vessel can be created.
 - Context profile can be selected.
-- Dummy report can be generated.
+- Operator decoy can be stored, and the Free Space Filler occupancy report can be generated.
 - Silent Standby can be triggered.
 - Claims/non-claims are easy to locate.
 - No demo requires internet access.

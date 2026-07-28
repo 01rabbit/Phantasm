@@ -1,5 +1,6 @@
 import json
 import os
+import string
 import sys
 import tempfile
 import unittest
@@ -10,6 +11,8 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from phasmid.context_profile import get_profile
 from phasmid.dummy_generator import (
+    _BENIGN_TEXT_FRAGMENTS,
+    _LOG_LINE_FRAGMENTS,
     DummyGeneratorConfig,
     GeneratedDummyReport,
     generate_dummy_dataset,
@@ -100,17 +103,53 @@ class TestGenerateDummyDataset(unittest.TestCase):
             self.assertIsInstance(report.size_distribution, dict)
 
     def test_generate_does_not_produce_disallowed_content(self):
-        """Verify no forged system files, kernel logs, or forensic artifacts."""
+        """Verify no forged system files, kernel logs, or forensic artifacts.
+
+        Asserted against the generator's own vocabulary rather than against a
+        sample of its output. Stems are random lowercase alphanumerics of
+        length 8-16, so a substring scan of sampled filenames fails by chance
+        roughly once in a few hundred runs - a red CI run that says nothing
+        about whether the generator forges anything.
+        """
+        forensic_terms = ("kern", "syslog", "wtmp", "utmp", "dmesg", "auth.log")
+
+        # Nothing the generator can deliberately name or write may look like a
+        # forensic artifact.
+        vocabulary = [
+            fragment.decode("utf-8", errors="ignore").lower()
+            for fragment in _BENIGN_TEXT_FRAGMENTS + _LOG_LINE_FRAGMENTS
+        ]
+        vocabulary += [ext.lower() for ext in self.profile.dummy_content_types]
+        for entry in vocabulary:
+            for term in forensic_terms:
+                self.assertNotIn(
+                    term, entry, f"Suspicious generator vocabulary: {entry}"
+                )
+
+        # And what it actually writes must stay inside that vocabulary: random
+        # stems from [a-z0-9], extensions drawn from the profile.
+        allowed_stem = set(string.ascii_lowercase + string.digits)
+        allowed_ext = {
+            ext.lstrip(".").lower() for ext in self.profile.dummy_content_types
+        }
         with tempfile.TemporaryDirectory() as tmp:
             config = self._make_config(tmp, target_mb=5)
-            generate_dummy_dataset(config)
+            report = generate_dummy_dataset(config)
+            own_report = os.path.basename(report.evaluation_report_path)
+            written = 0
             for _dirpath, _dirnames, filenames in os.walk(tmp):
                 for fname in filenames:
-                    lower = fname.lower()
-                    self.assertNotIn("kern", lower, f"Suspicious filename: {fname}")
-                    self.assertNotIn("syslog", lower, f"Suspicious filename: {fname}")
-                    self.assertNotIn("wtmp", lower, f"Suspicious filename: {fname}")
-                    self.assertNotIn("utmp", lower, f"Suspicious filename: {fname}")
+                    if fname == own_report:
+                        continue
+                    stem, _, ext = fname.rpartition(".")
+                    self.assertIn(
+                        ext.lower(), allowed_ext, f"Unexpected extension: {fname}"
+                    )
+                    self.assertTrue(
+                        set(stem) <= allowed_stem, f"Unexpected filename stem: {fname}"
+                    )
+                    written += 1
+            self.assertGreater(written, 0)
 
     def test_effective_dummy_size_bytes(self):
         config = DummyGeneratorConfig(
