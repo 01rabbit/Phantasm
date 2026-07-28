@@ -207,6 +207,10 @@
 - **WebUI も同時に落ちる。** ラップトップのブラウザを再読込すると接続が切れていることを
   見せられる（**これを演出に使う**）。復帰後に
   「WebUI was retracted when standby engaged.」の通知が出る。
+- **Standby 発動時に未消化のトースト通知も消える。** WebUI 起動時の通知は30秒表示で、
+  本文に**アクセスURLとトークンが入っている**。これを消さないと、秘匿画面のはずの
+  Standby 画面にトークンが平文で残る。実機で一度再現し、修正済み。
+  Standby 画面のフッタから `w WebUI` も消える（封緘中に再露出させないため）。
 - **発話（EN）:** "Now the moment it's built for. One hotkey — **Silent Standby**. The sensitive surface drops away. And it is not just this screen: the web interface goes down with it, so a laptop tethered to this device loses access at the same instant. Recovery needs re-authentication. I'm not hiding from forensics — I'm buying **time** and **uncertainty**."
 - **注意:** **本デモの山。** ゆっくり、間を取る。倫理（Slide 21）に接続して締める。
 - **失敗時:** 遷移が出なければ録画の該当箇所を提示。「これが唯一の"魔法に見える"部分。実体はStateマシンです」と補足。

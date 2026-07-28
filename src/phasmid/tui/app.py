@@ -73,11 +73,20 @@ class PhasmidApp(App):
         """Reset WebUI inactivity timer on any key press."""
         self.webui_svc.reset_timer()
 
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        # `w` is an app-level binding, so it is offered on every screen -
+        # including Standby, where acting on it would re-expose the operator
+        # surface standby just retracted. Hide it there rather than leaving a
+        # key in the footer that does nothing. False is Textual's "disabled
+        # and not shown"; None would keep the cell and only grey it.
+        if action == "toggle_webui" and not self.standby.is_active():
+            return False
+        return True
+
     def action_toggle_webui(self) -> None:
         """Toggle WebUI start/stop."""
-        # `w` is an app-level binding and stays live on the Standby screen.
-        # Starting the WebUI from a sealed state would re-expose the operator
-        # surface that standby just retracted.
+        # Reachable even with the binding hidden (command palette, a screen
+        # rebinding the key), so the sealed state is enforced here too.
         if not self.standby.is_active() and not self.webui_svc.is_running():
             return
         if self.webui_svc.is_running():
@@ -208,6 +217,17 @@ class PhasmidApp(App):
                 webui_was_running = True
                 self.webui_svc.stop()
                 self._refresh_webui_status()
+        except Exception:
+            pass
+
+        # Toasts live on the app's overlay, not on the screen that raised
+        # them, so they survive the push and sit on top of the standby
+        # screen. Exposing the WebUI notifies with a 30 second timeout and
+        # the message carries the access URL and token, which would then be
+        # displayed in plain text on the one screen whose entire purpose is
+        # to show nothing sensitive.
+        try:
+            self.clear_notifications()
         except Exception:
             pass
 

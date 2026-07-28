@@ -1888,3 +1888,47 @@ def test_luks_binding_is_hidden_while_the_luks_layer_is_disabled():
         assert screen.check_action("luks_panel", ()) is True
 
     assert screen.check_action("open_vessel", ()) is True
+
+
+def test_standby_clears_pending_notifications(monkeypatch):
+    """Toasts outlive the screen that raised them.
+
+    Textual renders notifications on the app's overlay rather than on the
+    screen, so they survive the push to Standby and sit on top of it.
+    Exposing the WebUI notifies with a 30 second timeout, and that message
+    carries the access URL and the token - which would then be shown in
+    plain text on the one screen whose entire purpose is to display nothing
+    sensitive.
+    """
+    from phasmid.tui.app import PhasmidApp
+
+    app = PhasmidApp.__new__(PhasmidApp)
+    cleared: list[bool] = []
+
+    app.webui_svc = SimpleNamespace(is_running=lambda: False, stop=lambda: None)
+    app.standby = SimpleNamespace(is_active=lambda: True, trigger_standby=lambda: None)
+    monkeypatch.setattr(PhasmidApp, "_refresh_webui_status", lambda self: None)
+    monkeypatch.setattr(
+        PhasmidApp, "clear_notifications", lambda self: cleared.append(True)
+    )
+    monkeypatch.setattr(
+        PhasmidApp, "push_screen", lambda self, screen, callback=None: None
+    )
+
+    app.action_trigger_standby()
+
+    assert cleared == [True], "standby left the WebUI token toast on screen"
+
+
+def test_webui_binding_is_hidden_once_sealed():
+    """`w` is app-level, so it is offered on the Standby screen too."""
+    from phasmid.tui.app import PhasmidApp
+
+    app = PhasmidApp.__new__(PhasmidApp)
+
+    app.standby = SimpleNamespace(is_active=lambda: False)
+    assert app.check_action("toggle_webui", ()) is False
+
+    app.standby = SimpleNamespace(is_active=lambda: True)
+    assert app.check_action("toggle_webui", ()) is True
+    assert app.check_action("quit", ()) is True
