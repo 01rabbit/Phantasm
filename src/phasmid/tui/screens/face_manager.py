@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import time
+
+from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
+from textual.css.query import NoMatches
+from textual.timer import Timer
 from textual.widgets import Button, DataTable, Footer, Input, Label, Select, Static
 
 from ...models.vessel import VesselMeta
-from ...services.vessel_workflow_service import VesselWorkflowService
+from ...services.vessel_workflow_service import (
+    DummyProfileResult,
+    VesselWorkflowService,
+)
 from .base import OperatorScreen
 
 
@@ -47,10 +55,20 @@ class FaceManagerScreen(OperatorScreen):
     }
     """
 
+    _PLAUSIBILITY_BUTTON_IDS = (
+        "add-label-btn",
+        "inspect-plausibility-btn",
+        "generate-plausibility-btn",
+        "clear-plausibility-btn",
+    )
+
     def __init__(self, vessel: VesselMeta | None = None, **kwargs):
         super().__init__(**kwargs)
         self._vessel = vessel
         self._workflow = VesselWorkflowService()
+        self._generating = False
+        self._generate_started_at = 0.0
+        self._generate_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         vessel_name = self._vessel.name if self._vessel else "No vessel selected"
@@ -198,20 +216,13 @@ class FaceManagerScreen(OperatorScreen):
                     severity="error",
                 )
                 return
-            try:
-                profile_result = self._workflow.generate_dummy_profile(
-                    self._vessel.path,
-                    passphrase,
-                    restricted,
-                    selector=self._selected_face_id(),
-                    target_occupancy=target,
+            if self._generating:
+                self.app.notify(
+                    "Plausibility generation is already running.",
+                    severity="warning",
                 )
-            except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
-                self.app.notify(str(exc), severity="error")
                 return
-            self._vessel = profile_result.vessel
-            self._refresh_table()
-            self.app.notify(profile_result.recommended_action, severity="information")
+            self._begin_generation(passphrase, restricted, target)
             return
 
         if event.button.id == "clear-plausibility-btn":
@@ -239,3 +250,91 @@ class FaceManagerScreen(OperatorScreen):
             self._vessel = profile_result.vessel
             self._refresh_table()
             self.app.notify(profile_result.recommended_action, severity="information")
+
+    # -- Plausibility generation ------------------------------------------
+    #
+    # Generation writes megabytes of decoy files and was measured at roughly
+    # four minutes for a 64 MiB Vessel at 15% occupancy on a Pi Zero 2 W.
+    # Called inline from the button handler it froze the whole UI for that
+    # long with no feedback, which is indistinguishable from a crash. It runs
+    # on a worker thread now, with the elapsed time on screen.
+
+    def _begin_generation(self, passphrase: str, restricted: str, target: str) -> None:
+        if self._vessel is None:
+            return
+        self._generating = True
+        self._generate_started_at = time.monotonic()
+        self._set_controls_enabled(False)
+        self._tick_generation()
+        self._generate_timer = self.set_interval(1.0, self._tick_generation)
+        self._run_generation(
+            str(self._vessel.path),
+            passphrase,
+            restricted,
+            self._selected_face_id(),
+            target,
+        )
+
+    def _tick_generation(self) -> None:
+        elapsed = int(time.monotonic() - self._generate_started_at)
+        minutes, seconds = divmod(elapsed, 60)
+        try:
+            summary = self.query_one("#plausibility-summary", Static)
+        except NoMatches:
+            return
+        summary.update(
+            "Generating plausibility profile...\n"
+            f"Elapsed: {minutes:02d}:{seconds:02d}\n"
+            "Writing decoy files into the Vessel. This takes several minutes\n"
+            "on low-power hardware. The console stays responsive."
+        )
+
+    @work(thread=True, exclusive=True, group="plausibility")
+    def _run_generation(
+        self,
+        vessel_path: str,
+        passphrase: str,
+        restricted: str,
+        face_id: str,
+        target: str,
+    ) -> None:
+        try:
+            result = self._workflow.generate_dummy_profile(
+                vessel_path,
+                passphrase,
+                restricted,
+                selector=face_id,
+                target_occupancy=target,
+            )
+        except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
+            self.app.call_from_thread(self._finish_generation, None, str(exc))
+            return
+        self.app.call_from_thread(self._finish_generation, result, None)
+
+    def _finish_generation(
+        self, result: DummyProfileResult | None, error: str | None
+    ) -> None:
+        self._generating = False
+        if self._generate_timer is not None:
+            self._generate_timer.stop()
+            self._generate_timer = None
+        # The screen can be dismissed while the worker is still writing; the
+        # thread cannot be interrupted, so its completion callback has to
+        # tolerate an unmounted screen rather than raising into the app.
+        if not self.is_mounted:
+            return
+        self._set_controls_enabled(True)
+        if error is not None or result is None:
+            self._refresh_plausibility_summary()
+            self.app.notify(error or "Generation failed.", severity="error")
+            return
+        self._vessel = result.vessel
+        self._refresh_table()
+        self.app.notify(result.recommended_action, severity="information")
+
+    def _set_controls_enabled(self, enabled: bool) -> None:
+        for button_id in self._PLAUSIBILITY_BUTTON_IDS:
+            try:
+                self.query_one(f"#{button_id}", Button).disabled = not enabled
+            except NoMatches:
+                continue

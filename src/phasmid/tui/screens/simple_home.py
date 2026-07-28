@@ -74,6 +74,18 @@ class SimpleHomeScreen(OperatorScreen):
         self._vessels: list[VesselMeta] = []
         self._initial_vessel_path = initial_vessel_path
 
+    _NEXT_STEP_DEFAULT = (
+        "[bold]Choose an action:[/bold]  \\[o] Open selected   "
+        "\\[n] New protected storage   \\[g] Guided help\n"
+        "[dim]Advanced diagnostics and forensic detail are available "
+        "under \\[e] Expert.[/dim]"
+    )
+
+    _NEXT_STEP_EMPTY = (
+        "[bold]No protected storage found.[/bold]\n"
+        "Press \\[n] to create one, or \\[g] for guided help."
+    )
+
     def compose(self) -> ComposeResult:
         yield self.webui_warning_banner()
         yield Static("PHASMID", id="simple-title")
@@ -89,8 +101,7 @@ class SimpleHomeScreen(OperatorScreen):
         yield Static("PROTECTED STORAGE", id="storage-label")
         yield DataTable(id="storage-table", cursor_type="row", zebra_stripes=True)
         yield Static(
-            "[bold]Choose an action:[/bold]  \\[o] Open selected   \\[n] New protected storage   "
-            "\\[g] Guided help\n[dim]Advanced diagnostics and forensic detail are available under \\[e] Expert.[/dim]",
+            self._NEXT_STEP_DEFAULT,
             id="next-step",
             markup=True,
         )
@@ -128,11 +139,12 @@ class SimpleHomeScreen(OperatorScreen):
                 initial_row = index
         if initial_row is not None:
             table.move_cursor(row=initial_row)
-        if not self._vessels:
-            self.query_one("#next-step", Static).update(
-                "[bold]No protected storage found.[/bold]\n"
-                "Press \\[n] to create one, or \\[g] for guided help."
-            )
+        # Both branches must be assigned. Setting only the empty-state text left
+        # "No protected storage found" on screen after the first Vessel was
+        # created, contradicting the table directly above it.
+        self.query_one("#next-step", Static).update(
+            self._NEXT_STEP_EMPTY if not self._vessels else self._NEXT_STEP_DEFAULT
+        )
 
     def _selected_path(self) -> str:
         table = self.query_one("#storage-table", DataTable)

@@ -1706,3 +1706,117 @@ def test_all_tui_screens_mount_and_keep_key_names(tmp_path, monkeypatch):
 
     failures = asyncio.run(scan())
     assert not failures, "\n".join(failures)
+
+
+def test_simple_home_clears_empty_state_once_a_vessel_exists(monkeypatch):
+    """The empty-state text must be replaced, not just set.
+
+    `_refresh_table` only ever assigned the "No protected storage found"
+    copy, and never restored the default. After the first Vessel was created
+    the panel kept telling the operator there was no storage while the table
+    directly above it listed one - the two contradicted each other on screen,
+    on the screen shown immediately after the demo's create step.
+    """
+    from phasmid.tui.screens.simple_home import SimpleHomeScreen
+
+    screen = SimpleHomeScreen.__new__(SimpleHomeScreen)
+    screen._profile = SimpleNamespace(default_vessel_dir=None)
+    screen._initial_vessel_path = None
+
+    updates: list[str] = []
+    table = SimpleNamespace(
+        clear=lambda: None,
+        add_row=lambda *args, **kwargs: None,
+        move_cursor=lambda **kwargs: None,
+    )
+    panel = SimpleNamespace(update=updates.append)
+
+    def fake_query_one(self, selector, _type=None):
+        return table if selector == "#storage-table" else panel
+
+    monkeypatch.setattr(SimpleHomeScreen, "query_one", fake_query_one)
+
+    vessel = SimpleNamespace(
+        name="travel.vessel",
+        is_open=False,
+        size_human="64.0 MiB",
+        faces=[],
+        path="/home/demo/Documents/travel.vessel",
+    )
+
+    screen._svc = SimpleNamespace(list_all=lambda _dir: [])
+    screen._refresh_table()
+    assert "No protected storage found" in updates[-1]
+
+    screen._svc = SimpleNamespace(list_all=lambda _dir: [vessel])
+    screen._refresh_table()
+    assert "No protected storage found" not in updates[-1]
+    assert "Choose an action" in updates[-1]
+
+
+def test_plausibility_generation_runs_off_the_event_loop():
+    """Generation must not be called inline from the button handler.
+
+    Measured at roughly four minutes for a 64 MiB Vessel at 15% occupancy on
+    a Pi Zero 2 W. Inline, that froze the entire console for the duration
+    with no progress shown, which reads as a crash.
+    """
+    from phasmid.tui.screens.face_manager import FaceManagerScreen
+
+    handler = inspect.getsource(FaceManagerScreen.on_button_pressed)
+    assert "generate_dummy_profile" not in handler, (
+        "generate_dummy_profile is called inline from on_button_pressed; "
+        "it must be dispatched to a worker"
+    )
+
+    worker_source = inspect.getsource(FaceManagerScreen._run_generation)
+    assert "generate_dummy_profile" in worker_source
+    assert "thread=True" in inspect.getsource(FaceManagerScreen)
+
+
+def test_standby_retracts_the_webui(monkeypatch):
+    """Silent Standby must take the WebUI down with the local screen.
+
+    Concealing the console while the WebUI keeps serving leaves the whole
+    operator surface reachable from a tethered machine over the USB gadget,
+    so the sealed state would be sealed on the device only.
+    """
+    from phasmid.tui.app import PhasmidApp
+
+    app = PhasmidApp.__new__(PhasmidApp)
+    stopped: list[bool] = []
+
+    app.webui_svc = SimpleNamespace(
+        is_running=lambda: True,
+        stop=lambda: stopped.append(True),
+    )
+    app.standby = SimpleNamespace(
+        is_active=lambda: True,
+        trigger_standby=lambda: None,
+    )
+    monkeypatch.setattr(PhasmidApp, "_refresh_webui_status", lambda self: None)
+    monkeypatch.setattr(
+        PhasmidApp, "push_screen", lambda self, screen, callback=None: None
+    )
+
+    app.action_trigger_standby()
+
+    assert stopped == [True], "standby left the WebUI serving"
+
+
+def test_webui_cannot_be_exposed_from_a_sealed_state():
+    """`w` is app-level and stays live on the Standby screen."""
+    from phasmid.tui.app import PhasmidApp
+
+    app = PhasmidApp.__new__(PhasmidApp)
+    started: list[bool] = []
+
+    app.webui_svc = SimpleNamespace(
+        is_running=lambda: False,
+        start=lambda: started.append(True) or True,
+    )
+    app.standby = SimpleNamespace(is_active=lambda: False)
+
+    app.action_toggle_webui()
+
+    assert started == [], "sealed state re-exposed the WebUI"

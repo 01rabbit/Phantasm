@@ -75,6 +75,11 @@ class PhasmidApp(App):
 
     def action_toggle_webui(self) -> None:
         """Toggle WebUI start/stop."""
+        # `w` is an app-level binding and stays live on the Standby screen.
+        # Starting the WebUI from a sealed state would re-expose the operator
+        # surface that standby just retracted.
+        if not self.standby.is_active() and not self.webui_svc.is_running():
+            return
         if self.webui_svc.is_running():
             from .screens.confirm_modal import ConfirmModal
 
@@ -193,12 +198,35 @@ class PhasmidApp(App):
         except Exception:
             return
 
+        # Concealing the local screen is not enough: while the WebUI keeps
+        # serving, the full operator surface stays reachable from a tethered
+        # machine over the USB gadget, so the "sealed" state would be sealed
+        # on the device only. Retract it with the screen.
+        webui_was_running = False
+        try:
+            if self.webui_svc.is_running():
+                webui_was_running = True
+                self.webui_svc.stop()
+                self._refresh_webui_status()
+        except Exception:
+            pass
+
         def _on_standby_dismissed(result: bool | None) -> None:
-            if result:
-                try:
-                    self.standby.recover()
-                except Exception:
-                    pass
+            if not result:
+                return
+            try:
+                self.standby.recover()
+            except Exception:
+                pass
+            if webui_was_running:
+                # Deliberately not restarted automatically: re-exposing the
+                # interface is an explicit operator decision.
+                self.notify(
+                    "WebUI was retracted when standby engaged. "
+                    "Press w to expose it again.",
+                    title="WEBUI",
+                    severity="warning",
+                )
 
         self.push_screen(StandbyScreen(), _on_standby_dismissed)
 
