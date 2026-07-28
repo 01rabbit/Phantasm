@@ -6,7 +6,7 @@
 > **情報の確度について**
 > - **本書は 0.3.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果に基づく。** 〔要確認〕は原則として解消済み。実機で確認していない項目のみ §9 末尾に明示する。
 > - **前版からの重要な変更:** Step 2 の画面が違っていた（Faces ではなく Open Vessel の `Add File`）。Step 4 の参照先が違っていた（Operator Log ではなく Audit）。Step 3b（物体なしでの失敗）を新設した。Fill Free Space は**実測4分のため壇上から外した**。**囮ファイルは運用者が用意する**ものとし、生成機能は空き領域の填充に位置づけ直した。
-> - **WebUI の Store/Retrieve は Vessel 経路に統一済み。** かつては TUI が `*.vessel`、WebUI が別の `vault.bin` を操作しており話が繋がらなかったが、現在は両者とも `resolve_web_vessel()` が解決した同じ Vessel を `VesselWorkflowService` 経由で操作する（Vessel 未登録時のみ旧 `vault.bin` にフォールバック）。Doctor が旧層 `.state/dummy_profile` を見ていた4項目は削除した（#157）。あのパスはどの操作でも生成されず、警告が永久に消えなかった。
+> - **WebUI の Store/Retrieve は Vessel 経路に統一済み。** かつては TUI が `*.vessel`、WebUI が別の `vault.bin` を操作しており話が繋がらなかったが、現在は両者とも `resolve_web_vessel()` が解決した同じ Vessel を `VesselWorkflowService` 経由で操作する（Vessel 未登録時のみ旧 `vault.bin` にフォールバック）。Doctor の Dummy Profile 助言は既定パスが生成されないため永久に警告していたが、未設定時は警告しないよう変更した（#157）。運用者が自分の素材を指させれば分量を報告する。
 > - **注意:** 0.1.4 までは起動直後が Expert 相当の単層画面だった。それ以前の手順書のキー順は**そのままでは通らない**。
 
 ---
@@ -215,7 +215,7 @@
 - **注意（旧版の誤り）:** 旧版は「**Operator Log の Dummy Profile 指標を指す**」と
   指示していたが、あの4行は Doctor 由来で Vessel を反映しなかった。**該当の検査は
   削除済み**（#157）。可信性ではなく空き領域の話として、**Audit 画面を指すこと。**
-- **任意:** **`d`（Doctor）を開いてよい。** 生成されないパスを見ていた4項目を削除したので、
+- **任意:** **`d`（Doctor）を開いてよい。** 未設定の助言が警告を出さなくなったので、
   残る警告はこのホスト自身の事実だけになった（→ §6）。「ツールが自分の動作環境を
   正直に報告する」実例として使える。
 
@@ -297,12 +297,13 @@ Expert画面の警告は**すべてこのホスト自身についての事実**�
 | 1 | `/tmp` is world-writable | 取り出したファイルが他ユーザーから読める |
 | 2 | Swap active / Compressed swap (zram) enabled | Pi Zero 2 W では実用上有効にしている。無効化すれば消える |
 
-**かつて出ていた Dummy Profile 4件は削除した**（#157）。あれは
-`.state/dummy_profile` を読んでいたが、**このパスはどの操作でも生成されない** —
-参照は全て読み取りで、書き込みうる唯一のモジュールに運用者から到達する入口がない。
-どの端末でも永久に警告のままで、しかも Audit 画面と矛盾していた。
-空き領域の填充は Face 単位の属性であり、Vessel を持たないホスト検査の担当ではない。
-Doctor には Audit を指す INFO 1件（`Free Space Reporting`）だけが残る。
+**かつて出ていた Dummy Profile 4件の警告は解消した**（#157）。この検査は
+`PHASMID_DUMMY_PROFILE_DIR` / `PHASMID_DUMMY_CONTAINER_PATH` で**運用者が
+自分の用意した素材を指させる助言機能**だが（`docs/CONFIGURATION.md`）、既定パスは
+どの操作でも生成されないため、未設定のまま全端末で永久に警告していた。
+未設定時は `not configured` として報告するよう変更した。**検査自体は残っている** —
+運用者が素材を指させば、その**分量**（サイズ・ファイル数・占有率）を報告する。
+**説得力があるかどうかは判定しない。** それは運用者の領分である。
 
 - **発話（EN、質問された場合）:** "It warns about its own host — swap is on, so pages can hit disk, and /tmp is world-writable. It is telling me the truth about an environment it does not control. It used to warn about the quality of a decoy as well; we removed that, because the file you would hand over is one you wrote, and the tool has no way to judge whether it is believable."
 
@@ -389,9 +390,9 @@ TUI が使うのと同じ Vessel に対して動作する（Vessel が1つも登
 読むだけで、デバイス上の Vessel には触れない点は変わらない。
 
 **旧版時点では両経路が別レイヤ（TUI=`*.vessel` / WebUI=`vault.bin`）を操作していた。**
-Doctor が旧層を見ていた4項目は削除済み（#157）。**あのパス `.state/dummy_profile` は
-どの操作でも生成されない** — 参照は全て読み取りで、書き込みうる唯一のモジュールに
-運用者から到達する入口がなく、どの端末でも永久に警告のままだった。
+Doctor の Dummy Profile 助言は既定パス `.state/dummy_profile` を見ており、**そのパスは
+どの操作でも生成されない**ため全端末で永久に警告していた。未設定時は警告しないよう
+変更した（#157）。運用者が `PHASMID_DUMMY_PROFILE_DIR` で自分の素材を指させれば機能する。
 現時点でWebUIを本編から外している理由は保管層の分離ではなく、統合経路を壇上では
 まだ実機で通していないことと、Store/Retrieve の判定がどちらの経路でも物体キュー照合に
 依存しCIでは検証できないこと、の2点である。
@@ -417,8 +418,8 @@ Doctor が旧層を見ていた4項目は削除済み（#157）。**あのパス
 
 **Doctor の baseline（新品状態）**
 
-`run_doctor_checks()`（非TUI、`services/doctor_service.py`）は **23チェック**を返す。
-`.state/dummy_profile` を読んでいた4項目を削除した結果（#157）、警告は**ホスト自身の
+`run_doctor_checks()`（非TUI、`services/doctor_service.py`）は27チェックを返す。
+Dummy Profile 助言が未設定時に警告しなくなった結果（#157）、警告は**ホスト自身の
 事実のみ**になった: `/tmp` world-writable、Swap、Compressed swap の3件（この開発
 コンテナでは1件）。zram と swap を無効化すれば1件まで下がる。
 
