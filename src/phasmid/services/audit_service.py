@@ -57,13 +57,17 @@ def build_audit_report() -> AuditReport:
                 ],
             ),
             AuditSection(
-                title="Plausibility Baseline",
+                title="Free Space Filler",
                 entries=[
                     AuditEntry("Tracked Vessels", str(len(vessels))),
                     AuditEntry("Tracked Faces", str(tracked_faces)),
-                    AuditEntry("High baseline faces", str(high)),
-                    AuditEntry("Medium baseline faces", str(medium)),
-                    AuditEntry("Low baseline faces", str(low)),
+                    AuditEntry("Faces with free space filled", str(high)),
+                    AuditEntry("Faces partially filled", str(medium)),
+                    AuditEntry("Faces with little or no filler", str(low)),
+                    AuditEntry(
+                        "Disclosure material",
+                        "operator-supplied; filler is not disclosure material",
+                    ),
                 ],
             ),
             AuditSection(

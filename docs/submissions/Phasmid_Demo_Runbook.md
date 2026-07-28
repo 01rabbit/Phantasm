@@ -1,11 +1,12 @@
 # Phasmid — Live Demo 実施細部要領 / Demo Runbook
 
 **対象:** DEF CON Demo Labs 本番の実機デモ（Deck Slide 24）。プレゼン30分のうち**約7分**を割り当て、**Q&A/交流15分を必ず確保**する。
-**画面:** 実TUI（Local Disclosure Control）＋**ローカルWebUI（物体キューの提示に必須）**。
+**画面:** 実TUI（Local Disclosure Control）が本編。ローカルWebUI は Step 5 のローカル境界の提示にのみ使う（Store/Retrieve は本編と同じ Vessel を操作するが、この統合経路は壇上ではまだ実機で通しておらず、判定が物体キュー照合に依存しCIでは検証できないため本編には含めない）。
 
 > **情報の確度について**
 > - **本書は 0.3.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果に基づく。** 〔要確認〕は原則として解消済み。実機で確認していない項目のみ §9 末尾に明示する。
-> - **前版からの重要な変更:** Step 2 の画面が違っていた（Faces ではなく Open Vessel 系）。Step 4 の参照先が違っていた（Operator Log ではなく Audit）。物体キューの提示は **WebUI が主、TUI が従**に変わった。Generate Plausibility は**実測4分のため壇上から外した**。
+> - **前版からの重要な変更:** Step 2 の画面が違っていた（Faces ではなく Open Vessel の `Add File`）。Step 4 の参照先が違っていた（Operator Log ではなく Audit）。Step 3b（物体なしでの失敗）を新設した。Fill Free Space は**実測4分のため壇上から外した**。**囮ファイルは運用者が用意する**ものとし、生成機能は空き領域の填充に位置づけ直した。
+> - **WebUI の Store/Retrieve は Vessel 経路に統一済み。** かつては TUI が `*.vessel`、WebUI が別の `vault.bin` を操作しており話が繋がらなかったが、現在は両者とも `resolve_web_vessel()` が解決した同じ Vessel を `VesselWorkflowService` 経由で操作する（Vessel 未登録時のみ旧 `vault.bin` にフォールバック）。Doctor の Dummy Profile 助言は既定パスが生成されないため永久に警告していたが、未設定時は警告しないよう変更した（#157）。運用者が自分の素材を指させれば分量を報告する。
 > - **注意:** 0.1.4 までは起動直後が Expert 相当の単層画面だった。それ以前の手順書のキー順は**そのままでは通らない**。
 
 ---
@@ -17,8 +18,8 @@
 | やってはいけない | 理由 | 代わりに |
 |---|---|---|
 | **マウスでボタンを押す** | SSH越しのターミナルではクリックイベントがTextualに届かない。ボタンはフォーカスされるだけで発火しない | **`Tab` / `Shift+Tab` で移動し `Enter`**。全操作をキーボードで行う |
-| **壇上で Generate Plausibility を実行** | 64 MiB / 15% で**実測約4分**。枠は1:20 | **事前生成**しておき、壇上では **Inspect Plausibility** のみ |
-| **`d`（Doctor）を開く** | Dummy Profile の4件は旧 `vault.bin` 層を見ており、生成済みでも `0 B / LOW` と報告する。Audit画面と矛盾して見える | 可信性の話は **`a`（Audit）** で行う |
+| **壇上で Fill Free Space を実行** | 64 MiB / 15% で**実測約4分**。枠は1:20 | **事前に埋めておき**、壇上では **Inspect Free Space** のみ |
+| **囮ファイルをツールに作らせる** | 生成される填充物は汎用ファイルであり、開示材料としての真実味がない | **囮は運用者が用意する。** 真のファイルによく似た偽ファイルを自分で保存する |
 | **素の `phasmid` で起動** | libcamera のログがTUIを破壊する／WebUIがラップトップから見えない／トークンが毎回変わる／`Ctrl+S` が効かないことがある | **`scripts/pi_zero2w/run_demo_console.sh`** を使う |
 | **成功例だけを見せる** | 物体キューが効いていることの証明にならない。観客にはただのパスワード復号に見える | **物体なしの失敗を必ず見せる**（Step 3b） |
 
@@ -30,15 +31,19 @@
 |---|---|---|---|---|
 | 0 | オリエンテーション | 0:20 | TUI Simple | TUIホーム提示 |
 | 1 | Vessel 作成（Create） | 0:50 | TUI Simple | Prepare |
-| 2 | 物体キュー登録（Bind） | 1:10 | **WebUI** | Bind（cue≠key） |
-| 3a | 復元 成功（Operate） | 0:40 | **WebUI** | Operate |
-| 3b | **復元 失敗（物体なし）** | 0:40 | **WebUI** | **★cue≠key の証明** |
-| 4 | Audit（plausibility） | 0:50 | TUI Expert | 誠実性の可視化 |
-| 5 | Silent Standby | 1:20 | TUI | Disclose / 山場 |
-| 6 | ラップ | 0:10 | TUI Simple | 締め |
+| 2 | 物体キュー登録（Bind） | 1:10 | TUI | Bind（cue≠key） |
+| 3a | 復元 成功（Operate） | 0:40 | TUI | Operate |
+| 3b | **復元 失敗（物体なし）** | 0:40 | TUI | **★cue≠key の証明** |
+| 4 | Audit（空き領域と境界） | 0:50 | TUI Expert | 誠実性の可視化 |
+| 5 | WebUI（ローカル境界） | 0:40 | WebUI | ローカル境界 |
+| 6 | Silent Standby | 1:20 | TUI | Disclose / 山場 |
+| 7 | ラップ | 0:10 | TUI Simple | 締め |
 
 > **時計運用:** 開始 ~19:20。**26:00 を超えたら残手順を口頭要約**して締めへ。
-> **旧版との違い:** WebUI 単独ステップ（旧 Step 5）を廃止し Step 2/3 に統合、Step 3b を新設した。
+> **Step 3b は新設。** 物体の有無だけを変えた対比がなければ、cue≠key は実証されない。
+> **Step 2〜3b は TUI で行う。** WebUI の Store/Retrieve は本編と同じ Vessel を操作するが、
+> 統合経路を壇上ではまだ実機で通しておらず、判定が物体キュー照合に依存しCIでは検証できないため、
+> デモ本編には含めない（§4 Step 2 の注記を参照）。
 
 ---
 
@@ -47,7 +52,7 @@
 ### T-30分（設営時）
 
 - [ ] 実機（Pi Zero 2 W + カメラ + 三脚）を卓上に設置、電源・給電確認。
-- [ ] 表示系: TUIを映す経路と、**ラップトップのブラウザを映す経路**の両方を確保。**入力切替キーを把握**（Step 1→2 と Step 3b→4 で2回切り替える）。
+- [ ] 表示系: TUIを映す経路と、**ラップトップのブラウザを映す経路**の両方を確保。**入力切替キーを把握**（Step 2〜4 はすべてTUIなので切替は不要。切り替えるのは Step 4→5 でTUIからブラウザへ、Step 5→6 でTUIに戻す1箇所のみ）。
 - [ ] **端末幅を123桁以上にする**（`tput cols` で確認）。これを下回ると Expert フッタから
       `w WebUI` が**無言で消える** — 露出したWebUIを引っ込めるキーが画面から失われる。
       省略記号は出ないので、狭いことに気付けない（→ §9）。
@@ -60,10 +65,17 @@
       `LIBCAMERA_LOG_LEVELS` / `PHASMID_WEBUI_EXPOSE_GADGET` / `PHASMID_WEB_TOKEN` /
       `PHASMID_RECOGNITION_MODE=demo` と `stty -ixon` を設定する。**素の起動では
       デモが成立しない**（→ §0）。
-- [ ] **【重要】Generate Plausibility を事前実行しておく**（約4分）。
-      `e` → `f` → パスフレーズ2つ → `Tab` で Generate → `Enter`。
-      経過時間が表示され画面は固まらない。完了後 `Plausibility Profile` が
-      `Level: HIGH` になっていることを確認。
+- [ ] **【重要】囮ファイルを自分で用意し、開示する Face に保存しておく。**
+      真のファイルによく似た、公開して差し支えない偽ファイルを1つ作る
+      （例: 同種の書式・同程度の分量の下書き）。`o` → `Add File` で
+      **開示用 Face（face_a）** に、**偽ファイル用パスフレーズ**で保存する。
+      **ツールに囮を生成させない。** 生成される填充物は空き領域を埋めるだけで、
+      開示材料にはならない。
+- [ ] 真のファイルを **face_b** に、**真ファイル用パスフレーズ**と
+      **破壊用パスフレーズ**で保存しておく。用意するパスフレーズは3つ:
+      真の復号用・真の破壊用・偽の復号用。
+- [ ] （任意）**Fill Free Space を事前実行**（約4分）。空き領域を埋め、
+      容器が不自然に空でないようにする。経過時間が表示され画面は固まらない。
 - [ ] ラップトップのブラウザで `http://10.12.194.1:8000/unlock` を開き、
       トークン（既定 `phasmid-demo-token`）を入力して**Homeまで進めた状態でタブを用意**。
       ※ `phasmid-pi.local` は使わない。**IPアドレス直指定**。
@@ -75,7 +87,7 @@
 - [ ] TUIを **Simple Operator 画面**で待機。
 - [ ] **`! SYSTEM: n WARN` は Simple 画面には出ない**（Expert専用）。内容を確認したい場合は
       `e` を押し、**確認後 `Esc` で Simple に戻しておくこと。**
-- [ ] WARN 7件の内訳を把握（→ §6）。質問された場合の答えを用意。
+- [ ] WARN の内訳を把握（→ §6）。すべてホスト自身の事実。質問された場合の答えを用意。
 - [ ] デモ用パスフレーズ／物体プロップを手元に。**実秘匿は使わない**。
 - [ ] Silent Standby は **`Ctrl+S`**（既定）。復帰は **`Ctrl+R`** または **`Esc`**。
       **フッタに出ないので指で覚えておく。**
@@ -85,8 +97,9 @@
 ## 3. 初期状態 & リセット / Initial state & reset
 
 - **初期状態:** Simple Operator 画面。Vessels は空（`No protected storage found.`）。
-- **可信性プロファイル:** **事前生成済みの Vessel を別途用意しておく。** Step 1 で作る
-  Vessel は空のままでよく、Step 4 では生成済みの方を見せる。**壇上で生成しないこと。**
+- **囮と真のファイル:** **運用者が用意した2ファイルを保存済みの Vessel を別途用意しておく。**
+  Step 1 で作る Vessel は空のままでよく、Step 2〜4 では準備済みの方を使う。
+  **囮をツールに生成させないこと。壇上で空き領域の填充も実行しないこと。**
 - **各サイクル後リセット:** §8 を実施。
 
 ---
@@ -118,77 +131,115 @@
   `Entropy high / random-like (8.00 bits/byte)` を見せると Slide 19 の直接的裏付けになる。
 - **失敗時:** 作成が滞れば既存デモVesselを **`o` (Open)** して以降を継続。
 
-### Step 2 — Object cue via WebUI（1:10｜Bind, ★cue≠key）
+### Step 2 — Object cue: Bind（1:10｜Bind, ★cue≠key｜TUI）
 
-> **旧版からの変更:** 旧版はこれを `f` (Faces) と記載していたが**誤り**。Faces 画面は
-> ラベルと可信性プロファイルの管理画面で、**カメラに一切関与しない**。物体キューを
-> 扱うのは Open Vessel 系のフロー（`Add File`）である。
-> さらに、TUI には**カメラ映像も一致状態の表示もない**。観客には何も見えない。
-> **WebUI にはライブ映像と一致バッジがある。ここは WebUI で見せる。**
+> **重要（保管層は統一済み）:** WebUI の Store/Retrieve は現在、TUI と同じ Vessel 経路を通る。
+>
+> | 経路 | 操作対象 |
+> |---|---|
+> | TUI `o` Open Vessel | `*.vessel`（`VesselWorkflowService`） |
+> | **WebUI Store / Retrieve** | **同じ `*.vessel`**（`resolve_web_vessel()` が解決した Vessel に対し `VesselWorkflowService` を呼ぶ。Vessel 未登録時のみ旧 `vault.bin` にフォールバック） |
+> | TUI Audit / Inspect | `*.vessel` |
+>
+> **旧版時点では TUI と WebUI が別レイヤ（`*.vessel` / `vault.bin`）を操作していた。**
+> 現在は統一済みで、WebUI で保存すれば
+> Step 1 で作った Vessel に反映され、Step 4 の Audit にも現れる。
+>
+> それでも **Step 2〜3b は必ず TUI で行うこと。** 理由は保管層が分離しているからではない。
+> 統合経路（WebUIがVesselを操作する現在の動作）を壇上ではまだ実機で通しておらず、
+> Store/Retrieve の判定はどちらの経路でも物体キュー照合に依存するため、CIでは検証できない
+> ——この2点による。
+>
+> 旧版が `f` (Faces) と記載していたのは誤り。Faces 画面はラベルと可信性プロファイルの
+> 管理画面で、カメラに一切関与しない。物体キューを扱うのは `o` Open Vessel の
+> `Add File` である（`capture_reference=True` を渡す唯一の経路）。
 
-- **操作:** TUI で **`w`** を押して WebUI を起動。プロジェクタをラップトップの
-  ブラウザに切替。**Store** 画面へ。ファイルを選び、パスフレーズを入力し、
-  **物体をカメラに提示**。
-- **画面期待:**
-  - **Camera Preview** にライブ映像
-  - 右上の **`objectBadge`** が `Unavailable` → `Detected` → **`Matched`（緑）** と遷移
-  - 一致するとカメラ枠が視覚的に強調される
-- **発話（EN）:** "Now the object cue. I show an everyday object to the camera — you can see exactly what the device sees, and the badge turns green when it has a stable match. Remember: this is a **cue, not a key**. It gates the operation; it is not the encryption key. A photograph of this object unlocks nothing."
-- **注意:** ここが概念の要。**必ず cue≠key を口頭で言い切る。**
+- **操作:** **`o`（Open）** → `Y` → Operation を **`Add File`** に変更
+  （Select はフォーカスして `Enter` → `↓` → `Enter`）→ **Input file** にファイルパス →
+  **Passphrase** と **Restricted recovery passphrase** → **物体をカメラの前に配置** →
+  `Tab` で `Run Operation` → `Enter`。
+- **画面期待:** `Stored N,NNN bytes in travel.vessel.`
+  `VESSEL STATUS` の `Face Files` が増える。
+- **発話（EN）:** "Now the object cue. I hold an everyday object in front of the camera while I store this file. Remember: this is a **cue, not a key**. It gates the operation; it is not the encryption key. A photograph of it unlocks nothing."
+- **注意:** **TUI はカメラ映像も一致状態も表示しない**（→ #158）。この段階では観客に
+  何が起きているか見えない。**だから Step 3b の対比が必須**である。
 - **失敗時:** 認識が不安定なら距離/照明を微調整。起動スクリプトの既定
   `PHASMID_RECOGNITION_MODE=demo` で確定的に見せられる。
-- **TUIで代替する場合:** `o`（Open）→ Operation を **`Add File`** に変更 → 入力ファイル →
-  パスフレーズ2つ → `Run Operation`。**ただし画面には何も表示されない**ので、
-  Step 3b の失敗対比が一層重要になる。
 
-### Step 3a — 復元 成功（0:40｜Operate｜WebUI）
+### Step 3a — 復元 成功（0:40｜Operate｜TUI）
 
-- **操作:** **Retrieve** 画面へ。物体を提示し、バッジが **Matched** になるのを待ってから
-  パスフレーズを入力して実行。
+- **操作:** **`o`（Open）** → `Y` → Operation は **`Recover File`**（既定）→
+  **Output file** にパス → **Passphrase** → **物体をカメラの前に配置** → `Run Operation`。
+- **画面期待:** `Recovered N,NNN bytes to <path>.`（緑）
 - **発話（EN）:** "Same object, correct password — the file comes back."
-- **画面期待:** 復元成功。
 
-### Step 3b — 復元 失敗（0:40｜★cue≠key の証明｜WebUI）
+### Step 3b — 復元 失敗（0:40｜★cue≠key の証明｜TUI）
 
 > **本書で最も重要なステップ。旧版には存在しなかった。**
 > 成功例だけでは物体キューが効いていることを**何も証明していない**。観客には
 > 「パスワードを打ったらファイルが出た」としか見えない。**対比だけが証明になる。**
+> **実機で検証済み**（両側を確認）。
 
 - **操作:** **物体をカメラの視野から外す**（退ける、または手で覆う）。
-  **パスフレーズは全く同じものを入力**して、もう一度 Retrieve を実行。
-- **画面期待:** バッジが **Matched にならない**まま、約10秒後に失敗。
-  TUIで同じことをすると `no bound object matched` のエラーになる。
-- **発話（EN）:** "Same file. Same password. Only the object is gone. The device waits ten seconds for a match, does not get one, and refuses. That is what 'the cue gates the operation' means — and notice it tells you almost nothing about *why* it failed. That is deliberate."
+  **他の項目は一切変えず**、もう一度 `Run Operation`。
+- **画面期待:** 約10秒後、赤で **`Open Vessel / no bound object matched`**。
+  出力ファイルは作られない。
+- **発話（EN）:** "Same file. Same password. Same everything — only the object is gone. The device waits ten seconds for a match, does not get one, and refuses. That is what 'the cue gates the operation' means — and notice it tells you almost nothing about *why* it failed. That is deliberate."
 - **注意:** **ここで間を取る。** これが cue≠key の唯一の実証である。
+  可能なら**この直後に物体を戻して再実行し、成功させる**。
+  失敗→成功の往復まで見せると「壊れたのではない」ことまで示せる。
+- **注意（ロックアウト）:** TUI 経路は失敗を記録しない（`retrieve_file` は
+  `limiter.check()` のみで `record_failure` を呼ばない）ので、**何度失敗させても
+  ロックしない。** WebUI 経路は5回失敗で60秒ロックするため、リハーサルは TUI で行うこと。
 - **技術的裏付け（質問された場合）:** `collect_auth_sequence()` が
   `wait_for_reference_match(timeout=10.0)` を呼び、不一致なら `match_none` を返す。
   この値は復号の入力そのもの（`_read_face_namespace` に渡る）なので、
   **照合を迂回して復元することはできない。**
 
-### Step 4 — Audit: plausibility（0:50｜誠実性の可視化｜TUI Expert）
+### Step 4 — Audit: 空き領域と、ツールが判定しないこと（0:50｜誠実性の可視化｜TUI Expert）
 
-- **操作:** プロジェクタをTUIに戻す。**`e`（Expert）→ `a`（Audit）**。
-  **`Plausibility Baseline` セクション**を指す。
+- **操作:** **`e`（Expert）→ `a`（Audit）**。
+  **`Free Space Filler` セクション**を指す。
 - **画面期待:**
   ```
-  Plausibility Baseline
-    Tracked Vessels        1
-    Tracked Faces          2
-    High baseline faces    1
-    Medium baseline faces  0
-    Low baseline faces     1
+  Free Space Filler
+    Tracked Vessels                     1
+    Tracked Faces                       2
+    Faces with free space filled        1
+    Faces partially filled              0
+    Faces with little or no filler      1
+    Disclosure material                 operator-supplied; filler is not
+                                        disclosure material
   ```
-- **発話（EN）:** "**Audit** scores each face independently. One face has a high-plausibility decoy profile; the other is still weak, and the tool says so rather than letting me believe otherwise. If the decoy isn't plausible, you should know before you need it."
+- **発話（EN）:** "**Audit** reports per face. Note what it does *not* claim: it does not tell me my cover story is convincing. The file I would hand over is one I wrote and stored myself — the tool cannot judge whether it is believable, and it does not pretend to. All it reports here is how much free space is filled, so an otherwise empty container does not read as empty. Judging the cover story is the operator's job, and the tool is honest about that boundary."
 - **注意（旧版の誤り）:** 旧版は「**Operator Log の Dummy Profile 指標を指す**」と
-  指示していたが、**あの4行は Doctor 由来で、Vessel の生成結果を反映しない**
-  （旧 `vault.bin` / `.state/dummy_profile` 層を見ている）。生成済みでも `0 B / LOW` と
-  出るため、読み上げると矛盾が露見する。**必ず Audit 画面を指すこと。**
-- **注意:** **`d`（Doctor）は開かない。** 上部の `! SYSTEM: 7 WARN — press [d] to review`
-  について質問された場合は §6 の答えを使う。
+  指示していたが、あの4行は Doctor 由来で Vessel を反映しなかった。**該当の検査は
+  削除済み**（#157）。可信性ではなく空き領域の話として、**Audit 画面を指すこと。**
+- **任意:** **`d`（Doctor）を開いてよい。** 未設定の助言が警告を出さなくなったので、
+  残る警告はこのホスト自身の事実だけになった（→ §6）。「ツールが自分の動作環境を
+  正直に報告する」実例として使える。
 
-### Step 5 — Silent Standby（1:20｜★Disclose 山場｜TUI）
+### Step 5 — Local WebUI（0:40｜ローカル境界｜WebUI）
 
-- **操作:** **`Ctrl+S`** を押下。復帰は **`Ctrl+R`** または **`Esc`**。
+> **役割を限定すること。** WebUI の Store/Retrieve は本編と同じ Vessel を操作するようになったが、
+> **この統合経路は壇上ではまだ実機で通していない**ため、
+> **ここでファイルを保存したり復元したりしてはいけない。** このステップは**「同じ操作面が
+> ローカル境界の内側にも用意されている」ことを見せるだけ**に留める。
+
+- **操作:** TUI で **`w`** を押して起動。プロジェクタをラップトップのブラウザに切替、
+  事前に `/unlock` を通しておいたタブを提示。**画面を見せるだけで操作はしない。**
+- **画面期待:** ブラウザ上部に赤帯
+  `WEBUI ACTIVE — INTERFACE IS EXPOSED — ACCESS FROM TRUSTED NETWORK ONLY`。
+  TUI 側にも `WEBUI ACTIVE AT http://10.12.194.1:8000 - PRESS [w] TO RETRACT`。
+- **発話（EN）:** "The same device also serves a local web interface — bound to loopback by default. Reaching it from a tethered laptop over USB is an explicit opt-in that binds only the USB interface, and it still needs an access token. It never touches a network. Both ends say plainly that the interface is exposed."
+- **注意:** **`w` を押して30秒以内に `Ctrl+S` を押さないこと。** 起動通知には
+  アクセストークンが含まれており、表示中に Standby へ入るとトークンが秘匿画面に残る。
+  修正済みだが、余裕を持って進めること。
+- **失敗時:** 起動が遅ければ口頭説明に留め、TUIへ戻る（時間優先）。
+
+### Step 6 — Silent Standby（1:20｜★Disclose 山場｜TUI）
+
+- **操作:** プロジェクタをTUIに戻す。**`Ctrl+S`** を押下。復帰は **`Ctrl+R`** または **`Esc`**。
 - **注意（キーの所在）:** `Ctrl+S` はフッタに表示されない設計。**指で覚えておくこと。**
   起動スクリプトが `stty -ixon` を実行しているので、ターミナルのフロー制御（XOFF）に
   食われることはない。**素の起動だと押しても無反応になりうる。**
@@ -207,11 +258,15 @@
 - **WebUI も同時に落ちる。** ラップトップのブラウザを再読込すると接続が切れていることを
   見せられる（**これを演出に使う**）。復帰後に
   「WebUI was retracted when standby engaged.」の通知が出る。
+- **Standby 発動時に未消化のトースト通知も消える。** WebUI 起動時の通知は30秒表示で、
+  本文に**アクセスURLとトークンが入っている**。これを消さないと、秘匿画面のはずの
+  Standby 画面にトークンが平文で残る。実機で一度再現し、修正済み。
+  Standby 画面のフッタから `w WebUI` も消える（封緘中に再露出させないため）。
 - **発話（EN）:** "Now the moment it's built for. One hotkey — **Silent Standby**. The sensitive surface drops away. And it is not just this screen: the web interface goes down with it, so a laptop tethered to this device loses access at the same instant. Recovery needs re-authentication. I'm not hiding from forensics — I'm buying **time** and **uncertainty**."
 - **注意:** **本デモの山。** ゆっくり、間を取る。倫理（Slide 21）に接続して締める。
 - **失敗時:** 遷移が出なければ録画の該当箇所を提示。「これが唯一の"魔法に見える"部分。実体はStateマシンです」と補足。
 
-### Step 6 — ラップ（0:10）
+### Step 7 — ラップ（0:10）
 
 - **発話（EN）:** "That's Prepare, Bind, Operate, Disclose — on real hardware. Come try it at the table."
 - **操作:** **`Esc`** で Simple Operator へ戻す。プロジェクタ入力をスライドへ復帰（Slide 25）。
@@ -227,25 +282,30 @@
   `coercion_safe` の低信頼→ダミー経路を**設計意図として逆手に説明**。
 - **WebUI がラップトップから見えない:** `PHASMID_WEBUI_EXPOSE_GADGET=1` が効いているか、
   URLが **`10.12.194.1:8000`（IP直指定）** かを確認。`127.0.0.1` と `phasmid-pi.local` は
-  ラップトップからは**到達しない**。最悪、Step 2/3 をTUIに落とす
-  （ただし Step 3b の失敗対比だけは必ず見せる）。
-- **時間超過:** 26:00 到達で Step 4 を飛ばし、**Step 3b と Step 5 だけは必ず見せる**。
+  ラップトップからは**到達しない**。最悪、**Step 5 を口頭説明のみに留めてスキップする**
+  （Step 1〜4・6・7 はWebUIに依存しないため影響を受けない）。
+- **時間超過:** 26:00 到達で Step 4 と Step 5 を飛ばし、**Step 3b と Step 6 だけは必ず見せる**。
 
 ---
 
-## 6. `! SYSTEM: 7 WARN` の内訳（質問対策）
+## 6. `! SYSTEM: n WARN` の内訳（質疑対策）
 
-Expert画面に出る7件の内訳。**いずれも想定内**である。
+Expert画面の警告は**すべてこのホスト自身についての事実**である。実測（新品状態）:
 
 | 件数 | 内容 | 説明 |
 |---|---|---|
-| 4 | Dummy Profile Size / File Count / Occupancy Ratio / Plausibility | **既知の不整合。** これらは旧 `vault.bin` / `.state/dummy_profile` を検査しており、Vessel の Face に生成した可信性プロファイルを参照しない。Vessel側の実態は Audit 画面（Step 4）が示す |
-| 2 | Swap active / Compressed swap (zram) enabled | ツールが**自ホストを正直に報告**している。無効化すれば消えるが、Pi Zero 2 W では実用上有効にしている |
-| 1 | `/tmp` is world-writable | 同上 |
+| 1 | `/tmp` is world-writable | 取り出したファイルが他ユーザーから読める |
+| 2 | Swap active / Compressed swap (zram) enabled | Pi Zero 2 W では実用上有効にしている。無効化すれば消える |
 
-- **発話（EN、質問された場合）:** "It warns about its own host — swap is on, so pages can hit disk. It's telling me the truth about an environment it doesn't control. Four of those warnings point at a legacy check path we're consolidating; the Vessel-level view is under Audit."
+**かつて出ていた Dummy Profile 4件の警告は解消した**（#157）。この検査は
+`PHASMID_DUMMY_PROFILE_DIR` / `PHASMID_DUMMY_CONTAINER_PATH` で**運用者が
+自分の用意した素材を指させる助言機能**だが（`docs/CONFIGURATION.md`）、既定パスは
+どの操作でも生成されないため、未設定のまま全端末で永久に警告していた。
+未設定時は `not configured` として報告するよう変更した。**検査自体は残っている** —
+運用者が素材を指させば、その**分量**（サイズ・ファイル数・占有率）を報告する。
+**説得力があるかどうかは判定しない。** それは運用者の領分である。
 
----
+- **発話（EN、質問された場合）:** "It warns about its own host — swap is on, so pages can hit disk, and /tmp is world-writable. It is telling me the truth about an environment it does not control. It used to warn about the quality of a decoy as well; we removed that, because the file you would hand over is one you wrote, and the tool has no way to judge whether it is believable."
 
 ## 7. 安全・運用注意 / Safety
 
@@ -264,8 +324,8 @@ Expert画面に出る7件の内訳。**いずれも想定内**である。
 ## 8. 終了後リセット / Teardown（次サイクル・次回のため）
 
 - [ ] デモVesselを削除/初期化。
-- [ ] **次サイクル用に Plausibility を再生成（約4分）。** サイクル間に時間がない場合は、
-      生成済みVesselを複数用意しておき差し替える。
+- [ ] **次サイクル用に囮ファイルを保存し直す。** 空き領域の填充（約4分）まで戻す場合は、
+      填充済みVesselを複数用意しておき差し替える。
 - [ ] Silent Standby を `active` に復帰（`Ctrl+R`）。
 - [ ] WebUIプロセス停止（`w`、またはinactivity auto-kill 10分待機）。
 - [ ] ブラウザタブを `/unlock` 済みの状態に戻す。
@@ -315,19 +375,41 @@ Vessel を作ると **Face が2つ自動生成される**（`face_a` / `face_b`�
 `dummy_file_count` / `dummy_total_size` / plausibility level・score はすべて保持される。
 回帰テスト `test_labelling_a_face_preserves_its_generated_dummy_profile` で固定した。
 
+**保管層は Vessel 経路に統一済み（ソース確認済み）**
+
+| 経路 | 操作対象 | 根拠 |
+|---|---|---|
+| TUI `o` Open Vessel（Add/Recover/List/Remove） | `*.vessel` | `VesselWorkflowService` |
+| TUI Audit / Inspect | `*.vessel` | `AuditService` / `InspectionService` |
+| **WebUI Store / Retrieve** | **同じ `*.vessel`**（`resolve_web_vessel()` が解決） | `web_server.py` が `VesselWorkflowService().add_payload` / `.retrieve_payload` を呼ぶ。Vessel 未登録時のみ `vault.bin` にフォールバック |
+
+`web_server.py` は現在 `VesselWorkflowService` と
+`services/web_target_service.resolve_web_vessel()` を import しており、Store/Retrieve は
+TUI が使うのと同じ Vessel に対して動作する（Vessel が1つも登録されていない場合のみ
+従来どおり `vault.bin` を使う）。`operator_inspect` はアップロードされたファイルを
+読むだけで、デバイス上の Vessel には触れない点は変わらない。
+
+**旧版時点では両経路が別レイヤ（TUI=`*.vessel` / WebUI=`vault.bin`）を操作していた。**
+Doctor の Dummy Profile 助言は既定パス `.state/dummy_profile` を見ており、**そのパスは
+どの操作でも生成されない**ため全端末で永久に警告していた。未設定時は警告しないよう
+変更した（#157）。運用者が `PHASMID_DUMMY_PROFILE_DIR` で自分の素材を指させれば機能する。
+現時点でWebUIを本編から外している理由は保管層の分離ではなく、統合経路を壇上では
+まだ実機で通していないことと、Store/Retrieve の判定がどちらの経路でも物体キュー照合に
+依存しCIでは検証できないこと、の2点である。
+
 **物体キューが実際に効いていることの根拠**
 
 `Add File`（`capture_reference=True`）で参照画像を登録し、`Recover File` は
 `collect_auth_sequence()` → `wait_for_reference_match(timeout=10.0)` で照合する。
 不一致なら `match_none` が返り `ValueError("no bound object matched")` になる。
 一致トークンは `_read_face_namespace` の入力そのものなので、**照合を迂回した復元は
-成立しない。** ただし**TUIはこの過程を一切表示しない**（→ Step 2 を WebUI で行う理由）。
+成立しない。** ただし**TUIはこの過程を一切表示しない**（→ Step 3b の失敗対比が必須である理由）。
 
 **性能実測（Pi Zero 2 W）**
 
 | 操作 | 実測 |
 |---|---|
-| Generate Plausibility（64 MiB / 15% ≒ 9.6 MB） | **約4分** |
+| Fill Free Space（64 MiB / 15% ≒ 9.6 MB） | **約4分** |
 | カメラ初期化（libcamera / imx708） | 約0.6秒 |
 | 物体照合タイムアウト | 10秒（`collect_auth_sequence`） |
 | Textual アイドル時CPU | 約20〜25%（画面フォーカス時 約50%） |
@@ -336,8 +418,10 @@ Vessel を作ると **Face が2つ自動生成される**（`face_a` / `face_b`�
 
 **Doctor の baseline（新品状態）**
 
-`run_doctor_checks()`（非TUI、`services/doctor_service.py`）は27チェックを返し、
-うち **7 WARN**（内訳は §6）。zram を無効化すれば5件まで下がる。
+`run_doctor_checks()`（非TUI、`services/doctor_service.py`）は27チェックを返す。
+Dummy Profile 助言が未設定時に警告しなくなった結果（#157）、警告は**ホスト自身の
+事実のみ**になった: `/tmp` world-writable、Swap、Compressed swap の3件（この開発
+コンテナでは1件）。zram と swap を無効化すれば1件まで下がる。
 
 **最小端末幅: 123桁**（#160 で確定）
 

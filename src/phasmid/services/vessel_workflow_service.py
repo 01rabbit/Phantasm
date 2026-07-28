@@ -501,6 +501,16 @@ class VesselWorkflowService:
             )
         return sorted(records, key=lambda record: record.name)
 
+    def _next_store_seq(self, files: dict[str, object]) -> int:
+        highest = 0
+        for item in files.values():
+            if isinstance(item, dict):
+                try:
+                    highest = max(highest, int(item.get("store_seq", 0)))
+                except (TypeError, ValueError):
+                    continue
+        return highest + 1
+
     def _current_timestamp(self) -> str:
         return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
@@ -689,12 +699,12 @@ class VesselWorkflowService:
 
     def _recommended_action(self, profile: DummyProfileMeta) -> str:
         if profile.plausibility_level == "HIGH":
-            return "Baseline profile is credible. Periodically refresh file mix."
+            return "Free space is filled. The file you disclose is still one you store yourself."
         if profile.plausibility_level == "MEDIUM":
             return (
                 "Add more size variation or increase occupancy for a stronger baseline."
             )
-        return "Generate a broader local baseline before field use."
+        return "Free space is largely empty. Filling it is optional; the file you disclose is one you store yourself."
 
     def _read_face_namespace(
         self,
@@ -703,6 +713,10 @@ class VesselWorkflowService:
         selector: str,
         cue_sequence: list[str],
     ) -> tuple[dict[str, object], str | None]:
+        # Deliberately open-slot only. The restricted recovery passphrase is a
+        # destroy credential in this layer, not a retrieval one, and
+        # test_emergency_password_does_not_trigger_normal_list_or_retrieve
+        # pins that: reading with it must fail rather than disclose.
         mode = self.resolve_mode(selector)
         face_id = self.resolve_face_id(selector)
         vault = PhasmidVault(
@@ -817,11 +831,64 @@ class VesselWorkflowService:
         no_object_binding: bool = False,
         emergency_password: str | None = None,
     ) -> StorePayloadResult:
-        vessel = Path(vessel_path).expanduser().resolve()
         payload_path = Path(input_path).expanduser().resolve()
-        mode = self.resolve_mode(selector)
+        # Validate before reading. Delegating with payload_path.read_bytes()
+        # as an argument would pull the plaintext into memory before the
+        # selector, the Vessel and the object binding had been checked, so a
+        # call that was always going to fail would still have loaded it.
         if not payload_path.is_file():
             raise FileNotFoundError(f"input file not found: {payload_path}")
+        self.resolve_mode(selector)
+        if not Path(vessel_path).expanduser().resolve().exists():
+            raise FileNotFoundError(
+                f"vessel file not found: {Path(vessel_path).expanduser().resolve()}"
+            )
+        result = self.add_payload(
+            vessel_path,
+            payload_path.name,
+            payload_path.read_bytes(),
+            open_passphrase,
+            restricted_passphrase=restricted_passphrase,
+            selector=selector,
+            cue_sequence=cue_sequence,
+            capture_reference=capture_reference,
+            object_image_path=object_image_path,
+            camera_object=camera_object,
+            no_object_binding=no_object_binding,
+            emergency_password=emergency_password,
+        )
+        return StorePayloadResult(
+            vessel_path=result.vessel_path,
+            input_path=payload_path,
+            bytes_stored=result.bytes_stored,
+            mode=result.mode,
+        )
+
+    def add_payload(
+        self,
+        vessel_path: str | Path,
+        filename: str,
+        payload: bytes,
+        open_passphrase: str,
+        restricted_passphrase: str | None = None,
+        selector: str = "face_a",
+        cue_sequence: list[str] | None = None,
+        capture_reference: bool = False,
+        object_image_path: str | None = None,
+        camera_object: bool = False,
+        no_object_binding: bool = False,
+        emergency_password: str | None = None,
+    ) -> StorePayloadResult:
+        """Store bytes already in memory into a Vessel face.
+
+        Same path as :meth:`add_file` - object binding, face namespace and
+        all - for callers that never had the payload on disk. The WebUI
+        receives uploads as bytes, and writing them to a temporary file just
+        to hand back a path would put plaintext on disk for no reason.
+        """
+        vessel = Path(vessel_path).expanduser().resolve()
+        name = Path(filename).name or "payload.bin"
+        mode = self.resolve_mode(selector)
         if not vessel.exists():
             raise FileNotFoundError(f"vessel file not found: {vessel}")
 
@@ -861,12 +928,16 @@ class VesselWorkflowService:
         if not isinstance(files, dict):
             raise ValueError("face namespace is invalid")
 
-        payload = payload_path.read_bytes()
-        files[payload_path.name] = {
+        files[name] = {
             "data_b64": base64.b64encode(payload).decode("ascii"),
             "size": len(payload),
             "added_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "origin": "manual",
+            # added_at has one-second granularity, so two stores in the same
+            # second tie and the tie-break falls back to the name - which is
+            # the alphabetical ordering this selection exists to avoid. A
+            # counter makes "most recent" mean what it says.
+            "store_seq": self._next_store_seq(files),
         }
         if emergency_password is None:
             emergency_password = restricted_passphrase
@@ -891,7 +962,7 @@ class VesselWorkflowService:
         )
         return StorePayloadResult(
             vessel_path=vessel,
-            input_path=payload_path,
+            input_path=Path(name),
             bytes_stored=len(payload),
             mode=mode,
         )
@@ -1078,6 +1149,15 @@ class VesselWorkflowService:
         specs = self._build_generated_file_specs(target_bytes)
         max_payload = self.plaintext_capacity(vessel, selector)
         for filename, payload in specs:
+            existing = files.get(filename)
+            if (
+                isinstance(existing, dict)
+                and str(existing.get("origin", "")) != _GENERATED_PLAUSIBILITY_ORIGIN
+            ):
+                # Filler names are drawn from a fixed pool, so one can collide
+                # with a file the operator stored. Overwriting it would destroy
+                # real content as a side effect of building a decoy.
+                continue
             files[filename] = self._generated_entry(filename, payload)
             encoded, _namespace_name = self._encode_namespace(namespace)
             if len(encoded) > max_payload:
@@ -1256,6 +1336,41 @@ class VesselWorkflowService:
             emergency_password=emergency_password,
         )
 
+    def retrieve_payload(
+        self,
+        vessel_path: str | Path,
+        open_passphrase: str,
+        selector: str | None = None,
+        cue_sequence: list[str] | None = None,
+        use_attempt_limiter: bool = False,
+        object_image_path: str | None = None,
+        camera_object: bool = False,
+        no_object_binding: bool = False,
+        filename: str | None = None,
+    ) -> tuple[bytes, RetrievePayloadResult]:
+        """Recover a stored payload as bytes, without writing it to disk.
+
+        Same path as :meth:`retrieve_file` including the object-cue check.
+        The bytes are returned alongside the result rather than carried on
+        it, so a plaintext payload never ends up in the dataclass repr that
+        the CLI and the operator log print.
+        """
+        collected: dict[str, bytes] = {}
+        result = self.retrieve_file(
+            vessel_path,
+            open_passphrase,
+            output_path=None,
+            selector=selector,
+            cue_sequence=cue_sequence,
+            use_attempt_limiter=use_attempt_limiter,
+            object_image_path=object_image_path,
+            camera_object=camera_object,
+            no_object_binding=no_object_binding,
+            filename=filename,
+            _payload_sink=collected,
+        )
+        return collected.get("data", b""), result
+
     def retrieve_file(
         self,
         vessel_path: str | Path,
@@ -1267,6 +1382,8 @@ class VesselWorkflowService:
         object_image_path: str | None = None,
         camera_object: bool = False,
         no_object_binding: bool = False,
+        filename: str | None = None,
+        _payload_sink: dict[str, bytes] | None = None,
     ) -> RetrievePayloadResult:
         vessel = Path(vessel_path).expanduser().resolve()
         if not vessel.exists():
@@ -1343,8 +1460,52 @@ class VesselWorkflowService:
         files = self._namespace_file_records(namespace)
         if not files:
             raise FileNotFoundError("no file is stored in the selected face")
-        chosen = files[0]
-        if output_path is not None:
+        # A face holds many files, so "which one" has to be decided. Named
+        # selection first, then the output filename, and otherwise the most
+        # recently stored. Falling back to the alphabetically first record
+        # made every later store unreachable for callers that name neither -
+        # the WebUI names neither, so a second upload to the same entry
+        # silently became unretrievable through the interface that wrote it.
+        # Generated plausibility filler shares the face and is written with the
+        # same timestamp format, so a profile generated after a real upload
+        # would otherwise win "most recent" and be handed back in its place.
+        raw_files_for_origin = namespace.get("files", {})
+        operator_files = [
+            record
+            for record in files
+            if not (
+                isinstance(raw_files_for_origin, dict)
+                and isinstance(raw_files_for_origin.get(record.name), dict)
+                and raw_files_for_origin[record.name].get("origin")
+                == _GENERATED_PLAUSIBILITY_ORIGIN
+            )
+        ] or files
+
+        def _store_order(record: FaceFileRecord) -> tuple[str, int, str]:
+            entry = (
+                raw_files_for_origin.get(record.name)
+                if isinstance(raw_files_for_origin, dict)
+                else None
+            )
+            seq = 0
+            if isinstance(entry, dict):
+                try:
+                    seq = int(entry.get("store_seq", 0))
+                except (TypeError, ValueError):
+                    seq = 0
+            return (record.added_at, seq, record.name)
+
+        chosen = max(operator_files, key=_store_order)
+        if filename:
+            # An explicit request names one file. Quietly substituting another
+            # would hand back content the caller did not ask for.
+            match = next((record for record in files if record.name == filename), None)
+            if match is None:
+                raise FileNotFoundError(f"no stored file named {filename}")
+            chosen = match
+        elif output_path is not None:
+            # The output name is a hint, not a request: recovering README.md
+            # to recovered.md is ordinary usage, so a miss falls back.
             desired_name = Path(output_path).name
             chosen = next(
                 (record for record in files if record.name == desired_name),
@@ -1357,6 +1518,8 @@ class VesselWorkflowService:
         if not isinstance(item, dict):
             raise ValueError("stored file metadata is invalid")
         data = base64.b64decode(str(item.get("data_b64", "")).encode("ascii"))
+        if _payload_sink is not None:
+            _payload_sink["data"] = data
         filename = chosen.name
         password_role = PhasmidVault.OPEN_ROLE
         accessed_mode = self.resolve_mode(accessed_selector)

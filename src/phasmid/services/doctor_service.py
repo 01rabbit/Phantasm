@@ -648,6 +648,46 @@ def _check_luks_statuses() -> list[DoctorCheck]:
 
 
 def _check_dummy_profile_plausibility() -> list[DoctorCheck]:
+    """Advisory over material the operator points this at.
+
+    PHASMID_DUMMY_PROFILE_DIR and PHASMID_DUMMY_CONTAINER_PATH are operator
+    settings (docs/CONFIGURATION.md). Pointed at material the operator
+    prepared, these report its volume - size, file count, occupancy against
+    the container - which is worth knowing before relying on it.
+
+    Left at their defaults they point at paths no operation writes, so every
+    check warned on every device forever and the warnings could not be acted
+    on. Unconfigured now reports "not configured" rather than a deficiency:
+    an advisory nobody asked for is not a finding.
+
+    Volume is all this measures. Whether the material is convincing is not
+    something the tool can judge, and it does not claim to.
+    """
+    profile_dir = Path(dummy_profile_dir())
+    container = Path(dummy_container_path())
+    if not profile_dir.exists() and not container.exists():
+        return [
+            DoctorCheck(
+                name=name,
+                level=DoctorLevel.INFO,
+                message="not configured",
+                detail=(
+                    "Set PHASMID_DUMMY_PROFILE_DIR and "
+                    "PHASMID_DUMMY_CONTAINER_PATH to have this advisory "
+                    "report on material you prepared. Material disclosed "
+                    "under pressure is supplied by the operator; this checks "
+                    "its volume, not whether it is convincing."
+                ),
+            )
+            for name in (
+                "Dummy Profile Size",
+                "Dummy Profile File Count",
+                "Dummy Profile Occupancy Ratio",
+                "Dummy Profile Size Distribution",
+                "Dummy Profile Plausibility",
+            )
+        ]
+
     evaluation = evaluate_dummy_profile(
         dummy_profile_dir=dummy_profile_dir(),
         container_path=dummy_container_path(),
@@ -693,7 +733,7 @@ def _check_dummy_profile_plausibility() -> list[DoctorCheck]:
             DoctorCheck(
                 name="Dummy Profile Plausibility",
                 level=DoctorLevel.WARN,
-                message="Dummy profile plausibility assessment: LOW",
+                message="Prepared material is below the configured volume thresholds",
                 detail="; ".join(evaluation.warnings),
             )
         )
@@ -702,8 +742,8 @@ def _check_dummy_profile_plausibility() -> list[DoctorCheck]:
             DoctorCheck(
                 name="Dummy Profile Plausibility",
                 level=DoctorLevel.OK,
-                message="Dummy profile plausibility assessment: baseline thresholds met",
-                detail="Operational plausibility is advisory, not a technical guarantee.",
+                message="Prepared material meets the configured volume thresholds",
+                detail="Volume only. Whether the material is convincing is not assessed here.",
             )
         )
     return checks

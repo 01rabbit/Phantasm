@@ -65,6 +65,15 @@ from .services.audit_service import build_audit_report
 from .services.doctor_service import run_doctor_checks
 from .services.guided_service import get_workflows
 from .services.inspection_service import inspect_vessel
+from .services.vessel_workflow_service import VesselWorkflowService
+from .services.web_target_service import (
+    LEGACY_CONTAINER_PATH,
+    face_for_mode,
+    forget_container_contents,
+    forget_face_contents,
+    resolve_web_container,
+    resolve_web_vessel,
+)
 from .vault_core import PhasmidVault
 from .volatile_state import require_volatile_state
 
@@ -95,7 +104,11 @@ async def shutdown_cleanup():
 
 
 templates = Jinja2Templates(directory=str(Path(__file__).with_name("templates")))
-vault = PhasmidVault("vault.bin")
+
+# Fallback container, used only until a Vessel exists on the device. The
+# live target is resolved by services.web_target_service so that this
+# interface and the operator console act on the same file.
+vault = PhasmidVault(LEGACY_CONTAINER_PATH)
 WEB_TOKEN = web_token_env() or secrets.token_urlsafe(32)
 MAX_UPLOAD_BYTES = max_upload_bytes()
 RATE_LIMIT_WINDOW = 60
@@ -196,6 +209,15 @@ async def security_headers_middleware(request: Request, call_next):
 
 def display_entry_label(entry_id):
     return ENTRY_LABELS.get(entry_id, "Entry")
+
+
+def active_vault() -> PhasmidVault:
+    return resolve_web_container(vault)
+
+
+def _other_mode(mode: str) -> str:
+    others = [item for item in access_cue_service.modes() if item != mode]
+    return others[0] if others else mode
 
 
 def resolve_entry(entry_id):
@@ -893,14 +915,30 @@ async def store(
             if not success:
                 return {"error": message}
 
-        vault.store(
-            password,
-            data,
-            access_cue_service.sequence_for_mode(mode),
-            filename=orig_filename,
-            mode=mode,
-            restricted_recovery_password=effective_secondary_passphrase or None,
-        )
+        vessel_path = resolve_web_vessel()
+        if vessel_path is not None:
+            # Same entry point the TUI uses, so the file lands in the Vessel's
+            # face namespace and shows up in Audit and VESSEL STATUS. Writing
+            # through PhasmidVault directly would overwrite that namespace and
+            # destroy whatever the face already held.
+            VesselWorkflowService().add_payload(
+                vessel_path,
+                orig_filename or "protected-entry.bin",
+                data,
+                password,
+                restricted_passphrase=effective_secondary_passphrase or None,
+                selector=face_for_mode(mode),
+                cue_sequence=access_cue_service.sequence_for_mode(mode),
+            )
+        else:
+            vault.store(
+                password,
+                data,
+                access_cue_service.sequence_for_mode(mode),
+                filename=orig_filename,
+                mode=mode,
+                restricted_recovery_password=effective_secondary_passphrase or None,
+            )
         audit_event(
             "payload_stored",
             entry="local_entry",
@@ -917,7 +955,16 @@ async def store(
             "message": text.PROTECTED_ENTRY_SAVED,
             "entry_state": entry_state,
         }
+    except (ValueError, FileNotFoundError, PermissionError, RuntimeError):
+        # Expected: rejected passphrase, unknown selector, missing container,
+        # limiter, or the camera not being ready. Not worth a traceback, and
+        # those messages carry the container path.
+        return {"error": text.STORE_OPERATION_FAILED}
     except Exception:
+        # Anything else is a fault. The operator is still told nothing
+        # specific, but swallowing it entirely left whoever has to debug the
+        # device with no signal at all.
+        LOG.exception("Store failed")
         return {"error": text.STORE_OPERATION_FAILED}
 
 
@@ -970,10 +1017,40 @@ async def retrieve(request: Request, password: str = Form(...)):
         _access_attempts.record_failure(attempt_scope)
         return {"error": text.NO_VALID_ENTRY_FOUND}
 
+    vessel_path = resolve_web_vessel()
+    result: bytes | None
     for mode in access_cue_service.modes():
-        result, filename, password_role = vault.retrieve_with_policy(
-            password, auth_sequence, mode=mode
-        )
+        if vessel_path is not None:
+            try:
+                payload, retrieval = VesselWorkflowService().retrieve_payload(
+                    vessel_path,
+                    password,
+                    selector=face_for_mode(mode),
+                    cue_sequence=auth_sequence,
+                )
+            except (ValueError, FileNotFoundError, PermissionError, RuntimeError):
+                # Expected control flow: wrong password, no bound object
+                # matched, nothing stored, the limiter refusing, or the camera
+                # not being ready - RuntimeError is what the object-binding
+                # path raises for an unavailable frame, which is an ordinary
+                # state here, not a fault. Try the next mode, exactly as a
+                # None result did before.
+                continue
+            except Exception:
+                # Anything else is a fault, not an authentication outcome.
+                # Falling through silently would make a broken container or a
+                # bad state file look identical to a mistyped password.
+                LOG.exception("Vessel-backed retrieval failed unexpectedly")
+                continue
+            result, filename, password_role = (
+                payload,
+                retrieval.filename,
+                retrieval.password_role,
+            )
+        else:
+            result, filename, password_role = vault.retrieve_with_policy(
+                password, auth_sequence, mode=mode
+            )
         if result is None:
             continue
 
@@ -1019,7 +1096,8 @@ async def purge_other(
         _plain_form_value(legacy_selector),
     )
     mode = resolve_entry(entry_id)
-    vault.purge_other_mode(mode)
+    active_vault().purge_other_mode(mode)
+    forget_face_contents(_other_mode(mode))
     audit_event("restricted_local_update", accessed_entry="local_entry", source="web")
     return {"status": text.UNMATCHED_ENTRY_CLEARED}
 
@@ -1031,7 +1109,8 @@ async def purge_other(
 async def emergency_brick(request: Request, confirmation: str = Form(...)):
     enforce_rate_limit(request)
     require_restricted_action("clear_local_access_path", request, confirmation)
-    vault.silent_brick()
+    active_vault().silent_brick()
+    forget_container_contents()
     audit_event("access_path_cleared", source="web")
     return {"status": text.LOCAL_ACCESS_PATH_CLEARED}
 
@@ -1043,7 +1122,8 @@ async def emergency_brick(request: Request, confirmation: str = Form(...)):
 async def emergency_initialize(request: Request, confirmation: str = Form(...)):
     enforce_rate_limit(request)
     require_restricted_action("initialize_container", request, confirmation)
-    vault.format_container(rotate_access_key=True)
+    active_vault().format_container(rotate_access_key=True)
+    forget_container_contents()
     success, message = access_cue_service.clear_references()
     if not success:
         return {"error": message}
@@ -1067,7 +1147,8 @@ async def web_panic_trigger(request: Request, secret_trigger: str = Form(...)):
         require_restricted_action("rapid_local_clear", request, secret_trigger)
     except HTTPException:
         raise HTTPException(status_code=404) from None
-    vault.silent_brick()
+    active_vault().silent_brick()
+    forget_container_contents()
     audit_event("access_path_cleared", source="web_panic")
     return {"status": text.CRITICAL_STATE_CLEARED}
 
@@ -1166,7 +1247,8 @@ def _maybe_auto_purge(accessed_mode, source):
     if reason is None:
         return False
 
-    vault.purge_other_mode(accessed_mode)
+    active_vault().purge_other_mode(accessed_mode)
+    forget_face_contents(_other_mode(accessed_mode))
     audit_event(
         "restricted_local_update",
         accessed_entry="local_entry",
@@ -1179,7 +1261,8 @@ def _maybe_auto_purge(accessed_mode, source):
 def _purge_for_password_role(accessed_mode, password_role, source):
     if password_role != PhasmidVault.PURGE_ROLE:
         return False
-    vault.purge_other_mode(accessed_mode)
+    active_vault().purge_other_mode(accessed_mode)
+    forget_face_contents(_other_mode(accessed_mode))
     audit_event(
         "restricted_local_update",
         accessed_entry="local_entry",

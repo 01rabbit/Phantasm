@@ -1639,3 +1639,428 @@ class _BytesFile:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WebTargetResolutionTests(unittest.TestCase):
+    """The WebUI must act on the same container as the operator console.
+
+    `web_server` held a module-level `PhasmidVault("vault.bin")` and stored
+    and retrieved straight through it while the console worked on Vessels,
+    so the two surfaces on one device disagreed about what was stored.
+    """
+
+    def tearDown(self):
+        os.environ.pop("PHASMID_WEB_VESSEL", None)
+
+    def test_explicit_override_selects_the_vessel(self):
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.services.web_target_service import resolve_web_vessel
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vessel = Path(tmpdir) / "travel.vessel"
+            vessel.write_bytes(b"\x00" * 32)
+            with mock.patch.dict(
+                os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+            ):
+                self.assertEqual(resolve_web_vessel(), vessel)
+
+    def test_registry_selection_runs_against_real_vessel_metadata(self):
+        """Exercise the registry branch with a Vessel that exists on disk.
+
+        The first version sorted on `VesselMeta.last_opened`, which is not a
+        field - it is `last_opened_at`. Every override-based test returned
+        before reaching that line, and a registry test using a non-existent
+        path also returned early, so the branch that runs on any device with
+        a registered Vessel raised AttributeError and nothing caught it until
+        mypy did. The path has to exist for the sort to be reached at all.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.models.vessel import VesselMeta
+        from phasmid.services import web_target_service
+
+        self.assertFalse(hasattr(VesselMeta(name="x", path="/x"), "last_opened"))
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            older = Path(tmpdir) / "backup.vessel"
+            newer = Path(tmpdir) / "travel.vessel"
+            older.write_bytes(b"\x00" * 32)
+            newer.write_bytes(b"\x00" * 32)
+
+            registered = [
+                VesselMeta(
+                    name="backup.vessel",
+                    path=str(older),
+                    last_opened_at="2026-07-28T09:00:00+00:00",
+                ),
+                VesselMeta(
+                    name="travel.vessel",
+                    path=str(newer),
+                    last_opened_at="2026-07-28T10:00:00+00:00",
+                ),
+            ]
+
+            os.environ.pop("PHASMID_WEB_VESSEL", None)
+            with mock.patch(
+                "phasmid.services.vessel_service.VesselService.list_all",
+                return_value=registered,
+            ):
+                # Most recently opened wins, so the interface follows the
+                # Vessel the operator is actually working in.
+                self.assertEqual(web_target_service.resolve_web_vessel(), newer)
+
+    def test_no_registered_vessel_falls_back_rather_than_raising(self):
+        from phasmid.services import web_target_service
+
+        os.environ.pop("PHASMID_WEB_VESSEL", None)
+        with mock.patch(
+            "phasmid.services.vessel_service.VesselService.list_all",
+            return_value=[],
+        ):
+            self.assertIsNone(web_target_service.resolve_web_vessel())
+
+    def test_missing_override_does_not_silently_fall_through(self):
+        from phasmid.services.web_target_service import resolve_web_vessel
+
+        with mock.patch.dict(
+            os.environ, {"PHASMID_WEB_VESSEL": "/nonexistent/x.vessel"}, clear=False
+        ):
+            self.assertIsNone(resolve_web_vessel())
+
+    def test_destructive_operations_follow_the_resolved_target(self):
+        """Purge and clear must not wipe the fallback while the Vessel survives.
+
+        Otherwise the emergency controls report success having cleared a file
+        nobody uses, leaving the container the operator actually filled
+        intact - the operator believes the device is clear when it is not.
+        """
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vessel = Path(tmpdir) / "travel.vessel"
+            vessel.write_bytes(b"\x00" * (1024 * 1024))
+            with mock.patch.dict(
+                os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+            ):
+                resolved = web_server.active_vault()
+            # web_server.vault is the real fallback the code under test would
+            # return if resolution failed. Comparing against a throwaway
+            # object() instead proved nothing at all.
+            self.assertIsNot(resolved, web_server.vault)
+            self.assertIn("travel.vessel", str(resolved.path))
+
+        os.environ.pop("PHASMID_WEB_VESSEL", None)
+        with mock.patch(
+            "phasmid.services.vessel_service.VesselService.list_all",
+            return_value=[],
+        ):
+            self.assertIs(web_server.active_vault(), web_server.vault)
+
+    def test_endpoint_round_trip_lands_in_the_vessel_not_the_legacy_container(self):
+        """Drive the real endpoints, not the source text.
+
+        The previous version of this test called inspect.getsource() and
+        asserted that the strings "add_payload" and "resolve_web_vessel"
+        appeared somewhere in the function bodies. That passes for any code
+        that merely mentions those names - it would have kept passing if the
+        call were unreachable, mis-wired, or writing to the wrong face.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.services import vessel_service as vessel_service_mod
+        from phasmid.services.vessel_workflow_service import VesselWorkflowService
+
+        payload = b"stored through the web interface\n"
+
+        async def run(tmpdir):
+            vessel = Path(tmpdir) / "travel.vessel"
+            VesselWorkflowService().create_vessel(vessel, "8M")
+            legacy_before = web_server.vault.path
+
+            request = SimpleNamespace(
+                client=SimpleNamespace(host="127.0.0.1"),
+                url=SimpleNamespace(path="/store"),
+            )
+            upload = UploadFile(filename="notes.md", file=_BytesFile(payload))
+
+            with mock.patch.dict(
+                os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+            ):
+                with mock.patch.object(
+                    web_server, "_capture_entry_binding", return_value=(True, "")
+                ):
+                    # Every Form(...) default must be supplied explicitly:
+                    # calling the endpoint as a plain function bypasses
+                    # FastAPI's dependency resolution, so an omitted argument
+                    # arrives as the Form sentinel rather than as its default.
+                    stored = await web_server.store(
+                        request,
+                        file=upload,
+                        password="correct horse battery",
+                        secondary_passphrase="",
+                        restricted_recovery_password="restricted recovery only",
+                        local_note_label="",
+                        entry_hint="",
+                        overwrite=False,
+                        overwrite_confirmation="",
+                    )
+            self.assertTrue(stored.get("success"), stored)
+
+            # The file is in the Vessel, reachable by the console's own API.
+            listing = VesselWorkflowService().list_files(
+                vessel,
+                "correct horse battery",
+                selector="face_a",
+                cue_sequence=["reference_dummy_matched"],
+            )
+            self.assertIn("notes.md", [item.name for item in listing.files])
+
+            # And the legacy container was not the thing that got written.
+            # Comparing web_server.vault.path to itself proves nothing; the
+            # question is whether the legacy file was created at all.
+            self.assertEqual(web_server.vault.path, legacy_before)
+            self.assertFalse(
+                Path(web_server.vault.path).exists(),
+                "the legacy container was written despite a Vessel being resolved",
+            )
+            return vessel
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            with (
+                mock.patch.dict(
+                    os.environ, {"PHASMID_STATE_DIR": str(state_dir)}, clear=False
+                ),
+                mock.patch.object(
+                    vessel_service_mod, "config_dir", lambda: Path(tmpdir)
+                ),
+            ):
+                asyncio.run(run(tmpdir))
+
+
+class WebVesselBehaviourTests(unittest.TestCase):
+    """End-to-end behaviour of the Vessel-backed WebUI endpoints."""
+
+    def tearDown(self):
+        web_server._rate_limit.clear()
+        web_server._access_attempts._state.clear()
+
+    def _vessel_env(self, tmpdir):
+        from pathlib import Path
+
+        from phasmid.services import vessel_service as vessel_service_mod
+
+        return (
+            mock.patch.dict(
+                os.environ,
+                {"PHASMID_STATE_DIR": str(Path(tmpdir) / "state")},
+                clear=False,
+            ),
+            mock.patch.object(vessel_service_mod, "config_dir", lambda: Path(tmpdir)),
+        )
+
+    def test_retrieve_returns_the_bytes_that_store_wrote(self):
+        """The retrieve endpoint's Vessel branch had no test at all.
+
+        The store side was covered, so a retrieve wired to the wrong face, or
+        returning the wrong record, would have shipped green.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.services.vessel_workflow_service import VesselWorkflowService
+
+        payload = b"round trip through the web interface\n"
+
+        async def run(tmpdir):
+            vessel = Path(tmpdir) / "travel.vessel"
+            VesselWorkflowService().create_vessel(vessel, "8M")
+            request = SimpleNamespace(
+                client=SimpleNamespace(host="127.0.0.1"),
+                url=SimpleNamespace(path="/store"),
+            )
+            upload = UploadFile(filename="notes.md", file=_BytesFile(payload))
+
+            with mock.patch.dict(
+                os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+            ):
+                with mock.patch.object(
+                    web_server, "_capture_entry_binding", return_value=(True, "")
+                ):
+                    stored = await web_server.store(
+                        request,
+                        file=upload,
+                        password="correct horse battery",
+                        secondary_passphrase="",
+                        restricted_recovery_password="restricted recovery only",
+                        local_note_label="",
+                        entry_hint="",
+                        overwrite=False,
+                        overwrite_confirmation="",
+                    )
+                    self.assertTrue(stored.get("success"), stored)
+
+                    retrieve_request = SimpleNamespace(
+                        client=SimpleNamespace(host="127.0.0.1"),
+                        url=SimpleNamespace(path="/retrieve"),
+                    )
+                    with mock.patch.object(
+                        web_server.access_cue_service,
+                        "auth_sequence",
+                        return_value=["reference_dummy_matched"],
+                    ):
+                        response = await web_server.retrieve(
+                            retrieve_request, password="correct horse battery"
+                        )
+
+            chunks = []
+            iterator = getattr(response, "body_iterator", None)
+            if iterator is not None:
+                async for chunk in iterator:
+                    chunks.append(chunk if isinstance(chunk, bytes) else chunk.encode())
+            body = b"".join(chunks) or getattr(response, "body", b"")
+            self.assertEqual(body, payload)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env, registry = self._vessel_env(tmpdir)
+            with env, registry:
+                asyncio.run(run(tmpdir))
+
+    def test_restricted_recovery_passphrase_does_not_disclose(self):
+        """Design decision: under duress the device must not disclose.
+
+        The restricted recovery passphrase is a destroy credential in the
+        Vessel layer, not a retrieval one. The legacy container returned the
+        payload for it and purged the other face; routing the WebUI onto
+        Vessels deliberately does not carry that behaviour over. Pinned here
+        so the difference cannot be reintroduced by accident in either
+        direction.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.services.vessel_workflow_service import VesselWorkflowService
+
+        async def run(tmpdir):
+            vessel = Path(tmpdir) / "travel.vessel"
+            VesselWorkflowService().create_vessel(vessel, "8M")
+            request = SimpleNamespace(
+                client=SimpleNamespace(host="127.0.0.1"),
+                url=SimpleNamespace(path="/store"),
+            )
+            upload = UploadFile(filename="notes.md", file=_BytesFile(b"sensitive"))
+
+            with mock.patch.dict(
+                os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+            ):
+                with mock.patch.object(
+                    web_server, "_capture_entry_binding", return_value=(True, "")
+                ):
+                    await web_server.store(
+                        request,
+                        file=upload,
+                        password="correct horse battery",
+                        secondary_passphrase="",
+                        restricted_recovery_password="restricted recovery only",
+                        local_note_label="",
+                        entry_hint="",
+                        overwrite=False,
+                        overwrite_confirmation="",
+                    )
+                    retrieve_request = SimpleNamespace(
+                        client=SimpleNamespace(host="127.0.0.1"),
+                        url=SimpleNamespace(path="/retrieve"),
+                    )
+                    with mock.patch.object(
+                        web_server.access_cue_service,
+                        "auth_sequence",
+                        return_value=["reference_dummy_matched"],
+                    ):
+                        response = await web_server.retrieve(
+                            retrieve_request, password="restricted recovery only"
+                        )
+
+            # A plain dict error, not a file response: nothing was disclosed.
+            self.assertIsInstance(response, dict)
+            self.assertIn("error", response)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env, registry = self._vessel_env(tmpdir)
+            with env, registry:
+                asyncio.run(run(tmpdir))
+
+    def test_container_wipe_clears_credentials_but_a_face_purge_does_not(self):
+        """Two different operations, two different scopes.
+
+        A whole-container wipe must not carry a pre-wipe destroy credential
+        across it: a passphrase compromised beforehand would still authorise
+        destruction of whatever is stored afterwards, which is the situation
+        the re-initialise exists to end.
+
+        A per-face content purge must NOT do that. Clearing one face's files
+        is not a reason to silently drop the physical-object requirement or
+        invalidate the destroy passphrase for it, and the operator is told
+        only that an entry was cleared.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from phasmid.services.vessel_workflow_service import VesselWorkflowService
+        from phasmid.services.web_target_service import (
+            forget_container_contents,
+            forget_face_contents,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env, registry = self._vessel_env(tmpdir)
+            with env, registry:
+                vessel = Path(tmpdir) / "travel.vessel"
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel, "8M")
+                svc.add_payload(
+                    vessel,
+                    "notes.md",
+                    b"data",
+                    "correct horse battery",
+                    restricted_passphrase="restricted recovery only",
+                    selector="face_a",
+                    cue_sequence=["reference_dummy_matched"],
+                )
+                self.assertTrue(
+                    svc._verify_face_emergency_password(
+                        vessel, "face_a", "restricted recovery only"
+                    )
+                )
+
+                with mock.patch.dict(
+                    os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+                ):
+                    # A per-face purge clears content bookkeeping only.
+                    forget_face_contents("dummy")
+                self.assertTrue(
+                    svc._verify_face_emergency_password(
+                        vessel, "face_a", "restricted recovery only"
+                    ),
+                    "a content purge silently invalidated the destroy passphrase",
+                )
+                meta = svc._get_meta(vessel)
+                face = next(f for f in meta.faces if f.face_id == "face_a")
+                self.assertEqual(face.file_count, 0)
+                self.assertEqual(face.occupancy, 0)
+
+                with mock.patch.dict(
+                    os.environ, {"PHASMID_WEB_VESSEL": str(vessel)}, clear=False
+                ):
+                    # A whole-container wipe takes the credentials with it.
+                    forget_container_contents()
+                self.assertFalse(
+                    svc._verify_face_emergency_password(
+                        vessel, "face_a", "restricted recovery only"
+                    ),
+                    "the destroy credential survived a whole-container wipe",
+                )
