@@ -82,15 +82,15 @@ class SimpleHomeScreen(OperatorScreen):
             id="simple-subtitle",
         )
         yield Static(
-            "Normal controls are ready. Press [e] Expert for diagnostics and technical detail.",
+            "Normal controls are ready. Press \\[e] Expert for diagnostics and technical detail.",
             id="health",
             markup=True,
         )
         yield Static("PROTECTED STORAGE", id="storage-label")
         yield DataTable(id="storage-table", cursor_type="row", zebra_stripes=True)
         yield Static(
-            "[bold]Choose an action:[/bold]  [o] Open selected   [n] New protected storage   "
-            "[g] Guided help\n[dim]Advanced diagnostics and forensic detail are available under [e] Expert.[/dim]",
+            "[bold]Choose an action:[/bold]  \\[o] Open selected   \\[n] New protected storage   "
+            "\\[g] Guided help\n[dim]Advanced diagnostics and forensic detail are available under \\[e] Expert.[/dim]",
             id="next-step",
             markup=True,
         )
@@ -131,7 +131,7 @@ class SimpleHomeScreen(OperatorScreen):
         if not self._vessels:
             self.query_one("#next-step", Static).update(
                 "[bold]No protected storage found.[/bold]\n"
-                "Press [n] to create one, or [g] for guided help."
+                "Press \\[n] to create one, or \\[g] for guided help."
             )
 
     def _selected_path(self) -> str:

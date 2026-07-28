@@ -1576,3 +1576,133 @@ def test_expert_entry_refreshes_simple_home_on_return(monkeypatch):
     assert pushed["callback"] is not None, "no return callback: list would go stale"
     pushed["callback"](None)
     assert refreshed == [True]
+
+
+def test_key_name_brackets_survive_rich_markup_parsing():
+    """`[x]` in a user-facing string is Rich markup, not a literal key name.
+
+    Unescaped, Rich strips the bracketed key name entirely instead of
+    rendering it, so operators never see which key to press. Every string
+    that names a key in brackets must escape it (`\\[x]`) so the plain
+    rendered text still contains the key name.
+    """
+    from rich.text import Text
+
+    from phasmid.tui.screens.base import OperatorScreen
+
+    samples = [
+        (OperatorScreen._WEBUI_WARNING_FALLBACK, "[w]"),
+        (
+            "Normal controls are ready. Press \\[e] Expert for diagnostics "
+            "and technical detail.",
+            "[e]",
+        ),
+        (
+            "[bold]Choose an action:[/bold]  \\[o] Open selected   "
+            "\\[n] New protected storage   \\[g] Guided help\n"
+            "[dim]Advanced diagnostics and forensic detail are available "
+            "under \\[e] Expert.[/dim]",
+            "[o]",
+        ),
+        (
+            "[bold]No protected storage found.[/bold]\n"
+            "Press \\[n] to create one, or \\[g] for guided help.",
+            "[n]",
+        ),
+        (
+            "[yellow]! SYSTEM: 7 WARN — press \\[d] to review[/yellow]",
+            "[d]",
+        ),
+    ]
+    for markup, key in samples:
+        plain = Text.from_markup(markup).plain
+        assert key in plain, f"key name {key!r} stripped from: {plain!r}"
+
+
+def test_all_tui_screens_mount_and_keep_key_names(tmp_path, monkeypatch):
+    """Push every screen through the real app and inspect what it renders.
+
+    Reading source strings misses two classes of regression that only show
+    up once Textual actually renders a screen: CSS that fails to parse (a
+    `border:` referencing an auto-contrast variable like `$text-muted` is
+    invalid, even though the identical variable is fine for `color:`, so
+    the screen raises `StylesheetParseError` and never mounts at all), and
+    a "Press [x]" instruction whose bracketed key name Rich silently
+    stripped. Both classes previously escaped review because the affected
+    screens (Silent Standby, the context-profile selector) were never
+    actually pushed.
+    """
+    import asyncio
+    import re
+
+    from textual.widgets import Label, Static
+
+    from phasmid import config
+
+    monkeypatch.setattr(config, "DEFAULT_STATE_DIR", str(tmp_path))
+
+    from phasmid.tui.app import PhasmidApp
+    from phasmid.tui.screens.about import AboutScreen
+    from phasmid.tui.screens.audit import AuditScreen
+    from phasmid.tui.screens.context_profile_selector import (
+        ContextProfileSelectorScreen,
+    )
+    from phasmid.tui.screens.create_vessel import CreateVesselScreen
+    from phasmid.tui.screens.doctor import DoctorScreen
+    from phasmid.tui.screens.face_manager import FaceManagerScreen
+    from phasmid.tui.screens.guided import GuidedScreen
+    from phasmid.tui.screens.home import HomeScreen
+    from phasmid.tui.screens.inspect_vessel import InspectVesselScreen
+    from phasmid.tui.screens.luks_screen import LuksScreen
+    from phasmid.tui.screens.open_vessel import OpenVesselScreen
+    from phasmid.tui.screens.settings import SettingsScreen
+    from phasmid.tui.screens.simple_home import SimpleHomeScreen
+    from phasmid.tui.screens.standby import StandbyScreen
+
+    screens = [
+        ("SimpleHome", SimpleHomeScreen),
+        ("Home", HomeScreen),
+        ("Create", CreateVesselScreen),
+        ("Faces", FaceManagerScreen),
+        ("Audit", AuditScreen),
+        ("Doctor", DoctorScreen),
+        ("Settings", SettingsScreen),
+        ("Inspect", InspectVesselScreen),
+        ("Open", OpenVesselScreen),
+        ("Luks", LuksScreen),
+        ("Guided", GuidedScreen),
+        ("About", AboutScreen),
+        ("Standby", StandbyScreen),
+        ("ContextProfile", ContextProfileSelectorScreen),
+    ]
+    stripped_key_fingerprint = re.compile(r"[Pp]ress\s{2,}|PRESS\s{2,}")
+
+    async def scan() -> list[str]:
+        failures: list[str] = []
+        app = PhasmidApp(initial_screen="home")
+        async with app.run_test(size=(140, 60)) as pilot:
+            await pilot.pause()
+            for name, screen_cls in screens:
+                try:
+                    await app.push_screen(screen_cls())
+                except Exception as exc:  # noqa: BLE001 - want every screen's failure
+                    failures.append(f"{name} failed to mount: {exc!r}")
+                    continue
+                await pilot.pause()
+                widgets = list(app.screen.query(Static)) + list(app.screen.query(Label))
+                for widget in widgets:
+                    try:
+                        text = widget.visual.plain
+                    except Exception:  # noqa: BLE001 - not every widget renders text
+                        continue
+                    for line in text.splitlines():
+                        if stripped_key_fingerprint.search(line):
+                            failures.append(
+                                f"{name} {widget.id!r}: stripped key name in {line!r}"
+                            )
+                await app.pop_screen()
+                await pilot.pause()
+        return failures
+
+    failures = asyncio.run(scan())
+    assert not failures, "\n".join(failures)
