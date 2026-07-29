@@ -312,7 +312,22 @@ class WebServerBoundaryTests(unittest.TestCase):
 
         asyncio.run(run())
 
-    def test_video_feed_stream_cleanup_runs_on_disconnect(self):
+    def test_video_feed_does_not_force_release_the_shared_camera_on_disconnect(self):
+        """A browser tab closing /video_feed must not evict another reader.
+
+        The TUI's own object-cue matcher is typically another concurrent
+        caller of ``generate_frames()`` on the same shared camera. This
+        handler used to force-release the camera itself whenever *its own*
+        stream ended, tearing down the hardware out from under that other
+        reader: its next camera read then silently produced no frame, match
+        state stopped updating, and it stayed frozen at whatever it last was
+        - closing this browser tab could leave Recover accepting any object,
+        or refusing every object, until the whole console was restarted.
+        Camera lifecycle is entirely generate_frames()'s own responsibility
+        now (AIGate._finish_camera_consumer), so this handler must not touch
+        release_camera at all.
+        """
+
         async def run():
             with (
                 mock.patch.object(
@@ -331,11 +346,8 @@ class WebServerBoundaryTests(unittest.TestCase):
                 first = await iterator.__anext__()
                 self.assertTrue(first.startswith(b"--frame"))
                 await iterator.aclose()
-                for _ in range(20):
-                    if release_camera.call_count >= 1:
-                        break
-                    await asyncio.sleep(0.01)
-                release_camera.assert_called_once()
+                await asyncio.sleep(0.05)
+                release_camera.assert_not_called()
 
         asyncio.run(run())
 

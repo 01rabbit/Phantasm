@@ -739,17 +739,19 @@ async def emergency_page(request: Request):
 
 @app.get("/video_feed", dependencies=[Depends(require_ui_unlock)])
 async def video_feed():
-    def stream():
-        try:
-            yield from access_cue_service.generate_frames()
-        finally:
-            try:
-                access_cue_service.release_camera()
-            except Exception as exc:
-                LOG.error("Camera cleanup after stream disconnect failed: %s", exc)
-
+    # generate_frames() releases the camera itself once every caller of it
+    # has exited - including this one, when the browser disconnects. It must
+    # not be released again here: the TUI's own background object-cue
+    # matcher is typically another concurrent caller of the same
+    # generate_frames(), reading the same shared camera, and an unconditional
+    # release on every WebUI disconnect used to tear down the camera out from
+    # under it. The matcher's next read then silently produced no frame, so
+    # it stopped updating its match state and stayed frozen at whatever it
+    # last was - a viewer closing this tab could leave Recover accepting
+    # anything, or refusing everything, until the whole console was
+    # restarted. See AIGate.generate_frames() / _finish_camera_consumer().
     return StreamingResponse(
-        stream(),
+        access_cue_service.generate_frames(),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
 

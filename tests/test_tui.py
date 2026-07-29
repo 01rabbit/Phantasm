@@ -663,6 +663,43 @@ def test_ai_gate_generate_frames_yields_mjpeg_when_frame_exists(tmp_path):
     assert len(chunk) > 64
 
 
+def test_ai_gate_shared_camera_survives_one_of_two_consumers_closing(tmp_path):
+    """The camera is only released once every generate_frames() caller is gone.
+
+    The TUI's background matcher thread and a WebUI /video_feed request both
+    call generate_frames() concurrently on the one shared camera. A browser
+    tab disconnecting must not tear the camera down from under the matcher
+    thread that is still reading it - that used to freeze the matcher's
+    match state at whatever it last was, letting Recover keep succeeding (or
+    failing) regardless of what was actually in front of the camera.
+    """
+    import numpy as np
+
+    from phasmid.ai_gate import AIGate
+
+    gate = AIGate(reference_dir=str(tmp_path))
+    frame = np.zeros((gate.FRAME_SIZE[1], gate.FRAME_SIZE[0], 3), dtype=np.uint8)
+    gate.camera.read = lambda: (True, frame)  # type: ignore[assignment]
+    close_calls = {"n": 0}
+    gate.camera.close = lambda: close_calls.__setitem__(  # type: ignore[assignment]
+        "n", close_calls["n"] + 1
+    )
+
+    consumer_a = gate.generate_frames()
+    consumer_b = gate.generate_frames()
+    next(consumer_a)
+    next(consumer_b)
+    assert gate._camera_consumers == 2
+
+    consumer_a.close()
+    assert gate._camera_consumers == 1
+    assert close_calls["n"] == 0
+
+    consumer_b.close()
+    assert gate._camera_consumers == 0
+    assert close_calls["n"] == 1
+
+
 def test_ai_gate_stream_frame_is_horizontally_flipped(tmp_path):
     import numpy as np
 
