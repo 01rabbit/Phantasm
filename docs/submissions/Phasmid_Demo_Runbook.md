@@ -4,7 +4,7 @@
 **画面:** 実TUI（Local Disclosure Control）が本編。ローカルWebUI は Step 5 のローカル境界の提示にのみ使う（Store/Retrieve は本編と同じ Vessel を操作するが、この統合経路は壇上ではまだ実機で通しておらず、判定が物体キュー照合に依存しCIでは検証できないため本編には含めない）。
 
 > **情報の確度について**
-> - **本書は 0.3.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果に基づく。** 〔要確認〕は原則として解消済み。実機で確認していない項目のみ §9 末尾に明示する。
+> - **本書は 0.4.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果に基づく。** 〔要確認〕は原則として解消済み。実機で確認していない項目のみ §9 末尾に明示する。
 > - **前版からの重要な変更:** Step 2 の画面が違っていた（Faces ではなく Open Vessel の `Add File`）。Step 4 の参照先が違っていた（Operator Log ではなく Audit）。Step 3b（物体なしでの失敗）を新設した。Fill Free Space は**実測4分のため壇上から外した**。**囮ファイルは運用者が用意する**ものとし、生成機能は空き領域の填充に位置づけ直した。
 > - **WebUI の Store/Retrieve は Vessel 経路に統一済み。** かつては TUI が `*.vessel`、WebUI が別の `vault.bin` を操作しており話が繋がらなかったが、現在は両者とも `resolve_web_vessel()` が解決した同じ Vessel を `VesselWorkflowService` 経由で操作する（Vessel 未登録時のみ旧 `vault.bin` にフォールバック）。Doctor の Dummy Profile 助言は、既定パスの存在有無ではなく `PHASMID_DUMMY_PROFILE_DIR` / `PHASMID_DUMMY_CONTAINER_PATH` が設定されているかどうかで判定するよう変更し、未設定端末での永久警告を解消した（#157）。運用者が自分の素材を指させれば分量を報告する。
 > - **注意:** 0.1.4 までは起動直後が Expert 相当の単層画面だった。それ以前の手順書のキー順は**そのままでは通らない**。
@@ -350,7 +350,7 @@ CLI の Vessel 既定名と同一であるため、パス存在で判定する�
 
 ## 9. 実機で確認済みの挙動 / Verified on device
 
-以下は 0.3.0 実機で実際に確認した。設計からの推測ではない。
+以下は 0.4.0 実機で実際に確認した。設計からの推測ではない。
 
 **画面構成**
 

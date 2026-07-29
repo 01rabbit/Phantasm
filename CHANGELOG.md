@@ -7,8 +7,80 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-29
+
+> Adds role-scoped WebUI access: a **store** token reaches Face setup and
+> registration, a **recover** token reaches only decrypt/destroy, with no Face
+> selector or restricted-passphrase field anywhere in its surface. The legacy
+> shared `PHASMID_WEB_TOKEN` still grants the store role until a role token is
+> issued for either role, after which `/unlock` stops accepting it — pin
+> `PHASMID_STORE_TOKEN`/`PHASMID_RECOVER_TOKEN` instead if a script or demo
+> depends on a known value.
+>
+> This is a MINOR bump: the additions are backward compatible, no `vault.bin`
+> format changed, and no claim in `docs/CLAIMS.md` was removed, per
+> [docs/VERSIONING.md](docs/VERSIONING.md).
+
+### Security
+
+- `/unlock` refuses the legacy shared `PHASMID_WEB_TOKEN` the moment any role
+  token has been issued for either role. `WEB_TOKEN` is embedded as the CSRF
+  mutation guard in every unlocked page's HTML, recover-role sessions
+  included; without this, reading a recover-role session's page source handed
+  over what was needed to mint an independent, fresh store-role session
+  through `/unlock`, defeating the reason the narrower role exists. A device
+  that has not adopted role tokens yet is unaffected.
+- A role mismatch on a gated WebUI route now returns a plain 404, verified
+  byte-identical (status and body) to FastAPI's default response for an
+  unregistered route, rather than a distinguishable 303 redirect or 403. The
+  previous behavior let a recover-role session, or anyone probing the URL bar
+  without ever holding a credential, confirm that a higher-privileged tier
+  exists even though they could never reach it.
+- The Open Vessel screen showed a Face selector and a labeled restricted
+  recovery passphrase field for every operation, including Recover File — the
+  operation an operator under duress would actually run. An onlooker who
+  never learns any passphrase content still learned, from the form alone,
+  that the Vessel has two alternate faces and two categories of credential.
+  Recover File and List Files no longer show the Face selector, the input
+  file field, or the restricted passphrase field; which face answers is
+  resolved from the passphrase and object cue rather than picked from a menu.
+  The WebUI's `/store` page and `/maintenance` surface carried the identical
+  exposure, closed by the role-token system below.
+
 ### Added
 
+- **Role-scoped WebUI access tokens.** A new `AccessTokenService` issues two
+  tokens — **store** (Face setup, registration, and everything the recover
+  role reaches) and **recover** (decrypt/destroy only) — persisting only a
+  salted, encrypted-at-rest hash of each. Issuing or reissuing a token
+  requires a live USB gadget interface, so granting either role happens with
+  the operator's hands physically on the device over USB. A new TUI screen
+  (`t`, Access Tokens) issues and revokes each role, showing a freshly issued
+  token exactly once. `/unlock` now tags each WebUI session with a role, and
+  the home page's Store card, Guided Mode link, and Advanced tools panel are
+  hidden entirely for a recover-role session rather than left as dead links.
+- `PHASMID_STORE_TOKEN` / `PHASMID_RECOVER_TOKEN` environment overrides pin
+  the two role tokens to fixed values, mirroring the existing
+  `PHASMID_WEB_TOKEN` pattern, so a demo or scripted run does not depend on a
+  value the TUI shows once and that would otherwise have to be copied down by
+  hand before going on stage.
+- **Delete Vessel** (`del`, TUI Expert Home). Permanently scrambles and
+  removes a Vessel file an operator is finished with, actually freeing the
+  disk space — distinct from the existing duress `destroy-vessel` path, which
+  deliberately keeps the container at its original size and path so an
+  operator under coercion still has something to point to. A finished
+  Vessel has no cover story left to preserve, so this requires no face
+  credentials or emergency password, only the `DELETE VESSEL` confirmation.
+- The WebUI Store page (`/store`) shows an explicit "Choose the entry" step,
+  letting an operator deliberately set up Entry 1 and Entry 2 in turn rather
+  than depending on whichever entry the camera happens to match or the dict
+  iteration order of the first unbound one — the visible control the TUI's
+  Add File screen already had.
+- `scripts/pi_zero2w/run_demo_console.sh`: launches the operator console with
+  the environment the live demo depends on — silenced libcamera logs so they
+  do not overwrite the TUI, gadget exposure opt-in, pinned demo role tokens,
+  deterministic recognition mode, and disabled terminal flow control so
+  `Ctrl+S` (Silent Standby) is not swallowed as XOFF.
 - `scripts/pi_zero2w/run_demo_smoke_test.sh`: pre-demo smoke test for the target
   device. Asserts bind-host resolution, WebUI startup, access-token publication
   and permissions, the `/unlock` page-session flow, the Silent Standby
@@ -17,6 +89,133 @@ and this project follows SemVer-style release intent for documented interfaces.
   the real state directory are untouched. Exits non-zero on any failed check.
 
 ### Fixed
+
+- Creating a Vessel at the console's default size could kill the process with
+  an out-of-memory error on a Raspberry Pi Zero 2 W: `format_container`,
+  `silent_brick`, `purge_mode`, and `randomize_slot` all filled their span
+  with a single `os.urandom()` call, which allocates the whole request at
+  once. All four now write in 1 MiB chunks. This matters most for
+  `silent_brick`, the duress-destroy operation the design leans on — an
+  operator whose container did not fit in RAM was exactly the operator whose
+  destroy would have been killed mid-run.
+- Closing a WebUI camera-view browser tab could silently freeze the TUI's own
+  object-cue matching until the whole console was restarted. `generate_frames()`
+  is called by two independent, concurrent consumers on the one shared camera
+  — the TUI's always-on background matcher and a fresh call per WebUI
+  `/video_feed` request — and its `finally` clause released the camera
+  whenever *either* caller's generator exited. Active callers are now
+  reference-counted so the hardware is only released once the last one exits.
+- A successful WebUI Retrieve stops the shared camera to save power and heat;
+  nothing but the TUI's Open Vessel action ever restarted it. A Store/Retrieve
+  session driven entirely from the WebUI — the flow the role-token system
+  above is built around — left the camera preview permanently blank after the
+  first successful retrieval, with the match badge frozen on its last value.
+  `/store`, `/retrieve`, and `/video_feed` now restart the camera (a no-op if
+  already running) before serving.
+- Creating a new Vessel did not reset the physical-object cue store, a
+  device-wide singleton rather than something scoped to any one Vessel file.
+  A cue left over from a deleted or unrelated Vessel made the very first
+  Store attempt on a brand new Vessel look already bound to an object that
+  had nothing to do with it, forcing an operator through the Replace
+  confirmation flow to register Face 1/Face 2 on a Vessel just created.
+  `create_vessel()` now clears the cue store as part of initializing a new
+  Vessel.
+- The Simple Operator home screen carried only the shared top banner for an
+  exposed WebUI. Expert's dedicated in-body warning panel makes the exposure
+  much harder to miss; going unnoticed on the Simple screen was observed live
+  when the WebUI was started while Expert was the active screen. Simple now
+  carries the same dedicated warning panel, wired the same way.
+- The Simple Operator home screen's title was a bare static "PHASMID" string;
+  it now uses the same responsive banner Expert does, so terminal-width
+  behavior and appearance match between the two screens.
+- The WebUI and the TUI console operated on different storage: `web_server.py`
+  held its own module-level `PhasmidVault("vault.bin")` and stored/retrieved
+  straight through it, so a file saved from a browser never appeared in any
+  Vessel, in Audit, or in Vessel Status. The WebUI now stores and retrieves
+  through the same `VesselWorkflowService` the console uses, resolving its
+  target Vessel via `PHASMID_WEB_VESSEL`, then the most recently opened
+  Vessel in the console's registry, then the legacy container.
+- Standby could display the WebUI's access token in plain text: Textual
+  notifications render on the app's overlay and survive a screen push, so
+  exposing the WebUI and then triggering Silent Standby left a 30-second
+  toast carrying the URL and token sitting on the one screen meant to show
+  nothing sensitive. Standby now clears pending notifications, and no longer
+  advertises `w` (expose WebUI) in its footer, since acting on it there would
+  re-expose the surface Standby just concealed.
+- Silent Standby concealed the local screen but never touched the WebUI
+  server: it kept serving on the USB gadget address throughout standby,
+  reachable from a tethered laptop while the device screen showed an
+  innocuous page. Standby now retracts the WebUI and reports it on recovery;
+  it is not restarted automatically, since re-exposing the interface should
+  be an explicit operator decision.
+- Rich markup silently stripped bracketed key names (`[w]`, `[e]`, `[n]`,
+  `[g]`, `[d]`) out of several user-facing strings, including the only
+  on-screen instruction for retracting an exposed WebUI. Key names are now
+  escaped (`\[x]`) wherever they name a literal key rather than markup.
+- Silent Standby and the context-profile screen crashed on push: both
+  declared `border: solid $text-muted`, an auto-contrast token Textual
+  accepts for `color` but rejects for `border`. Triggering Silent Standby
+  (`Ctrl+S`) crashed the app instead of concealing the sensitive UI — the
+  opposite of what the feature exists for.
+- Plausibility (Free Space Filler) generation ran inline on the UI thread and
+  measured at roughly four minutes for a 64 MiB Vessel — four minutes of a
+  completely unresponsive console with no feedback, indistinguishable from a
+  crash. It now runs on a worker thread with elapsed time shown and the
+  plausibility buttons disabled while it works.
+- The Expert footer silently dropped `w`/`q`/`?` (and, at narrower widths,
+  further bindings) below its safe minimum column count, with no visual
+  indication the row was incomplete — footer cells sit at fixed offsets
+  rather than compressing to fit. Hiding the LUKS binding while the LUKS
+  layer is disabled by default, and gating it correctly the two times this
+  cycle a new binding (Access Tokens, Delete Vessel) raised the threshold
+  again, keeps the documented minimum in `docs/submissions/Phasmid_Demo_Runbook.md`
+  (now 145 columns) matched to what the running application actually needs.
+- The Doctor advisory's "not configured" gate tested whether the default
+  container/profile paths exist, or resolved an unset variable to an empty
+  string (`Path("")` is the working directory, which always exists). Any
+  device that had ever stored to the unnamed default container failed the
+  gate and got the full warning storm it exists to avoid; an empty override
+  silently measured the console's own working directory. It now reads the
+  environment variables that express operator intent instead of the
+  filesystem.
+- The Face Manager panel, retitled "Free Space Filler", still displayed a
+  plausibility verdict (`Level: HIGH  Score: 87`) underneath — a judgement on
+  how convincing the disclosure material is, the one thing the note directly
+  below it disclaims and the tool cannot assess. It reports volume only now.
+- Empty-state copy on the Simple Operator home screen never cleared once a
+  Vessel existed: `_refresh_table` only ever assigned the "No protected
+  storage found" text and never restored the default, so it kept
+  contradicting the vessel table listed directly above it.
+- `scripts/pi_zero2w/run_webui_probe.sh` treated an `/unlock` redirect as a
+  successful response, timing an empty 303 instead of failing with an
+  explanation.
+- `scripts/bootstrap_pi.sh` aborted before creating the virtualenv on
+  Raspberry Pi OS Trixie: the apt package list named `libatlas-base-dev`,
+  which Debian 13 dropped, and `set -e` turned one missing candidate into a
+  total failure. The list now names `libopenblas-dev`; packages with no
+  installation candidate are reported and skipped instead of ending the run.
+- `scripts/validate_pi_environment.sh` recorded Stage A as failed under
+  Python 3.13 because `import importlib` does not bind `importlib.util` as an
+  attribute; it now imports `importlib.util` directly.
+- `.gitignore` did not cover `_pi_field_test/`, so running the remote
+  performance or demo smoke test scripts left the working tree dirty for
+  good.
+
+### Changed
+
+- The demo launch script and runbook pin `PHASMID_STORE_TOKEN` /
+  `PHASMID_RECOVER_TOKEN` rather than the legacy `PHASMID_WEB_TOKEN`, since
+  `/unlock` stops accepting the legacy token the moment any role token
+  exists; the pre-staged browser tab for the runbook's show-only step now
+  unlocks with the Recover token, the role with nothing to disclose.
+- The DEF CON Demo Labs materials (runbook, talk script, deck) are revised to
+  v4 to match the settled product model: the operator supplies both the
+  material they would disclose and the material they would withhold, and the
+  restricted credential destroys under coercion rather than fabricating a
+  false disclosure. The demo walkthrough now includes recovering with the
+  object absent, refused after ten seconds — without that contrast, a
+  successful recovery alone does not demonstrate that the object cue gates
+  anything.
 
 - Expert controls are no longer a one-way trip. `escape` returns to the Simple
   Operator screen, matching every other pushed screen in the TUI; previously the

@@ -7,9 +7,10 @@ and the current release line. Fixes are not backported to earlier lines.
 
 | Version | Supported | Notes |
 | --- | --- | --- |
-| `0.3.x` | Yes | Current release line |
-| `0.2.0` | No | Affected by [GHSA-2gm6-2phc-wv26](https://github.com/01rabbit/Phasmid/security/advisories/GHSA-2gm6-2phc-wv26) — upgrade to 0.3.0 |
-| `0.1.4` | No | Affected by [GHSA-2gm6-2phc-wv26](https://github.com/01rabbit/Phasmid/security/advisories/GHSA-2gm6-2phc-wv26) — upgrade to 0.3.0 |
+| `0.4.x` | Yes | Current release line |
+| `0.3.x` | No | Superseded by 0.4.0 |
+| `0.2.0` | No | Affected by [GHSA-2gm6-2phc-wv26](https://github.com/01rabbit/Phasmid/security/advisories/GHSA-2gm6-2phc-wv26) — upgrade to 0.4.0 |
+| `0.1.4` | No | Affected by [GHSA-2gm6-2phc-wv26](https://github.com/01rabbit/Phasmid/security/advisories/GHSA-2gm6-2phc-wv26) — upgrade to 0.4.0 |
 | `< 0.1.4` | No | Unsupported prototype snapshots |
 
 0.1.5 was version-bumped but never tagged or published; its changes shipped in
