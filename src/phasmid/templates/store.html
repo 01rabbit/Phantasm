@@ -35,6 +35,17 @@
             <section class="step-card">
                 <div class="step-head">
                     <span class="step-number">1</span>
+                    <div><h3>Choose the entry</h3><p class="step-help">Pick which protected space this goes into. Setting up both takes two passes, one entry at a time.</p></div>
+                </div>
+                <label class="field">
+                    <span>Entry</span>
+                    <select name="entry_hint" id="entryHint">{% for entry in entries %}<option value="{{ entry.id }}">{{ entry.label }}</option>{% endfor %}</select>
+                </label>
+            </section>
+
+            <section class="step-card">
+                <div class="step-head">
+                    <span class="step-number">2</span>
                     <div><h3>Choose the file</h3><p class="step-help">Select the one file you want Phasmid to protect.</p></div>
                 </div>
                 <label class="field">
@@ -45,7 +56,7 @@
 
             <section class="step-card">
                 <div class="step-head">
-                    <span class="step-number">2</span>
+                    <span class="step-number">3</span>
                     <div><h3>Create the access password</h3><p class="step-help">You will need this password together with the physical access object.</p></div>
                 </div>
                 {{ ui.password_field("password", "Access password", "Required") }}
@@ -53,7 +64,7 @@
 
             <section class="step-card camera-step">
                 <div class="step-head">
-                    <span class="step-number">3</span>
+                    <span class="step-number">4</span>
                     <div><h3>Set the physical access object</h3><p class="step-help">Place the object clearly in view, then capture it. Use an object you can reliably present again.</p></div>
                 </div>
                 {{ ui.camera_preview() }}
@@ -103,7 +114,6 @@
                 </div>
             </details>
 
-            <input type="hidden" name="entry_hint" id="entryHint">
             <input type="hidden" name="overwrite" id="overwriteFlag" value="false">
             <input type="hidden" name="overwrite_confirmation" id="overwriteConfirmation">
         </form>
@@ -146,6 +156,13 @@
 
     protectFile.addEventListener('change', updateReadiness);
     passwordInput.addEventListener('input', updateReadiness);
+    document.getElementById('entryHint').addEventListener('change', () => {
+        // Switching entries mid-setup must not carry over a capture done for
+        // the previous one - each entry needs its own object presented and
+        // captured before it can be protected.
+        accessObjectCaptured = false;
+        updateReadiness();
+    });
 
     function activateSaveButton() {
         accessObjectCaptured = true;
