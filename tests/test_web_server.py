@@ -1528,18 +1528,37 @@ class AccessTokenRoleGateTests(unittest.TestCase):
 
         self.assertEqual(response["status"], 200)
 
-    def test_recover_token_is_redirected_away_from_the_store_page(self):
+    def test_recover_token_gets_a_generic_404_on_store_pages(self):
+        """A role mismatch must not read differently from no such route.
+
+        A distinct redirect or error status here would tell a recover-role
+        session - or anyone probing the URL bar without ever holding a
+        credential at all - that a higher-privileged page exists, even
+        though it can never be reached. `/maintenance/entries` shares the
+        same `_guard_store_page` call as `/store` and `/maintenance`.
+        """
         from phasmid.services.access_token_service import ROLE_RECOVER
 
         token = self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
         cookies = self._unlock_with(token)
 
-        response = _asgi_request("GET", "/store", cookies=cookies)
+        for path in ("/store", "/maintenance", "/maintenance/entries"):
+            response = _asgi_request("GET", path, cookies=cookies)
+            self.assertEqual(response["status"], 404, path)
 
-        self.assertEqual(response["status"], 303)
-        self.assertEqual(response["location"], "/")
+    def test_role_mismatch_404_is_byte_identical_to_a_genuinely_unknown_route(self):
+        from phasmid.services.access_token_service import ROLE_RECOVER
 
-    def test_recover_token_is_rejected_with_403_on_the_store_mutation_route(self):
+        token = self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
+        cookies = self._unlock_with(token)
+
+        mismatch = _asgi_request("GET", "/store", cookies=cookies)
+        unknown = _asgi_request("GET", "/this-route-does-not-exist", cookies=cookies)
+
+        self.assertEqual(mismatch["status"], unknown["status"])
+        self.assertEqual(mismatch["text"], unknown["text"])
+
+    def test_recover_token_gets_a_generic_404_on_the_store_mutation_route(self):
         from phasmid.services.access_token_service import ROLE_RECOVER
 
         token = self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
@@ -1552,7 +1571,7 @@ class AccessTokenRoleGateTests(unittest.TestCase):
             headers={"X-Phasmid-Token": web_server.WEB_TOKEN},
         )
 
-        self.assertEqual(response["status"], 403)
+        self.assertEqual(response["status"], 404)
 
     def test_recover_token_still_reaches_the_retrieve_page(self):
         from phasmid.services.access_token_service import ROLE_RECOVER
@@ -1647,7 +1666,7 @@ class AccessTokenRoleGateTests(unittest.TestCase):
             headers={"X-Phasmid-Token": web_server.WEB_TOKEN},
         )
 
-        self.assertEqual(response["status"], 403)
+        self.assertEqual(response["status"], 404)
 
 
 class LoopbackExemptionTests(unittest.TestCase):

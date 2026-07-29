@@ -200,7 +200,12 @@ after unlocking:
   the destroy routes under `/emergency`. It has no Face selector anywhere,
   and no field named as a restricted or destroy passphrase; which face
   answers is resolved from the passphrase and the object cue, the same way
-  `retrieve_file(selector=None)` resolves it at the service layer.
+  `retrieve_file(selector=None)` resolves it at the service layer. A
+  store-only route reached by a recover-role session returns a 404
+  byte-identical to a route that does not exist, rather than a redirect or a
+  distinct error - the same "wrong credential looks like no such route"
+  pattern `web_panic_trigger` already uses, so guessing at the URL bar
+  cannot confirm that a higher-privileged tier exists.
 
 **The legacy shared `WEB_TOKEN` still grants the store role, but only until a
 role token has been issued.** `WEB_TOKEN` is embedded as the CSRF mutation

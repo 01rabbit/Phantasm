@@ -356,8 +356,13 @@ def _ui_session_role(request) -> str:
 
 
 def require_store_role(request: Request):
+    # 404, not 403: a distinct status or message here would tell a
+    # recover-role session (or anyone probing the URL bar) that a
+    # higher-privileged tier exists at this route, even though they can never
+    # reach it. `web_panic_trigger` already uses this same "wrong credential
+    # looks identical to no such route" pattern for the same reason.
     if _ui_session_role(request) != ROLE_STORE:
-        raise HTTPException(status_code=403, detail=text.STORE_ROLE_REQUIRED)
+        raise HTTPException(status_code=404)
 
 
 def _create_restricted_session(client_id):
@@ -439,15 +444,16 @@ def _guard_store_page(request):
     """Like :func:`_guard_page`, but also confined to a store-role session.
 
     A recover-token session is unlocked - it just never reaches this page.
-    Redirecting to `/` rather than `/unlock` reflects that: there is nothing
-    wrong with its credentials, this page simply is not part of what a
-    recover-only session is for.
+    A redirect or a distinct error here would still tell it (or anyone
+    guessing at the URL bar) that a page exists that it cannot open, so a
+    role mismatch raises the same 404 `require_store_role` raises for the
+    API routes rather than returning anything route-shaped.
     """
     guard = _guard_page(request)
     if guard:
         return guard
     if _ui_session_role(request) != ROLE_STORE:
-        return RedirectResponse(url="/", status_code=303)
+        raise HTTPException(status_code=404)
     return None
 
 
