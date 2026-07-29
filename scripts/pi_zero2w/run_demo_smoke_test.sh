@@ -263,9 +263,11 @@ cat <<'MANUAL'
      unlock, so testing on the device alone does not prove this path.
 
   3. Access token handling on stage
-     Pressing `w` prints the token into the TUI notification for 30 seconds.
-     Either pin PHASMID_WEB_TOKEN to a demo value beforehand, or switch the
-     projector to the laptop before pressing `w`.
+     Pressing `w` prints the legacy shared WEB_TOKEN into the TUI notification
+     for 30 seconds. It no longer unlocks anything once PHASMID_STORE_TOKEN /
+     PHASMID_RECOVER_TOKEN are pinned (see run_demo_console.sh), but it is
+     still a credential-shaped string - switch the projector to the laptop
+     before pressing `w`, or wait out the 30 seconds off-camera.
 
   4. Silent Standby on the real screen
      Press the standby hotkey and confirm the sensitive surface actually

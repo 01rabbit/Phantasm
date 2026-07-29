@@ -19,11 +19,16 @@
 #       reach it at all. Opting in binds the USB gadget address (never all
 #       interfaces), which is what makes the browser view projectable.
 #
-#   PHASMID_WEB_TOKEN
-#       Off-device access requires a token at /unlock. Without a fixed value
-#       one is generated per start, meaning a long random string has to be
-#       typed by hand on stage. Pin it so the browser tab can be staged in
-#       advance.
+#   PHASMID_STORE_TOKEN / PHASMID_RECOVER_TOKEN
+#       /unlock now takes a role token - store (Face selection, registration)
+#       or recover (decrypt/destroy only) - instead of one shared secret.
+#       Pin both so neither has to be issued from the TUI's Access Tokens
+#       screen and copied down by hand before going on stage; a value shown
+#       once there is exactly the wrong shape for something staged in
+#       advance. Deliberately not PHASMID_WEB_TOKEN: once any role token
+#       exists, /unlock stops accepting the legacy shared token at all (see
+#       docs/THREAT_MODEL.md, "WebUI Access Roles"), so pinning both here
+#       instead is what actually lets the browser tab be staged in advance.
 #
 #   PHASMID_RECOGNITION_MODE
 #       There is no UI for this; it is environment-only. `demo` keeps object
@@ -49,7 +54,8 @@ fi
 
 export LIBCAMERA_LOG_LEVELS="${LIBCAMERA_LOG_LEVELS:-*:ERROR}"
 export PHASMID_WEBUI_EXPOSE_GADGET="${PHASMID_WEBUI_EXPOSE_GADGET:-1}"
-export PHASMID_WEB_TOKEN="${PHASMID_WEB_TOKEN:-phasmid-demo-token}"
+export PHASMID_STORE_TOKEN="${PHASMID_STORE_TOKEN:-phasmid-demo-store-token}"
+export PHASMID_RECOVER_TOKEN="${PHASMID_RECOVER_TOKEN:-phasmid-demo-recover-token}"
 export PHASMID_RECOGNITION_MODE="${PHASMID_RECOGNITION_MODE:-demo}"
 
 # Ctrl+S is the Silent Standby hotkey. It is also the terminal's traditional
@@ -63,7 +69,8 @@ fi
 echo "Phasmid demo console"
 echo "  recognition mode : $PHASMID_RECOGNITION_MODE"
 echo "  webui gadget     : $PHASMID_WEBUI_EXPOSE_GADGET (press w to expose)"
-echo "  webui token      : $PHASMID_WEB_TOKEN"
+echo "  store token      : $PHASMID_STORE_TOKEN"
+echo "  recover token    : $PHASMID_RECOVER_TOKEN"
 echo "  libcamera logs   : $LIBCAMERA_LOG_LEVELS"
 echo
 echo "Operate by keyboard. Mouse clicks do not reach the app over SSH:"
