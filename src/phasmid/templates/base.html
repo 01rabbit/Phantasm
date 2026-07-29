@@ -426,14 +426,24 @@
         /* ── Camera ───────────────────────────────────────────── */
         .camera-frame {
             position: relative;
+            /* aspect-ratio lives on the frame, not the <img>: a replaced
+               element's intrinsic ratio (the stream's actual dimensions)
+               wins over aspect-ratio on the element itself, so setting it
+               on .camera-feed was a no-op and the frame rendered at
+               whatever ratio the MJPEG stream happened to be. Sizing the
+               frame and stretching the image to fill it makes the 4:3
+               window authoritative regardless of the stream's own ratio. */
+            aspect-ratio: 4 / 3;
             background: var(--camera-bg);
             border-radius: var(--r-md);
             overflow: hidden;
         }
         .camera-feed {
             display: block;
+            position: absolute;
+            inset: 0;
             width: 100%;
-            aspect-ratio: 4 / 3;
+            height: 100%;
             object-fit: contain;
             object-position: center;
         }
