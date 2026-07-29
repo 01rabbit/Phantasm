@@ -122,6 +122,12 @@ class EmergencyDestroyResult:
     scope: str
 
 
+@dataclass(frozen=True)
+class DeleteVesselResult:
+    vessel_path: Path
+    vessel_name: str
+
+
 class VesselWorkflowService:
     def __init__(self) -> None:
         self._vessels = VesselService()
@@ -972,59 +978,104 @@ class VesselWorkflowService:
         self,
         vessel_path: str | Path,
         open_passphrase: str,
-        selector: str = "face_a",
+        selector: str | None = "face_a",
         cue_sequence: list[str] | None = None,
         use_attempt_limiter: bool = False,
         object_image_path: str | None = None,
         camera_object: bool = False,
         no_object_binding: bool = False,
     ) -> FaceFileListResult:
+        """List a face's stored files.
+
+        ``selector=None`` mirrors :meth:`retrieve_file`: try every face whose
+        credentials are initialized and let the passphrase (plus the object
+        cue) decide which one answers, instead of requiring the caller to
+        already know which face they mean. An operator asked to "show what's
+        on this drive" under duress must not have to name a face out loud, or
+        pick one from a menu, for the answer to come back - either of those
+        already discloses that more than one face exists.
+        """
         vessel = Path(vessel_path).expanduser().resolve()
-        if not self._credentials_initialized(vessel, self.resolve_face_id(selector)):
+        if selector is not None and not self._credentials_initialized(
+            vessel, self.resolve_face_id(selector)
+        ):
             raise ValueError("credentials not initialized")
         if use_attempt_limiter:
             limiter = FileAttemptLimiter()
             decision = limiter.check("cli-retrieve")
             if not decision.allowed:
                 raise PermissionError("Access temporarily unavailable")
-        stored_binding = self._get_face_binding_record(
-            vessel, self.resolve_face_id(selector)
-        )
-        if (
-            object_image_path
-            or camera_object
-            or no_object_binding
-            or self._binding_registered(stored_binding)
-        ):
-            cue_sequence = self._ensure_object_binding(
-                vessel,
-                selector,
-                object_image_path=object_image_path,
-                camera_object=camera_object
-                or (
-                    not object_image_path
-                    and not no_object_binding
-                    and self._binding_registered(stored_binding)
-                ),
-                no_object_binding=no_object_binding,
-            )
-        elif cue_sequence is None:
-            cue_sequence = self.collect_auth_sequence()
-        cue_sequence = cast(list[str], cue_sequence)
-        namespace, _filename = self._read_face_namespace(
-            vessel, open_passphrase, selector, cue_sequence
-        )
+
+        candidate_selectors = [selector] if selector else ["face_a", "face_b"]
+        namespace = None
+        accessed_selector = None
+        for candidate in candidate_selectors:
+            if not self._credentials_initialized(
+                vessel, self.resolve_face_id(str(candidate))
+            ):
+                continue
+            try:
+                active_cue_sequence = cue_sequence
+                stored_binding = self._get_face_binding_record(
+                    vessel, self.resolve_face_id(str(candidate))
+                )
+                if (
+                    object_image_path
+                    or camera_object
+                    or no_object_binding
+                    or self._binding_registered(stored_binding)
+                ):
+                    active_cue_sequence = self._ensure_object_binding(
+                        vessel,
+                        str(candidate),
+                        object_image_path=object_image_path,
+                        camera_object=camera_object
+                        or (
+                            not object_image_path
+                            and not no_object_binding
+                            and self._binding_registered(stored_binding)
+                        ),
+                        no_object_binding=no_object_binding,
+                    )
+                elif active_cue_sequence is None:
+                    active_cue_sequence = self.collect_auth_sequence()
+                if (
+                    not active_cue_sequence
+                    or active_cue_sequence[0] == self._access_cue.match_none()
+                ):
+                    raise ValueError("no bound object matched")
+                namespace, _filename = self._read_face_namespace(
+                    vessel,
+                    open_passphrase,
+                    str(candidate),
+                    cast(list[str], active_cue_sequence),
+                )
+                accessed_selector = str(candidate)
+                break
+            except ValueError:
+                if (
+                    selector is not None
+                    or object_image_path
+                    or camera_object
+                    or no_object_binding
+                ):
+                    raise
+                continue
+
+        if namespace is None or accessed_selector is None:
+            raise ValueError("password mismatch")
+
         files = self._namespace_file_records(namespace)
         self._vessels.touch_face(
             vessel,
-            self.resolve_face_id(selector),
+            self.resolve_face_id(accessed_selector),
             occupancy=sum(record.size for record in files),
             file_count=len(files),
         )
         vessel_meta = self._get_meta(vessel)
         return FaceFileListResult(
             vessel=vessel_meta,
-            face=self._get_face(vessel_meta, self.resolve_face_id(selector)),
+            face=self._get_face(vessel_meta, self.resolve_face_id(accessed_selector)),
             files=files,
         )
 
@@ -1308,6 +1359,37 @@ class VesselWorkflowService:
             face_id=face_id,
             scope="vessel",
         )
+
+    def delete_vessel(
+        self,
+        vessel_path: str | Path,
+        confirmation: str = "",
+    ) -> DeleteVesselResult:
+        """Permanently remove a Vessel an operator is finished with.
+
+        This is ordinary end-of-life cleanup, not the duress destroy path
+        above: it requires no face credentials or emergency password, because
+        there is no coercion scenario to authenticate against here - the
+        operator at the TUI console is simply done with this Vessel. It also
+        differs from ``destroy_vessel`` in what it does to the file itself:
+        ``silent_brick`` deliberately keeps the container in place, at its
+        original size, so an operator under duress still has something to
+        point to. A finished Vessel has no cover story left to preserve, so
+        this scrambles the data the same way and then removes the file,
+        actually freeing the disk space rather than leaving a same-size
+        husk behind.
+        """
+        if confirmation.strip() != "DELETE VESSEL":
+            raise ValueError("confirmation rejected")
+        vessel = Path(vessel_path).expanduser().resolve()
+        if not vessel.exists():
+            raise FileNotFoundError(f"vessel file not found: {vessel}")
+        vessel_name = vessel.name
+        vault = PhasmidVault(str(vessel), size_mb=vessel.stat().st_size / (1024 * 1024))
+        vault.silent_brick()
+        vessel.unlink()
+        self._vessels.unregister(vessel)
+        return DeleteVesselResult(vessel_path=vessel, vessel_name=vessel_name)
 
     def store_file(
         self,

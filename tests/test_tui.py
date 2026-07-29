@@ -663,6 +663,43 @@ def test_ai_gate_generate_frames_yields_mjpeg_when_frame_exists(tmp_path):
     assert len(chunk) > 64
 
 
+def test_ai_gate_shared_camera_survives_one_of_two_consumers_closing(tmp_path):
+    """The camera is only released once every generate_frames() caller is gone.
+
+    The TUI's background matcher thread and a WebUI /video_feed request both
+    call generate_frames() concurrently on the one shared camera. A browser
+    tab disconnecting must not tear the camera down from under the matcher
+    thread that is still reading it - that used to freeze the matcher's
+    match state at whatever it last was, letting Recover keep succeeding (or
+    failing) regardless of what was actually in front of the camera.
+    """
+    import numpy as np
+
+    from phasmid.ai_gate import AIGate
+
+    gate = AIGate(reference_dir=str(tmp_path))
+    frame = np.zeros((gate.FRAME_SIZE[1], gate.FRAME_SIZE[0], 3), dtype=np.uint8)
+    gate.camera.read = lambda: (True, frame)  # type: ignore[assignment]
+    close_calls = {"n": 0}
+    gate.camera.close = lambda: close_calls.__setitem__(  # type: ignore[assignment]
+        "n", close_calls["n"] + 1
+    )
+
+    consumer_a = gate.generate_frames()
+    consumer_b = gate.generate_frames()
+    next(consumer_a)
+    next(consumer_b)
+    assert gate._camera_consumers == 2
+
+    consumer_a.close()
+    assert gate._camera_consumers == 1
+    assert close_calls["n"] == 0
+
+    consumer_b.close()
+    assert gate._camera_consumers == 0
+    assert close_calls["n"] == 1
+
+
 def test_ai_gate_stream_frame_is_horizontally_flipped(tmp_path):
     import numpy as np
 
@@ -1239,7 +1276,17 @@ def test_create_vessel_screen_uses_shared_workflow(monkeypatch):
     assert notifications
 
 
-def test_open_vessel_screen_marks_vessel_open(monkeypatch):
+def test_open_vessel_screen_recover_does_not_select_a_face(monkeypatch):
+    """Recover File must resolve the face from the passphrase, not a menu.
+
+    An operator asked to unlock the vessel under duress should not have to
+    name which face out loud, or pick one from a screen, before anything is
+    checked - either already tells an onlooker that more than one face
+    exists. Recover File hides the face selector (see
+    _sync_field_visibility) and passes selector=None so the passphrase (and
+    object cue) decide which face answers; bookkeeping for "which face was
+    reached" only happens afterward, from the result.
+    """
     from phasmid.tui.screens.open_vessel import OpenVesselScreen
 
     screen = OpenVesselScreen(vessel_path="travel.vessel")
@@ -1248,6 +1295,9 @@ def test_open_vessel_screen_marks_vessel_open(monkeypatch):
     class FakeWorkflow:
         def open_vessel(self, path, face_id="face_a"):
             events.append(("open", path, face_id))
+
+        def resolve_face_id(self, selector):
+            return {"dummy": "face_a", "secret": "face_b"}[selector]
 
         def retrieve_file(
             self,
@@ -1258,7 +1308,9 @@ def test_open_vessel_screen_marks_vessel_open(monkeypatch):
             use_attempt_limiter=False,
         ):
             events.append(("retrieve", path, passphrase, output_path, selector))
-            return SimpleNamespace(bytes_retrieved=4, output_path=Path("/tmp/out.bin"))
+            return SimpleNamespace(
+                bytes_retrieved=4, output_path=Path("/tmp/out.bin"), mode="secret"
+            )
 
     monkeypatch.setattr(screen, "_workflow", FakeWorkflow())
     monkeypatch.setattr(
@@ -1282,7 +1334,7 @@ def test_open_vessel_screen_marks_vessel_open(monkeypatch):
         "query_one",
         lambda selector, _type=None: {
             "#vessel-path": SimpleNamespace(value="travel.vessel"),
-            "#face-select": SimpleNamespace(value="face_b"),
+            "#face-select": SimpleNamespace(value="face_a"),
             "#operation-select": SimpleNamespace(value="retrieve"),
             "#input-file": SimpleNamespace(value=""),
             "#output-file": SimpleNamespace(value="/tmp/out.bin"),
@@ -1293,9 +1345,191 @@ def test_open_vessel_screen_marks_vessel_open(monkeypatch):
 
     screen._attempt_open()
 
-    assert ("open", "travel.vessel", "face_b") in events
-    assert any(event[0] == "retrieve" for event in events)
+    # No pre-emptive open_vessel with a face the operator never chose - only
+    # the post-hoc bookkeeping call, using the face the passphrase actually
+    # resolved to (mode "secret" -> "face_b"), not the face-select widget's
+    # untouched default ("face_a").
+    assert events.count(("open", "travel.vessel", "face_b")) == 1
+    assert ("open", "travel.vessel", "face_a") not in events
+    assert ("retrieve", "travel.vessel", "passphrase", "/tmp/out.bin", None) in events
     assert ("dismiss",) in events
+
+
+def test_open_vessel_screen_sync_field_visibility_hides_face_for_recover_and_list(
+    monkeypatch,
+):
+    """Add/Remove show the face selector and restricted passphrase; List/Recover don't."""
+    from phasmid.tui.screens.open_vessel import OpenVesselScreen
+
+    screen = OpenVesselScreen(vessel_path="travel.vessel")
+
+    class FakeWidget:
+        def __init__(self, value=None):
+            self.value = value
+            self.display = True
+
+    widgets = {
+        "#operation-select": FakeWidget(value="retrieve"),
+        "#face-select-label": FakeWidget(),
+        "#face-select": FakeWidget(),
+        "#input-file-label": FakeWidget(),
+        "#input-file": FakeWidget(),
+        "#output-file-label": FakeWidget(),
+        "#output-file": FakeWidget(),
+        "#restricted-passphrase-label": FakeWidget(),
+        "#restricted-passphrase": FakeWidget(),
+    }
+    monkeypatch.setattr(
+        screen, "query_one", lambda selector, _type=None: widgets[selector]
+    )
+
+    for operation, face_expected, output_expected in (
+        ("retrieve", False, True),
+        ("list", False, False),
+        ("add", True, False),
+        ("remove", True, False),
+    ):
+        widgets["#operation-select"].value = operation
+        screen._sync_field_visibility()
+        assert widgets["#face-select-label"].display is face_expected
+        assert widgets["#face-select"].display is face_expected
+        assert widgets["#input-file-label"].display is face_expected
+        assert widgets["#input-file"].display is face_expected
+        assert widgets["#restricted-passphrase-label"].display is face_expected
+        assert widgets["#restricted-passphrase"].display is face_expected
+        assert widgets["#output-file-label"].display is output_expected
+        assert widgets["#output-file"].display is output_expected
+
+
+def _access_token_screen_harness(monkeypatch, tmp_path, *, gadget_ip="10.55.0.1"):
+    from phasmid.services.access_token_service import AccessTokenService
+    from phasmid.tui.screens.access_tokens import ROLE_STORE, AccessTokenScreen
+
+    screen = AccessTokenScreen()
+    test_service = AccessTokenService(state_directory=str(tmp_path))
+    monkeypatch.setattr(
+        "phasmid.tui.screens.access_tokens.access_token_service", test_service
+    )
+    monkeypatch.setattr(screen._webui_svc, "gadget_ip", lambda: gadget_ip)
+
+    notifications = []
+    token_area_updates = []
+    monkeypatch.setattr(
+        AccessTokenScreen,
+        "app",
+        property(
+            lambda self: SimpleNamespace(
+                notify=lambda *args, **kwargs: notifications.append((args, kwargs))
+            )
+        ),
+    )
+    widgets = {
+        "#role-select": SimpleNamespace(value=ROLE_STORE),
+        "#status-area": SimpleNamespace(update=lambda text: None),
+        "#issued-token-area": SimpleNamespace(
+            update=lambda text: token_area_updates.append(text)
+        ),
+    }
+    monkeypatch.setattr(
+        screen, "query_one", lambda selector, _type=None: widgets[selector]
+    )
+    return screen, test_service, notifications, token_area_updates
+
+
+def test_access_token_screen_issue_without_gadget_is_refused(monkeypatch, tmp_path):
+    """Issuance must require a live USB gadget connection, not just a click.
+
+    A token grants access to either the full store surface or the decrypt/
+    destroy surface; handing one out has to require the operator's hands
+    physically on the device over USB, not reachability from the same Wi-Fi
+    network or across a room.
+    """
+    from phasmid.services.access_token_service import ROLE_STORE
+
+    screen, test_service, notifications, token_area_updates = (
+        _access_token_screen_harness(monkeypatch, tmp_path, gadget_ip=None)
+    )
+
+    screen._issue(ROLE_STORE)
+
+    assert not test_service.has_token(ROLE_STORE)
+    assert any(kwargs.get("severity") == "error" for _args, kwargs in notifications)
+    assert token_area_updates == []
+
+
+def test_access_token_screen_issue_success_shows_token_once(monkeypatch, tmp_path):
+    from phasmid.services.access_token_service import ROLE_STORE
+
+    screen, test_service, _notifications, token_area_updates = (
+        _access_token_screen_harness(monkeypatch, tmp_path)
+    )
+
+    screen._issue(ROLE_STORE)
+
+    assert test_service.has_token(ROLE_STORE)
+    assert len(token_area_updates) == 1
+    assert "will not be shown again" in token_area_updates[0]
+
+
+def test_access_token_screen_issue_when_already_issued_notifies_without_crashing(
+    monkeypatch, tmp_path
+):
+    from phasmid.services.access_token_service import ROLE_STORE
+
+    screen, test_service, notifications, token_area_updates = (
+        _access_token_screen_harness(monkeypatch, tmp_path)
+    )
+    test_service.issue(ROLE_STORE, gadget_ip="10.55.0.1")
+
+    screen._issue(ROLE_STORE)
+
+    assert any(kwargs.get("severity") == "error" for _args, kwargs in notifications)
+    assert token_area_updates == []
+
+
+def test_access_token_screen_revoke_success_and_when_nothing_issued(
+    monkeypatch, tmp_path
+):
+    from phasmid.services.access_token_service import ROLE_STORE
+
+    screen, test_service, notifications, _token_area_updates = (
+        _access_token_screen_harness(monkeypatch, tmp_path)
+    )
+    test_service.issue(ROLE_STORE, gadget_ip="10.55.0.1")
+
+    screen._revoke(ROLE_STORE)
+    assert not test_service.has_token(ROLE_STORE)
+    assert any(
+        kwargs.get("severity") == "information" for _args, kwargs in notifications
+    )
+
+    notifications.clear()
+    screen._revoke(ROLE_STORE)
+    assert any(kwargs.get("severity") == "warning" for _args, kwargs in notifications)
+
+
+def test_access_token_screen_env_pinned_role_notifies_instead_of_crashing(
+    monkeypatch, tmp_path
+):
+    """A demo-fixed PHASMID_STORE_TOKEN must not be issuable or revocable here.
+
+    Doing either from the TUI would only be silently overridden the next
+    time the console starts, since the environment variable always wins.
+    """
+    from phasmid.services.access_token_service import ROLE_STORE
+
+    screen, _test_service, notifications, token_area_updates = (
+        _access_token_screen_harness(monkeypatch, tmp_path)
+    )
+    monkeypatch.setenv("PHASMID_STORE_TOKEN", "demo-store-fixed")
+
+    screen._issue(ROLE_STORE)
+    assert token_area_updates == []
+    assert any(kwargs.get("severity") == "error" for _args, kwargs in notifications)
+
+    notifications.clear()
+    screen._revoke(ROLE_STORE)
+    assert any(kwargs.get("severity") == "error" for _args, kwargs in notifications)
 
 
 def test_face_manager_screen_uses_shared_workflow(monkeypatch):
@@ -1822,6 +2056,110 @@ def test_webui_cannot_be_exposed_from_a_sealed_state():
     assert started == [], "sealed state re-exposed the WebUI"
 
 
+def test_home_screen_delete_vessel_without_selection_warns(monkeypatch):
+    from phasmid.tui.screens.home import HomeScreen
+
+    screen = HomeScreen()
+    notifications = []
+    pushed = []
+    monkeypatch.setattr(
+        screen, "query_one", lambda *a, **k: SimpleNamespace(selected_vessel=None)
+    )
+    monkeypatch.setattr(
+        HomeScreen,
+        "app",
+        property(
+            lambda self: SimpleNamespace(
+                notify=lambda *args, **kwargs: notifications.append((args, kwargs)),
+                push_screen=lambda *args, **kwargs: pushed.append(args),
+            )
+        ),
+    )
+
+    screen.action_delete_vessel()
+
+    assert any(kwargs.get("severity") == "warning" for _args, kwargs in notifications)
+    assert pushed == []
+
+
+def test_home_screen_delete_vessel_calls_the_service_only_when_confirmed(monkeypatch):
+    """Deletion must go through the Y/N modal, not fire on the keypress alone.
+
+    This is the first destructive, irreversible vessel-lifecycle action the
+    TUI exposes (Close only marks state; this actually scrambles data and
+    unlinks the file), so the confirm step doing its job matters more here
+    than for Close.
+    """
+    from phasmid.services.vessel_workflow_service import (
+        DeleteVesselResult,
+        VesselWorkflowService,
+    )
+    from phasmid.tui.screens.home import HomeScreen
+
+    screen = HomeScreen()
+    notifications = []
+    logged = []
+    refreshed = []
+    fake_vessel = SimpleNamespace(path=Path("/tmp/travel.vessel"))
+    monkeypatch.setattr(
+        screen,
+        "query_one",
+        lambda *a, **k: SimpleNamespace(selected_vessel=fake_vessel),
+    )
+    monkeypatch.setattr(screen, "_refresh_vessels", lambda: refreshed.append(True))
+    monkeypatch.setattr(
+        screen, "_log", lambda message, level: logged.append((message, level))
+    )
+
+    with mock.patch.object(
+        VesselWorkflowService,
+        "delete_vessel",
+        return_value=DeleteVesselResult(
+            vessel_path=Path("/tmp/travel.vessel"), vessel_name="travel.vessel"
+        ),
+    ) as delete_mock:
+        # Cancelled: the modal calls back with False, the service must not run.
+        monkeypatch.setattr(
+            HomeScreen,
+            "app",
+            property(
+                lambda self: SimpleNamespace(
+                    notify=lambda *args, **kwargs: notifications.append((args, kwargs)),
+                    push_screen=lambda modal, callback=None: (
+                        callback(False) if callback else None
+                    ),
+                )
+            ),
+        )
+        screen.action_delete_vessel()
+        delete_mock.assert_not_called()
+        assert refreshed == []
+
+        # Confirmed: the modal calls back with True, the service must run.
+        monkeypatch.setattr(
+            HomeScreen,
+            "app",
+            property(
+                lambda self: SimpleNamespace(
+                    notify=lambda *args, **kwargs: notifications.append((args, kwargs)),
+                    push_screen=lambda modal, callback=None: (
+                        callback(True) if callback else None
+                    ),
+                )
+            ),
+        )
+        screen.action_delete_vessel()
+
+    delete_mock.assert_called_once_with(
+        "/tmp/travel.vessel", confirmation="DELETE VESSEL"
+    )
+    assert refreshed == [True]
+    assert any("deleted" in message.lower() for message, _level in logged)
+    assert any(
+        kwargs.get("severity") == "information" for _args, kwargs in notifications
+    )
+
+
 def test_expert_footer_shows_every_binding_at_the_documented_minimum_width():
     """The Expert footer silently loses bindings on a narrow terminal.
 
@@ -1835,12 +2173,15 @@ def test_expert_footer_shows_every_binding_at_the_documented_minimum_width():
     MIN_WIDTH is the measured threshold. It is asserted from both sides so
     that adding a binding to HomeScreen fails here and forces the number in
     the runbook to be updated rather than silently going stale.
+
+    Raised from 123 to 133 when `t` (Access Tokens, #168) was added, then to
+    145 when `delete` (Delete Vessel) was added.
     """
     import asyncio
 
     from textual.widgets._footer import FooterKey
 
-    MIN_WIDTH = 123
+    MIN_WIDTH = 145
 
     async def offscreen_at(width: int) -> list[str]:
         from phasmid.tui.app import PhasmidApp

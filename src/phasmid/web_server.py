@@ -61,6 +61,11 @@ from .restricted_actions import (
     evaluate_restricted_action,
 )
 from .services.access_cue_service import access_cue_service
+from .services.access_token_service import (
+    ROLE_RECOVER,
+    ROLE_STORE,
+    access_token_service,
+)
 from .services.audit_service import build_audit_report
 from .services.doctor_service import run_doctor_checks
 from .services.guided_service import get_workflows
@@ -277,11 +282,12 @@ def _ui_session_token(request):
     return request.cookies.get(UI_SESSION_COOKIE, "")
 
 
-def _create_ui_session(client_id):
+def _create_ui_session(client_id, role: str = ROLE_STORE):
     token = secrets.token_urlsafe(32)
     _ui_sessions[token] = {
         "client_id": client_id,
         "expires_at": time.time() + UI_SESSION_TTL_SECONDS,
+        "role": role,
     }
     return token
 
@@ -329,6 +335,34 @@ def _ui_unlocked(request):
 def require_ui_unlock(request: Request):
     if not _ui_unlocked(request):
         raise HTTPException(status_code=423, detail=text.UI_LOCKED)
+
+
+def _ui_session_role(request) -> str:
+    """Return the role the current caller's session was granted.
+
+    A loopback peer skips `/unlock` entirely and is already fully trusted
+    (same device as the TUI), so it gets the store role for free, matching
+    the trust level it already has everywhere else. A remote peer whose
+    session cannot be found - which `require_ui_unlock` should already have
+    rejected by the time this is consulted - fails closed to the recover
+    role rather than defaulting to full trust.
+    """
+    if not _ui_unlock_required(request):
+        return ROLE_STORE
+    session = _ui_sessions.get(_ui_session_token(request))
+    if not session:
+        return ROLE_RECOVER
+    return str(session.get("role", ROLE_RECOVER))
+
+
+def require_store_role(request: Request):
+    # 404, not 403: a distinct status or message here would tell a
+    # recover-role session (or anyone probing the URL bar) that a
+    # higher-privileged tier exists at this route, even though they can never
+    # reach it. `web_panic_trigger` already uses this same "wrong credential
+    # looks identical to no such route" pattern for the same reason.
+    if _ui_session_role(request) != ROLE_STORE:
+        raise HTTPException(status_code=404)
 
 
 def _create_restricted_session(client_id):
@@ -406,6 +440,23 @@ def _guard_page(request):
     return RedirectResponse(url="/unlock", status_code=303)
 
 
+def _guard_store_page(request):
+    """Like :func:`_guard_page`, but also confined to a store-role session.
+
+    A recover-token session is unlocked - it just never reaches this page.
+    A redirect or a distinct error here would still tell it (or anyone
+    guessing at the URL bar) that a page exists that it cannot open, so a
+    role mismatch raises the same 404 `require_store_role` raises for the
+    API routes rather than returning anything route-shaped.
+    """
+    guard = _guard_page(request)
+    if guard:
+        return guard
+    if _ui_session_role(request) != ROLE_STORE:
+        raise HTTPException(status_code=404)
+    return None
+
+
 def require_web_token(x_phasmid_token: str = Header(default="")):
     if not secrets.compare_digest(x_phasmid_token, WEB_TOKEN):
         raise HTTPException(status_code=403, detail=text.INVALID_WEB_TOKEN)
@@ -449,6 +500,10 @@ def _template_context(request: Request, active="home", **extra):
         "ui_unlocked": ui_unlocked,
         # A loopback peer has no session to drop, so it is not offered Lock.
         "ui_unlock_required": _ui_unlock_required(request),
+        # A recover-role session has nothing to gain from seeing a Store or
+        # Maintenance nav link it cannot reach - showing one anyway would be
+        # a dead end that still discloses those surfaces exist.
+        "store_role": _ui_session_role(request) == ROLE_STORE,
         "max_upload_bytes": MAX_UPLOAD_BYTES,
         "purge_confirmation_required": purge_confirmation_required(),
         "duress_mode_enabled": duress_mode_enabled(),
@@ -614,13 +669,35 @@ async def unlock_submit(request: Request, token: str = Form(default="")):
             status_code=429,
         )
 
-    if not secrets.compare_digest(token, WEB_TOKEN):
+    # A role token (issued from the TUI, see access_token_service.py) grants
+    # whichever surface its role is scoped to. The legacy shared WEB_TOKEN
+    # still works and grants the store role, so a device with no role token
+    # issued yet - or an operator not using the newer per-role tokens - is
+    # not locked out.
+    #
+    # Once any role token is in use, WEB_TOKEN stops being able to mint a
+    # session on its own. WEB_TOKEN is embedded as the CSRF mutation guard in
+    # every unlocked page's HTML - including a recover-role session's -
+    # because that is the only thing `require_web_token` has ever checked.
+    # If it kept working here too, reading a recover-role session's page
+    # source would hand over everything needed to open an independent,
+    # full store-role session through this endpoint, defeating the entire
+    # reason a narrower role exists. A device that has not adopted role
+    # tokens yet has nothing narrower to defeat, so it is unaffected.
+    role = access_token_service.verify(token)
+    if (
+        role is None
+        and not access_token_service.issued_roles()
+        and secrets.compare_digest(token, WEB_TOKEN)
+    ):
+        role = ROLE_STORE
+    if role is None:
         _unlock_attempts.record_failure(attempt_scope)
         audit_event("ui_unlock_rejected", source="web")
         return RedirectResponse(url="/unlock?rejected=1", status_code=303)
 
     _unlock_attempts.record_success(attempt_scope)
-    session_token = _create_ui_session(_client_id(request))
+    session_token = _create_ui_session(_client_id(request), role=role)
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
         UI_SESSION_COOKIE,
@@ -660,7 +737,7 @@ async def home(request: Request):
 
 @app.get("/store", response_class=HTMLResponse)
 async def store_page(request: Request):
-    guard = _guard_page(request)
+    guard = _guard_store_page(request)
     if guard:
         return guard
     return templates.TemplateResponse(
@@ -684,7 +761,7 @@ async def retrieve_page(request: Request):
 
 @app.get("/maintenance", response_class=HTMLResponse)
 async def maintenance_page(request: Request):
-    guard = _guard_page(request)
+    guard = _guard_store_page(request)
     if guard:
         return guard
     restricted_confirmed = _restricted_session_valid(request)
@@ -707,7 +784,7 @@ async def maintenance_page(request: Request):
 
 @app.get("/maintenance/entries", response_class=HTMLResponse)
 async def entry_management_page(request: Request):
-    guard = _guard_page(request)
+    guard = _guard_store_page(request)
     if guard:
         return guard
     restricted_confirmed = _restricted_session_valid(request)
@@ -739,17 +816,19 @@ async def emergency_page(request: Request):
 
 @app.get("/video_feed", dependencies=[Depends(require_ui_unlock)])
 async def video_feed():
-    def stream():
-        try:
-            yield from access_cue_service.generate_frames()
-        finally:
-            try:
-                access_cue_service.release_camera()
-            except Exception as exc:
-                LOG.error("Camera cleanup after stream disconnect failed: %s", exc)
-
+    # generate_frames() releases the camera itself once every caller of it
+    # has exited - including this one, when the browser disconnects. It must
+    # not be released again here: the TUI's own background object-cue
+    # matcher is typically another concurrent caller of the same
+    # generate_frames(), reading the same shared camera, and an unconditional
+    # release on every WebUI disconnect used to tear down the camera out from
+    # under it. The matcher's next read then silently produced no frame, so
+    # it stopped updating its match state and stayed frozen at whatever it
+    # last was - a viewer closing this tab could leave Recover accepting
+    # anything, or refusing everything, until the whole console was
+    # restarted. See AIGate.generate_frames() / _finish_camera_consumer().
     return StreamingResponse(
-        stream(),
+        access_cue_service.generate_frames(),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
 
@@ -764,6 +843,7 @@ async def status(request: Request):
     dependencies=[
         Depends(require_web_token),
         Depends(require_ui_unlock),
+        Depends(require_store_role),
         Depends(require_restricted_confirmation),
     ],
 )
@@ -809,7 +889,11 @@ async def restricted_confirm(request: Request, confirmation: str = Form(...)):
 
 @app.post(
     "/register_key",
-    dependencies=[Depends(require_web_token), Depends(require_ui_unlock)],
+    dependencies=[
+        Depends(require_web_token),
+        Depends(require_ui_unlock),
+        Depends(require_store_role),
+    ],
 )
 async def register_key(
     request: Request,
@@ -862,7 +946,12 @@ async def register_key(
 
 
 @app.post(
-    "/store", dependencies=[Depends(require_web_token), Depends(require_ui_unlock)]
+    "/store",
+    dependencies=[
+        Depends(require_web_token),
+        Depends(require_ui_unlock),
+        Depends(require_store_role),
+    ],
 )
 async def store(
     request: Request,
@@ -970,7 +1059,11 @@ async def store(
 
 @app.post(
     "/metadata/check",
-    dependencies=[Depends(require_web_token), Depends(require_ui_unlock)],
+    dependencies=[
+        Depends(require_web_token),
+        Depends(require_ui_unlock),
+        Depends(require_store_role),
+    ],
 )
 async def metadata_check(request: Request, file: UploadFile = File(...)):
     enforce_rate_limit(request)
@@ -981,7 +1074,11 @@ async def metadata_check(request: Request, file: UploadFile = File(...)):
 
 @app.post(
     "/metadata/scrub",
-    dependencies=[Depends(require_web_token), Depends(require_ui_unlock)],
+    dependencies=[
+        Depends(require_web_token),
+        Depends(require_ui_unlock),
+        Depends(require_store_role),
+    ],
 )
 async def metadata_scrub(request: Request, file: UploadFile = File(...)):
     enforce_rate_limit(request)
@@ -1155,7 +1252,11 @@ async def web_panic_trigger(request: Request, secret_trigger: str = Form(...)):
 
 @app.post(
     "/maintenance/rotate_token",
-    dependencies=[Depends(require_web_token), Depends(require_ui_unlock)],
+    dependencies=[
+        Depends(require_web_token),
+        Depends(require_ui_unlock),
+        Depends(require_store_role),
+    ],
 )
 async def rotate_token(request: Request):
     enforce_rate_limit(request)
@@ -1170,7 +1271,11 @@ async def rotate_token(request: Request):
 
 @app.post(
     "/maintenance/reset_session",
-    dependencies=[Depends(require_web_token), Depends(require_ui_unlock)],
+    dependencies=[
+        Depends(require_web_token),
+        Depends(require_ui_unlock),
+        Depends(require_store_role),
+    ],
 )
 async def reset_session(request: Request):
     enforce_rate_limit(request)
@@ -1183,7 +1288,11 @@ async def reset_session(request: Request):
 
 @app.get(
     "/maintenance/diagnostics",
-    dependencies=[Depends(require_web_token), Depends(require_ui_unlock)],
+    dependencies=[
+        Depends(require_web_token),
+        Depends(require_ui_unlock),
+        Depends(require_store_role),
+    ],
 )
 async def diagnostics(request: Request):
     enforce_rate_limit(request)
@@ -1220,7 +1329,11 @@ async def diagnostics(request: Request):
 
 @app.get(
     "/maintenance/logs",
-    dependencies=[Depends(require_web_token), Depends(require_ui_unlock)],
+    dependencies=[
+        Depends(require_web_token),
+        Depends(require_ui_unlock),
+        Depends(require_store_role),
+    ],
 )
 async def export_logs(request: Request):
     enforce_rate_limit(request)
@@ -1286,7 +1399,11 @@ def create_file_response(content, filename, purge_applied=False):
 
 # ── Operator Console pages ────────────────────────────────────────────────
 
-_OPERATOR_DEPS = [Depends(require_web_token), Depends(require_ui_unlock)]
+_OPERATOR_DEPS = [
+    Depends(require_web_token),
+    Depends(require_ui_unlock),
+    Depends(require_store_role),
+]
 
 
 @app.get("/operator/doctor", response_class=HTMLResponse, dependencies=_OPERATOR_DEPS)

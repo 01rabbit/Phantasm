@@ -53,7 +53,7 @@
 
 - [ ] 実機（Pi Zero 2 W + カメラ + 三脚）を卓上に設置、電源・給電確認。
 - [ ] 表示系: TUIを映す経路と、**ラップトップのブラウザを映す経路**の両方を確保。**入力切替キーを把握**（Step 2〜4 はすべてTUIなので切替は不要。切り替えるのは Step 4→5 でTUIからブラウザへ、Step 5→6 でTUIに戻す1箇所のみ）。
-- [ ] **端末幅を123桁以上にする**（`tput cols` で確認）。これを下回ると Expert フッタから
+- [ ] **端末幅を145桁以上にする**（`tput cols` で確認）。これを下回ると Expert フッタから
       `w WebUI` が**無言で消える** — 露出したWebUIを引っ込めるキーが画面から失われる。
       省略記号は出ないので、狭いことに気付けない（→ §9）。
 - [ ] カメラのピント・画角・照明を確認（物体が安定認識される距離に三脚固定）。
@@ -120,7 +120,8 @@
 
 ### Step 1 — Create a Vessel（0:50｜Prepare｜TUI Simple）
 
-- **操作:** **`n` (New)** → `vessel-path` → `vessel-size`（Select、既定 `512M`）→
+- **操作:** **`n` (New)** → `vessel-path` → **`vessel-size` を `64M` に変更**（Select、
+  既定は `512M`。**既定のまま作らないこと** — 下記参照）→
   `vessel-label`（"Non-sensitive label"、任意）→ `create-btn`。
 - **発話（EN）:** "First I create a **vessel** — a deniable container file. This is the Prepare step. It has no header and no magic bytes: on disk it is indistinguishable from random data."
 - **画面期待:** `PROTECTED STORAGE` に新規Vesselが出現。
@@ -129,6 +130,11 @@
   **Create Face を押す必要はない。デモ手順に含めない。**
 - **任意:** `e` → `i`（Inspect）で `Header absent` / `Magic Bytes absent` /
   `Entropy high / random-like (8.00 bits/byte)` を見せると Slide 19 の直接的裏付けになる。
+- **【重要】サイズは既定のままにしない。** 作成はコンテナ全体を乱数で埋める。
+  512 MiB を指定すると Pi Zero 2 W では**書き込みに時間がかかり、枠の0:50に収まらない**。
+  実機では 512 MiB 指定で**プロセスが OOM kill された**（2026-07-29）。原因は
+  `os.urandom(container_size)` がコンテナ全体を一度にメモリへ確保していたことで、
+  チャンク書き込みに修正済み。修正後もサイズなりの時間はかかるため、**壇上は `64M`**。
 - **失敗時:** 作成が滞れば既存デモVesselを **`o` (Open)** して以降を継続。
 
 ### Step 2 — Object cue: Bind（1:10｜Bind, ★cue≠key｜TUI）
@@ -357,14 +363,19 @@ Standby ホットキーの既定は `config.py` の `PHASMID_STANDBY_HOTKEY`（�
 
 **ダイアログ項目**
 
-- `CreateVesselScreen`（`n`）: `vessel-path` → `vessel-size`（Select、既定 `512M`）→
+- `CreateVesselScreen`（`n`）: `vessel-path` → `vessel-size`（Select、既定 `512M`。
+  **デモでは `64M` に変更する** → Step 1）→
   `vessel-label`（任意）→ `create-btn`
 - `FaceManagerScreen`（`e` → `f`）: `face-id`（Select）→ `new-label` → `add-label-btn` →
   `passphrase` → `restricted-passphrase` → `target-occupancy`（既定 `15%`）→
   `inspect-` / `generate-` / `clear-plausibility-btn`
-- `OpenVesselScreen`（`o`）: `vessel-path` → `face-select` → `operation-select`
+- `OpenVesselScreen`（`o`）: `vessel-path` → `operation-select`
   （`Add File` / `List Files` / `Recover File` / `Remove File`、既定 `Recover File`）→
-  `input-file` → `output-file` → `passphrase` → `restricted-passphrase` → `open-btn`
+  `passphrase` → `open-btn`。**`face-select` / `input-file` / `restricted-passphrase` は
+  `Add File` と `Remove File` の時だけ表示される**（`Recover File` / `List Files` では
+  非表示。どちらの面が開いたかはパスフレーズと object cue から解決されるので、画面上で
+  面を選ばせない — 選ばせること自体が「面が2つある」ことを漏らしてしまうため）。
+  `output-file` は `Recover File` の時だけ表示される。
 - `SettingsScreen`（`s`）: `vessel-dir`, `output-dir`, `container-size`, `theme`,
   `recent-tracking`, `compact-banner`, `save-btn`。**認識モードのUIは存在しない**
   （`PHASMID_RECOGNITION_MODE` は環境変数のみ。既定 `strict`、
@@ -431,7 +442,8 @@ Dummy Profile 助言が未設定時に警告しなくなった結果（#157）�
 事実のみ**になった: `/tmp` world-writable、Swap、Compressed swap の3件（この開発
 コンテナでは1件）。zram と swap を無効化すれば1件まで下がる。
 
-**最小端末幅: 123桁**（#160 で確定）
+**最小端末幅: 145桁**（#160 で確定、#168 の `t Tokens` 追加で123→133、
+Delete Vessel追加で133→145に更新）
 
 フッタのセルは端末幅に応じて詰められず、**固定座標に配置されてはみ出した分は
 描画されない**。省略記号も出ないので、**フッタが不完全であることは画面から分からない。**
@@ -441,13 +453,17 @@ Dummy Profile 助言が未設定時に警告しなくなった結果（#157）�
 
 | 幅 | Expert フッタ |
 |---|---|
-| 123桁以上 | 全項目表示 |
-| 122桁以下 | `w WebUI` が画面外 |
-| 114桁以下 | `q Quit` も画面外 |
-| 106桁以下 | `? Help` も画面外 |
+| 145桁以上 | 全項目表示 |
+| 144桁以下 | `w WebUI` が画面外 |
+| 135桁以下 | `q Quit` も画面外 |
+| 127桁以下 | `? Help` も画面外 |
+| 119桁以下 | `t Tokens` も画面外 |
+| 109桁以下 | `s Settings` も画面外 |
 
-**投影端末は123桁以上を確保すること。** T-30 の設営時に確認する。
-`l LUKS` は LUKS 無効時（既定）に非表示になったため、閾値は131桁から123桁へ下がった。
+**投影端末は145桁以上を確保すること。** T-30 の設営時に確認する。
+`l LUKS` は LUKS 無効時（既定）に非表示になったため、閾値は131桁から123桁へ下がった
+（#160）。#168 で `t Tokens` バインディングを追加したことで133桁へ上がり、
+Delete Vessel（`delete`キー）バインディング追加で145桁へさらに上がった。
 回帰テスト `test_expert_footer_shows_every_binding_at_the_documented_minimum_width`
 が両側から固定しているので、バインディングを追加すると失敗して本表の更新を促す。
 

@@ -7,6 +7,7 @@ from textual.widgets import DataTable, Footer, Static
 from ...models.vessel import VesselMeta
 from ...services.profile_service import load_profile
 from ...services.vessel_service import VesselService
+from ..banner import COMPACT_BANNER, get_banner
 from .base import OperatorScreen
 
 
@@ -30,14 +31,16 @@ class SimpleHomeScreen(OperatorScreen):
     }
     SimpleHomeScreen #simple-title {
         color: $primary;
-        text-style: bold;
-        text-align: center;
-        padding: 1 0 0 0;
-        height: 3;
+        text-align: left;
+        padding: 1 4;
+        height: auto;
+        dock: top;
+        background: $background;
     }
     SimpleHomeScreen #simple-subtitle {
         color: $text-muted;
-        text-align: center;
+        text-align: left;
+        padding: 0 4;
         height: 2;
     }
     SimpleHomeScreen #health {
@@ -88,7 +91,7 @@ class SimpleHomeScreen(OperatorScreen):
 
     def compose(self) -> ComposeResult:
         yield self.webui_warning_banner()
-        yield Static("PHASMID", id="simple-title")
+        yield Static(COMPACT_BANNER, id="simple-title", markup=False)
         yield Static(
             "Protect or open local storage without exposing expert controls.",
             id="simple-subtitle",
@@ -108,10 +111,19 @@ class SimpleHomeScreen(OperatorScreen):
         yield Footer()
 
     def on_mount(self) -> None:
+        self._update_banner()
         table = self.query_one("#storage-table", DataTable)
         table.add_columns("Name", "Status", "Size", "Files")
         self._refresh_table()
         self.refresh_webui_status()
+
+    def on_resize(self) -> None:
+        self._update_banner()
+
+    def _update_banner(self) -> None:
+        force_compact = self._profile.compact_banner if self._profile else False
+        banner = get_banner(self.app.size.width, compact=force_compact)
+        self.query_one("#simple-title", Static).update(banner)
 
     def refresh_webui_status(self) -> None:
         super().refresh_webui_status()

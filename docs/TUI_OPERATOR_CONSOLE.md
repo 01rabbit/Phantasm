@@ -186,9 +186,9 @@ default Vessel directory and selected Vessel context are preserved.
 
 Press `e` from the Simple Operator screen to open the detailed operator
 console. It retains the selected Vessel and provides the previous detailed
-actions: Close, Create, Inspect, Face management, Audit, Doctor, Settings,
-LUKS, and Help. Expert controls are for diagnostic and maintenance work, not
-the normal Protect/Open flow.
+actions: Close, Delete, Create, Inspect, Face management, Audit, Doctor,
+Settings, Access Tokens, LUKS, and Help. Expert controls are for diagnostic
+and maintenance work, not the normal Protect/Open flow.
 
 Press `escape` to return to the Simple Operator screen. The protected storage
 list is refreshed on return, so anything created or closed in Expert controls is
@@ -204,6 +204,7 @@ every other screen in the TUI. Use `escape` to go back.
 | `escape` | Back to the Simple Operator screen |
 | `o` | Open Vessel |
 | `x` | Close Vessel |
+| `delete` | Delete Vessel (scrambles the data, then removes the file) |
 | `c` | Create Vessel |
 | `i` | Inspect Vessel |
 | `f` | Face management |
@@ -211,6 +212,7 @@ every other screen in the TUI. Use `escape` to go back.
 | `a` | Audit View |
 | `d` | Doctor View |
 | `s` | Settings |
+| `t` | Access Tokens (issue/revoke the WebUI's store and recover role tokens) |
 | `l` | LUKS panel |
 | `?` | Help |
 | `q` | Quit |

@@ -426,14 +426,24 @@
         /* ── Camera ───────────────────────────────────────────── */
         .camera-frame {
             position: relative;
+            /* aspect-ratio lives on the frame, not the <img>: a replaced
+               element's intrinsic ratio (the stream's actual dimensions)
+               wins over aspect-ratio on the element itself, so setting it
+               on .camera-feed was a no-op and the frame rendered at
+               whatever ratio the MJPEG stream happened to be. Sizing the
+               frame and stretching the image to fill it makes the 4:3
+               window authoritative regardless of the stream's own ratio. */
+            aspect-ratio: 4 / 3;
             background: var(--camera-bg);
             border-radius: var(--r-md);
             overflow: hidden;
         }
         .camera-feed {
             display: block;
+            position: absolute;
+            inset: 0;
             width: 100%;
-            aspect-ratio: 4 / 3;
+            height: 100%;
             object-fit: contain;
             object-position: center;
         }
@@ -941,14 +951,18 @@
             {% if active != "lock" and active != "emergency" %}
             <nav class="nav" aria-label="Primary navigation">
                 <a href="/" class="{{ 'active' if active == 'home' else '' }}">Home</a>
+                {% if store_role %}
                 <a href="/store" class="{{ 'active' if active == 'store' else '' }}">Store</a>
+                {% endif %}
                 <a href="/retrieve" class="{{ 'active' if active == 'retrieve' else '' }}">Retrieve</a>
+                {% if store_role %}
                 <a href="/maintenance" class="{{ 'active' if active == 'maintenance' else '' }}">Maintenance</a>
                 <span class="nav-sep" aria-hidden="true"></span>
                 <a href="/operator/doctor"  class="operator {{ 'active' if active == 'operator-doctor'  else '' }}">Diagnostics</a>
                 <a href="/operator/audit"   class="operator {{ 'active' if active == 'operator-audit'   else '' }}">Audit</a>
                 <a href="/operator/guided"  class="operator {{ 'active' if active == 'operator-guided'  else '' }}">Workflows</a>
                 <a href="/operator/inspect" class="operator {{ 'active' if active == 'operator-inspect' else '' }}">Inspect</a>
+                {% endif %}
                 {% if ui_unlock_required %}
                 <span class="nav-sep" aria-hidden="true"></span>
                 <form method="post" action="/lock" class="nav-lock">

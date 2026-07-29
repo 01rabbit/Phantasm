@@ -64,6 +64,13 @@ class AIGate:
         self._stop_event = threading.Event()
         self.lock = threading.Lock()
         self.latest_frame: Any | None = None
+        # generate_frames() is called by two independent, concurrent
+        # consumers: the always-on background thread that keeps object-cue
+        # matching live for the TUI, and a fresh call per WebUI /video_feed
+        # request. Both read the one shared CameraFrameSource. Counted here
+        # so the hardware is only released when the last consumer's
+        # generator exits - see the note on generate_frames() below.
+        self._camera_consumers = 0
 
         self.reference_dir = reference_dir or state_dir()
         os.makedirs(self.reference_dir, mode=0o700, exist_ok=True)
@@ -588,6 +595,24 @@ class AIGate:
         )
 
     def generate_frames(self) -> Iterator[bytes]:
+        # The background matcher thread and a WebUI /video_feed request both
+        # call this method, on the same shared camera, at the same time. The
+        # bug this guards against: closing the camera whenever *either* one's
+        # generator exits, which used to happen unconditionally in the
+        # `finally` below. A browser tab navigating away from the Store page
+        # would tear down the camera the TUI's own matcher thread was still
+        # reading from; the next read then silently failed to produce a
+        # frame, `_update_match_result` was never called again, and
+        # `last_match_mode` stayed frozen at whatever it last was - "matched"
+        # if that happened to be the state right after registering an object
+        # cue. Recover then kept succeeding with no object in view, for the
+        # rest of the process's life, because nothing was actually checking
+        # the camera any more. Counting active generator instances and only
+        # releasing the hardware when the last one exits keeps the
+        # long-lived background consumer's camera alive across a WebUI
+        # viewer connecting and disconnecting.
+        with self.lock:
+            self._camera_consumers += 1
         frame_delay = 1.0 / self.TARGET_FPS
         empty_reads = 0
         try:
@@ -660,7 +685,15 @@ class AIGate:
                 if elapsed < frame_delay:
                     time.sleep(frame_delay - elapsed)
         finally:
-            self.release_camera()
+            self._finish_camera_consumer()
+
+    def _finish_camera_consumer(self) -> None:
+        """Release the shared camera only once every generate_frames() caller is gone."""
+        with self.lock:
+            self._camera_consumers = max(0, self._camera_consumers - 1)
+            last_consumer = self._camera_consumers == 0
+        if last_consumer:
+            self.camera.close()
 
     def _camera_error_frame(self) -> Any:
         width, height = self.FRAME_SIZE
@@ -691,12 +724,19 @@ class AIGate:
 
     def close(self) -> None:
         self._stop_event.set()
-        self.release_camera()
         if self._thread:
             self._thread.join()
             self._thread = None
+        # Unconditional: a full shutdown releases the hardware regardless of
+        # whether some other generate_frames() caller still thinks it holds
+        # it. Joining the background thread first means its own generator
+        # has already run its finally and decremented; any remaining count
+        # belongs to callers this process is shutting down anyway.
+        self.release_camera()
 
     def release_camera(self) -> None:
+        with self.lock:
+            self._camera_consumers = 0
         self.camera.close()
 
     def start(self) -> None:

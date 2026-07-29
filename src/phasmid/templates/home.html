@@ -50,11 +50,13 @@
         </p>
 
         <div class="simple-actions">
+            {% if store_role %}
             <a class="simple-action" href="/store">
                 <span class="section-label">Protect</span>
                 <h3>Protect a File</h3>
                 <p>Choose a file, create a password, and bind a physical access object.</p>
             </a>
+            {% endif %}
             <a class="simple-action" href="/retrieve">
                 <span class="section-label">Open</span>
                 <h3>Open a Protected File</h3>
@@ -62,6 +64,7 @@
             </a>
         </div>
 
+        {% if store_role %}
         <section class="panel panel--neutral guided-card">
             <div class="panel-head">
                 <div>
@@ -85,6 +88,7 @@
                 </div>
             </div>
         </details>
+        {% endif %}
     </section>
 </div>
 {% endblock %}

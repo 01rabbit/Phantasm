@@ -379,6 +379,16 @@ class WebUIService:
             f"Log file: {self.log_file}"
         )
 
+    def gadget_ip(self) -> str | None:
+        """Return the USB gadget interface's IPv4 address, or None if absent.
+
+        Public entry point for callers outside the WebUI process lifecycle -
+        e.g. access token issuance, which must refuse to run unless the
+        operator is physically tethered over USB, not merely on the same
+        Wi-Fi network.
+        """
+        return self._detect_usb_gadget_ipv4()
+
     def _detect_usb_gadget_ipv4(self) -> str | None:
         candidates = ["usb0", *self._list_gadget_like_interfaces()]
         seen: set[str] = set()

@@ -129,6 +129,21 @@ def web_token_env() -> str:
     return env_text("PHASMID_WEB_TOKEN", "").strip()
 
 
+def store_token_env() -> str:
+    """A fixed store-role WebUI token, pinned for reproducible demo runs.
+
+    Mirrors ``web_token_env()``: set once, at process startup, so a live
+    demo does not depend on remembering a value the TUI generated and
+    showed exactly once.
+    """
+    return env_text("PHASMID_STORE_TOKEN", "").strip()
+
+
+def recover_token_env() -> str:
+    """A fixed recover-role WebUI token; see :func:`store_token_env`."""
+    return env_text("PHASMID_RECOVER_TOKEN", "").strip()
+
+
 def max_upload_bytes() -> int:
     return env_int("PHASMID_MAX_UPLOAD_BYTES", 25 * 1024 * 1024, minimum=1)
 

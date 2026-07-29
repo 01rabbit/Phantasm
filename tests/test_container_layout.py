@@ -3,6 +3,7 @@ import tempfile
 import unittest
 
 from src.phasmid.container_layout import ContainerLayout
+from src.phasmid.crypto_params import OPEN_ROLE
 
 
 class TestContainerLayout(unittest.TestCase):
@@ -179,6 +180,67 @@ class TestContainerLayout(unittest.TestCase):
         """Test _require_container raises FileNotFoundError for missing file"""
         with self.assertRaises(FileNotFoundError):
             self.layout._require_container()
+
+    def _largest_urandom_request(self, action):
+        """Run action and report the biggest single os.urandom() it asked for."""
+        import src.phasmid.container_layout as module
+
+        requested = []
+        real_urandom = module.os.urandom
+
+        def recording_urandom(size):
+            requested.append(size)
+            return real_urandom(size)
+
+        module.os.urandom = recording_urandom
+        try:
+            action()
+        finally:
+            module.os.urandom = real_urandom
+        return max(requested)
+
+    def test_random_fill_never_materialises_a_whole_span(self):
+        """A span is written in chunks, not allocated whole.
+
+        os.urandom(N) produces N bytes at once, so filling a 512 MiB container
+        needed a 512 MiB object. On a 512 MB board that is fatal: the OOM
+        killer ended the process when a container was created at the console's
+        default size. Every span here is larger than one chunk, so a
+        regression to a single call is visible.
+        """
+        chunk = ContainerLayout._RANDOM_CHUNK
+        self.assertLess(chunk, self.container_size // 4, "spans must exceed a chunk")
+
+        self.assertLessEqual(
+            self._largest_urandom_request(self.layout.format_container), chunk
+        )
+        self.assertLessEqual(
+            self._largest_urandom_request(self.layout.silent_brick), chunk
+        )
+        self.assertLessEqual(
+            self._largest_urandom_request(lambda: self.layout.purge_mode("dummy")),
+            chunk,
+        )
+        self.assertLessEqual(
+            self._largest_urandom_request(
+                lambda: self.layout.randomize_slot("dummy", OPEN_ROLE)
+            ),
+            chunk,
+        )
+
+    def test_random_fill_still_covers_the_whole_span(self):
+        """Chunking must not shorten what it writes."""
+        self.layout.format_container()
+        self.assertEqual(os.path.getsize(self.container_path), self.container_size)
+
+        with open(self.container_path, "r+b") as handle:
+            handle.seek(0)
+            handle.write(b"\x00" * self.container_size)
+        self.layout.silent_brick()
+        with open(self.container_path, "rb") as handle:
+            data = handle.read()
+        self.assertEqual(len(data), self.container_size)
+        self.assertNotIn(b"\x00" * 4096, data)
 
 
 if __name__ == "__main__":

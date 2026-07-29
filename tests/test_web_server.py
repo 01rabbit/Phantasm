@@ -312,7 +312,22 @@ class WebServerBoundaryTests(unittest.TestCase):
 
         asyncio.run(run())
 
-    def test_video_feed_stream_cleanup_runs_on_disconnect(self):
+    def test_video_feed_does_not_force_release_the_shared_camera_on_disconnect(self):
+        """A browser tab closing /video_feed must not evict another reader.
+
+        The TUI's own object-cue matcher is typically another concurrent
+        caller of ``generate_frames()`` on the same shared camera. This
+        handler used to force-release the camera itself whenever *its own*
+        stream ended, tearing down the hardware out from under that other
+        reader: its next camera read then silently produced no frame, match
+        state stopped updating, and it stayed frozen at whatever it last was
+        - closing this browser tab could leave Recover accepting any object,
+        or refusing every object, until the whole console was restarted.
+        Camera lifecycle is entirely generate_frames()'s own responsibility
+        now (AIGate._finish_camera_consumer), so this handler must not touch
+        release_camera at all.
+        """
+
         async def run():
             with (
                 mock.patch.object(
@@ -331,11 +346,8 @@ class WebServerBoundaryTests(unittest.TestCase):
                 first = await iterator.__anext__()
                 self.assertTrue(first.startswith(b"--frame"))
                 await iterator.aclose()
-                for _ in range(20):
-                    if release_camera.call_count >= 1:
-                        break
-                    await asyncio.sleep(0.01)
-                release_camera.assert_called_once()
+                await asyncio.sleep(0.05)
+                release_camera.assert_not_called()
 
         asyncio.run(run())
 
@@ -1457,6 +1469,224 @@ class WebUIPageSessionGateTests(unittest.TestCase):
             )
         self.assertEqual(response["status"], 404)
         silent_brick.assert_not_called()
+
+
+class AccessTokenRoleGateTests(unittest.TestCase):
+    """A recover-token session must never reach the store surface (#168).
+
+    Showing a Face selector or a restricted-passphrase field discloses that
+    a vessel has two faces and two credential categories, regardless of
+    whether any passphrase content is ever typed - see the Open Vessel TUI
+    fix in #167. The WebUI carries the same exposure on `/store` and
+    `/maintenance`; a role token, not the legacy shared WEB_TOKEN alone, is
+    what is supposed to keep a recover-only session away from it.
+    """
+
+    def setUp(self):
+        import tempfile
+
+        from phasmid.services.access_token_service import AccessTokenService
+
+        self._tmp_dir = tempfile.mkdtemp()
+        self._service = AccessTokenService(state_directory=self._tmp_dir)
+        self._patcher = mock.patch.object(
+            web_server, "access_token_service", self._service
+        )
+        self._patcher.start()
+        self._clear()
+
+    def tearDown(self):
+        self._patcher.stop()
+        self._clear()
+
+    def _clear(self):
+        web_server._rate_limit.clear()
+        web_server._restricted_sessions.clear()
+        web_server._ui_sessions.clear()
+        web_server._unlock_attempts._state.clear()
+
+    def _unlock_with(self, token):
+        response = _asgi_request(
+            "POST",
+            "/unlock",
+            body=urllib.parse.urlencode({"token": token}).encode(),
+        )
+        cookie_value = next(
+            value.split(";", 1)[0].split("=", 1)[1]
+            for value in response["set_cookie"]
+            if value.startswith(web_server.UI_SESSION_COOKIE)
+        )
+        return {web_server.UI_SESSION_COOKIE: cookie_value}
+
+    def test_store_token_reaches_the_store_page(self):
+        from phasmid.services.access_token_service import ROLE_STORE
+
+        token = self._service.issue(ROLE_STORE, gadget_ip=GADGET_BIND)
+        cookies = self._unlock_with(token)
+
+        response = _asgi_request("GET", "/store", cookies=cookies)
+
+        self.assertEqual(response["status"], 200)
+
+    def test_recover_token_gets_a_generic_404_on_store_pages(self):
+        """A role mismatch must not read differently from no such route.
+
+        A distinct redirect or error status here would tell a recover-role
+        session - or anyone probing the URL bar without ever holding a
+        credential at all - that a higher-privileged page exists, even
+        though it can never be reached. `/maintenance/entries` shares the
+        same `_guard_store_page` call as `/store` and `/maintenance`.
+        """
+        from phasmid.services.access_token_service import ROLE_RECOVER
+
+        token = self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
+        cookies = self._unlock_with(token)
+
+        for path in ("/store", "/maintenance", "/maintenance/entries"):
+            response = _asgi_request("GET", path, cookies=cookies)
+            self.assertEqual(response["status"], 404, path)
+
+    def test_role_mismatch_404_is_byte_identical_to_a_genuinely_unknown_route(self):
+        from phasmid.services.access_token_service import ROLE_RECOVER
+
+        token = self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
+        cookies = self._unlock_with(token)
+
+        mismatch = _asgi_request("GET", "/store", cookies=cookies)
+        unknown = _asgi_request("GET", "/this-route-does-not-exist", cookies=cookies)
+
+        self.assertEqual(mismatch["status"], unknown["status"])
+        self.assertEqual(mismatch["text"], unknown["text"])
+
+    def test_recover_token_gets_a_generic_404_on_the_store_mutation_route(self):
+        from phasmid.services.access_token_service import ROLE_RECOVER
+
+        token = self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
+        cookies = self._unlock_with(token)
+
+        response = _asgi_request(
+            "POST",
+            "/store",
+            cookies=cookies,
+            headers={"X-Phasmid-Token": web_server.WEB_TOKEN},
+        )
+
+        self.assertEqual(response["status"], 404)
+
+    def test_recover_token_still_reaches_the_retrieve_page(self):
+        from phasmid.services.access_token_service import ROLE_RECOVER
+
+        token = self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
+        cookies = self._unlock_with(token)
+
+        response = _asgi_request("GET", "/retrieve", cookies=cookies)
+
+        self.assertEqual(response["status"], 200)
+
+    def test_recover_token_hides_store_and_maintenance_nav_links(self):
+        from phasmid.services.access_token_service import ROLE_RECOVER
+
+        token = self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
+        cookies = self._unlock_with(token)
+
+        response = _asgi_request("GET", "/", cookies=cookies)
+        # Only the rendered body matters here - a CSS attribute selector like
+        # `a[href="/maintenance"]` in a <style> block contains this same
+        # substring without being a clickable link, so anchors are checked in
+        # the body only.
+        body = response["text"].split("<body", 1)[-1]
+
+        self.assertNotIn('href="/store"', body)
+        self.assertNotIn('href="/maintenance"', body)
+
+    def test_store_token_shows_store_and_maintenance_nav_links(self):
+        from phasmid.services.access_token_service import ROLE_STORE
+
+        token = self._service.issue(ROLE_STORE, gadget_ip=GADGET_BIND)
+        cookies = self._unlock_with(token)
+
+        response = _asgi_request("GET", "/", cookies=cookies)
+        body = response["text"].split("<body", 1)[-1]
+
+        self.assertIn('href="/store"', body)
+        self.assertIn('href="/maintenance"', body)
+
+    def test_legacy_web_token_still_grants_the_store_role(self):
+        cookies = self._unlock_with(web_server.WEB_TOKEN)
+
+        response = _asgi_request("GET", "/store", cookies=cookies)
+
+        self.assertEqual(response["status"], 200)
+
+    def test_web_token_stops_minting_sessions_once_a_role_token_is_issued(self):
+        """A recover session's page HTML must not be a route back to store role.
+
+        WEB_TOKEN is embedded as the CSRF mutation guard in every unlocked
+        page's HTML, recover-role sessions included - it is the only thing
+        `require_web_token` has ever checked. If it could still open a fresh
+        session here once role tokens are in use, reading a recover-role
+        session's page source would be enough to mint an independent
+        store-role session through this endpoint, defeating the entire
+        reason a narrower role exists.
+        """
+        from phasmid.services.access_token_service import ROLE_RECOVER
+
+        self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
+
+        response = _asgi_request(
+            "POST",
+            "/unlock",
+            body=urllib.parse.urlencode({"token": web_server.WEB_TOKEN}).encode(),
+        )
+
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["location"], "/unlock?rejected=1")
+        self.assertEqual(web_server._ui_sessions, {})
+
+    def test_env_pinned_demo_token_also_disables_the_web_token_fallback(self):
+        """A fixed demo token gets the same protection as an issued one.
+
+        issued_roles() (the signal that disables the legacy WEB_TOKEN
+        fallback) must count an environment-pinned role, not just one
+        persisted via the TUI - otherwise pinning a demo token would
+        silently reopen the exact escalation the other test in this class
+        closes.
+        """
+        with mock.patch.dict(os.environ, {"PHASMID_RECOVER_TOKEN": "demo-recover"}):
+            response = _asgi_request(
+                "POST",
+                "/unlock",
+                body=urllib.parse.urlencode({"token": web_server.WEB_TOKEN}).encode(),
+            )
+
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["location"], "/unlock?rejected=1")
+        self.assertEqual(web_server._ui_sessions, {})
+
+    def test_garbage_token_is_still_rejected(self):
+        response = _asgi_request(
+            "POST",
+            "/unlock",
+            body=urllib.parse.urlencode({"token": "not-a-real-token"}).encode(),
+        )
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["location"], "/unlock?rejected=1")
+        self.assertEqual(web_server._ui_sessions, {})
+
+    def test_recover_token_cannot_reach_operator_diagnostics(self):
+        from phasmid.services.access_token_service import ROLE_RECOVER
+
+        token = self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
+        cookies = self._unlock_with(token)
+
+        response = _asgi_request(
+            "GET",
+            "/operator/doctor",
+            cookies=cookies,
+            headers={"X-Phasmid-Token": web_server.WEB_TOKEN},
+        )
+
+        self.assertEqual(response["status"], 404)
 
 
 class LoopbackExemptionTests(unittest.TestCase):

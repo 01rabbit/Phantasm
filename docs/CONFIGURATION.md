@@ -19,6 +19,8 @@ All `PHASMID_*` reads are centralized in `src/phasmid/config.py`.
 | `PHASMID_ACCESS_MAX_FAILURES` | int (>=1) | `5` | Access limiter | Failure count threshold before lockout | `config.access_max_failures()` |
 | `PHASMID_ACCESS_LOCKOUT_SECONDS` | int (>=1) | `60` | Access limiter | Lockout duration after threshold exceeded | `config.access_lockout_seconds()` |
 | `PHASMID_WEB_TOKEN` | string | random per process | WebUI access and mutations | Fixed access token if provided; else generated at startup. Presented at `/unlock` by non-loopback peers to open a page session, and sent as `X-Phasmid-Token` on mutations | `config.web_token_env()` |
+| `PHASMID_STORE_TOKEN` | string | unset | WebUI role login | Pins the store-role access token to a fixed value for a reproducible demo, instead of one issued from the TUI (which shows the raw value once and never again). While set, the store role cannot be issued or revoked from the TUI's Access Tokens screen | `config.store_token_env()` |
+| `PHASMID_RECOVER_TOKEN` | string | unset | WebUI role login | Same as `PHASMID_STORE_TOKEN`, for the recover role | `config.recover_token_env()` |
 | `PHASMID_UI_SESSION_SECONDS` | int (>=1) | `1800` | WebUI page session | Lifetime of an unlocked WebUI page session | `config.ui_session_seconds()` |
 | `PHASMID_ALLOWED_HOSTS` | comma-separated names | empty | WebUI `Host` validation | Extra `Host` header names accepted beyond address literals and `localhost`; each listed name reopens DNS rebinding for that name | `config.allowed_web_hosts()` |
 | `PHASMID_HOST` | host string | `127.0.0.1` | WebUI server | Bind host for WebUI process; overrides gadget exposure when set | `config.web_host()` |
