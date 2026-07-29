@@ -351,6 +351,27 @@ class WebServerBoundaryTests(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_video_feed_restarts_a_camera_a_prior_retrieve_released(self):
+        """See test_store_page_restarts_a_camera_... for the failure this guards.
+
+        video_feed() itself must also bring the camera back, as a second line
+        of defense for any caller that reaches it without a fresh page load.
+        """
+
+        async def run():
+            with (
+                mock.patch.object(
+                    web_server.access_cue_service,
+                    "generate_frames",
+                    return_value=iter([]),
+                ),
+                mock.patch.object(web_server.access_cue_service, "start") as start,
+            ):
+                await web_server.video_feed()
+                start.assert_called_once()
+
+        asyncio.run(run())
+
     def test_restricted_confirmation_sets_short_lived_cookie(self):
         async def run():
             request = SimpleNamespace(
@@ -1693,6 +1714,34 @@ class AccessTokenRoleGateTests(unittest.TestCase):
         response = _asgi_request("GET", "/retrieve", cookies=cookies)
 
         self.assertEqual(response["status"], 200)
+
+    def test_store_page_restarts_a_camera_a_prior_retrieve_released(self):
+        """A successful Retrieve stops the camera thread to save power/heat.
+
+        Nothing but the TUI's Open Vessel action ever calls start() again.
+        A WebUI-only session (Store/Retrieve, no TUI Open) that hits Retrieve
+        once must still get a working camera preview on its next Store visit.
+        """
+        from phasmid.services.access_token_service import ROLE_STORE
+
+        token = self._service.issue(ROLE_STORE, gadget_ip=GADGET_BIND)
+        cookies = self._unlock_with(token)
+
+        with mock.patch.object(web_server.access_cue_service, "start") as start:
+            response = _asgi_request("GET", "/store", cookies=cookies)
+            self.assertEqual(response["status"], 200)
+            start.assert_called_once()
+
+    def test_retrieve_page_restarts_a_camera_a_prior_retrieve_released(self):
+        from phasmid.services.access_token_service import ROLE_RECOVER
+
+        token = self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
+        cookies = self._unlock_with(token)
+
+        with mock.patch.object(web_server.access_cue_service, "start") as start:
+            response = _asgi_request("GET", "/retrieve", cookies=cookies)
+            self.assertEqual(response["status"], 200)
+            start.assert_called_once()
 
     def test_recover_token_hides_store_and_maintenance_nav_links(self):
         from phasmid.services.access_token_service import ROLE_RECOVER

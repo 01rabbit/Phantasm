@@ -759,6 +759,7 @@ async def store_page(request: Request):
     guard = _guard_store_page(request)
     if guard:
         return guard
+    access_cue_service.start()
     return templates.TemplateResponse(
         request=request,
         name="store.html",
@@ -771,6 +772,7 @@ async def retrieve_page(request: Request):
     guard = _guard_page(request)
     if guard:
         return guard
+    access_cue_service.start()
     return templates.TemplateResponse(
         request=request,
         name="retrieve.html",
@@ -846,6 +848,12 @@ async def video_feed():
     # last was - a viewer closing this tab could leave Recover accepting
     # anything, or refusing everything, until the whole console was
     # restarted. See AIGate.generate_frames() / _finish_camera_consumer().
+    #
+    # start() is a no-op once the background matcher thread is already
+    # running; it only matters right after a successful Retrieve released
+    # the camera to save power (see the `/retrieve` handler) and no TUI
+    # Vessel Open has happened since to bring it back.
+    access_cue_service.start()
     return StreamingResponse(
         access_cue_service.generate_frames(),
         media_type="multipart/x-mixed-replace; boundary=frame",
