@@ -186,9 +186,28 @@ default Vessel directory and selected Vessel context are preserved.
 
 Press `e` from the Simple Operator screen to open the detailed operator
 console. It retains the selected Vessel and provides the previous detailed
-actions: Close, Delete, Create, Inspect, Face management, Audit, Doctor,
-Settings, Access Tokens, LUKS, and Help. Expert controls are for diagnostic
-and maintenance work, not the normal Protect/Open flow.
+actions: Close, Delete, Create, Face management, Settings, Access Tokens,
+LUKS, and Help. Expert controls are for diagnostic and maintenance work, not
+the normal Protect/Open flow.
+
+**Doctor and Inspect are deactivated here** (#169): each is fully duplicated
+by the role-gated WebUI (`/operator/doctor`, `/operator/inspect`), which
+calls the identical service function - and unlike the TUI, the WebUI
+enforces the store/recover role split #168 added. Anyone with physical TUI
+access has always had full access to every screen regardless of role, so
+continuing to offer these two from the TUI's own footer no longer matched
+the safer path. The bindings are hidden, not removed:
+`HomeScreen.check_action` returns `False` for them (the same mechanism
+already used to hide `l` LUKS while that layer is disabled), and the screens
+and their service calls are untouched underneath - this is a Phase 1
+deactivation, reversible by un-hiding the binding, with removal planned for
+Phase 2 once it has held up through rehearsal.
+
+**Audit is equally duplicated by `/operator/audit`, but deliberately stays
+visible** for now: the demo runbook drives it directly from this binding on
+stage, and hiding it would force a slower command-palette detour with no
+WebUI-side replacement for that beat yet. It follows the same Phase
+1/Phase 2 path once that changes.
 
 Press `escape` to return to the Simple Operator screen. The protected storage
 list is refreshed on return, so anything created or closed in Expert controls is
@@ -202,15 +221,13 @@ every other screen in the TUI. Use `escape` to go back.
 | Key | Action |
 |---|---|
 | `escape` | Back to the Simple Operator screen |
-| `o` | Open Vessel |
+| `o` | Open Vessel (Recover File / List Files / Remove File - see below) |
 | `x` | Close Vessel |
 | `delete` | Delete Vessel (scrambles the data, then removes the file) |
 | `c` | Create Vessel |
-| `i` | Inspect Vessel |
 | `f` | Face management |
 | `g` | Guided Help |
 | `a` | Audit View |
-| `d` | Doctor View |
 | `s` | Settings |
 | `t` | Access Tokens (issue/revoke the WebUI's store and recover role tokens) |
 | `l` | LUKS panel |
@@ -218,6 +235,26 @@ every other screen in the TUI. Use `escape` to go back.
 | `q` | Quit |
 | `r` | Refresh Vessel list (not shown in footer) |
 | `/` | About (not shown in footer) |
+
+**Deactivated, not removed** (#169 Phase 1 - duplicated by the role-gated
+WebUI, still reachable through the command palette): `d` Doctor View →
+`/operator/doctor`, `i` Inspect Vessel → `/operator/inspect`.
+
+### Open Vessel Screen
+
+`o` opens a Vessel already on disk. **Add File is deactivated** (#169):
+duplicated by the WebUI's role-gated `/store`, and the demo now registers
+both Faces there instead. **Recover File, List Files, and Remove File
+stay.** Recover is duplicated by `/retrieve` too - and the WebUI version is
+strictly better, since it shows the live camera feed while an object cue is
+presented, which this screen never could (#158) - but it is kept active
+here because it is the only *verified* way to demonstrate the object-absent
+refusal (the demo's central cue-not-key proof); the WebUI `/retrieve`
+equivalent has not been separately confirmed for that specific case. It
+will follow Add File into deactivation once that verification happens. The
+Operation selector reflects this: Add is missing, the other three remain;
+the underlying `add` code path is untouched, so restoring the option is a
+one-line revert.
 
 ## WebUI Integration (Exposed Mode)
 

@@ -2213,13 +2213,15 @@ def test_expert_footer_shows_every_binding_at_the_documented_minimum_width():
     the runbook to be updated rather than silently going stale.
 
     Raised from 123 to 133 when `t` (Access Tokens, #168) was added, then to
-    145 when `delete` (Delete Vessel) was added.
+    145 when `delete` (Delete Vessel) was added, then lowered to 124 when
+    Doctor and Inspect were hidden from the footer (#169 - duplicated by the
+    role-gated WebUI; Audit stays visible, see check_action).
     """
     import asyncio
 
     from textual.widgets._footer import FooterKey
 
-    MIN_WIDTH = 145
+    MIN_WIDTH = 124
 
     async def offscreen_at(width: int) -> list[str]:
         from phasmid.tui.app import PhasmidApp
@@ -2267,6 +2269,50 @@ def test_luks_binding_is_hidden_while_the_luks_layer_is_disabled():
         assert screen.check_action("luks_panel", ()) is True
 
     assert screen.check_action("open_vessel", ()) is True
+
+
+def test_doctor_and_inspect_bindings_are_hidden_duplicated_by_webui():
+    """Doctor and Inspect are fully duplicated by the role-gated WebUI (#169).
+
+    Both call the identical service function (run_doctor_checks,
+    inspect_vessel) as /operator/doctor and /operator/inspect. Deactivate-
+    first, per the issue: hidden from the footer via check_action, same as
+    the LUKS precedent, but the action_* methods are untouched and still
+    reachable (e.g. the command palette).
+
+    Audit is equally duplicated by /operator/audit but deliberately stays
+    visible: the demo runbook drives it directly from this binding, and the
+    WebUI has not replaced that beat yet.
+    """
+    from phasmid.tui.screens.home import HomeScreen
+
+    screen = HomeScreen.__new__(HomeScreen)
+
+    assert screen.check_action("doctor", ()) is False
+    assert screen.check_action("inspect_vessel", ()) is False
+    assert screen.check_action("audit", ()) is True
+    assert screen.check_action("open_vessel", ()) is True
+    assert callable(screen.action_doctor)
+    assert callable(screen.action_audit)
+    assert callable(screen.action_inspect_vessel)
+
+
+def test_open_vessel_screen_deactivates_add_file_only(monkeypatch):
+    """Add File is duplicated by /store (#169); Recover File is not removed.
+
+    Add is deactivated - the demo now registers both Faces through the
+    WebUI's Store page instead. Recover File stays: it is the only verified
+    way to demonstrate the object-absent refusal, the demo's central
+    cue-not-key proof, since the WebUI /retrieve equivalent has not been
+    separately confirmed for that specific case. Deactivated here rather
+    than removed: _attempt_open's "add" branch is untouched, so restoring
+    the option is a one-line revert.
+    """
+    from phasmid.tui.screens.open_vessel import OpenVesselScreen
+
+    option_ids = {value for _, value in OpenVesselScreen._OPERATION_OPTIONS}
+    assert option_ids == {"list", "retrieve", "remove"}
+    assert "add" not in option_ids
 
 
 def test_standby_clears_pending_notifications(monkeypatch):

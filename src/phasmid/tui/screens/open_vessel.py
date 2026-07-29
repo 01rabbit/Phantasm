@@ -34,6 +34,11 @@ class OpenVesselScreen(OperatorScreen):
         text-style: italic;
         padding: 1 0;
     }
+    OpenVesselScreen #webui-redirect-note {
+        color: $text-muted;
+        text-style: italic;
+        padding: 0 0 1 0;
+    }
     OpenVesselScreen #open-btn {
         margin-top: 2;
         width: 100%;
@@ -44,8 +49,18 @@ class OpenVesselScreen(OperatorScreen):
         ("Disclosure Face 1", "face_a"),
         ("Disclosure Face 2", "face_b"),
     ]
+    # Add File is deactivated here (#169): fully duplicated by the WebUI's
+    # role-gated /store, and the current demo flow registers both Faces there
+    # instead. The "add" code path below is deliberately left in place rather
+    # than deleted - restoring the option is a one-line revert.
+    #
+    # Recover File stays active, unlike the issue's suggested scope: it is
+    # the only *verified* way to demonstrate the object-absent refusal (the
+    # demo's central cue-not-key proof) - the WebUI /retrieve equivalent has
+    # not been separately confirmed for that specific case. Deactivate it
+    # once that verification happens; until then, removing it here would
+    # break the live demo's most important beat with no tested fallback.
     _OPERATION_OPTIONS = [
-        ("Add File", "add"),
         ("List Files", "list"),
         ("Recover File", "retrieve"),
         ("Remove File", "remove"),
@@ -82,6 +97,12 @@ class OpenVesselScreen(OperatorScreen):
             [(label, val) for label, val in self._OPERATION_OPTIONS],
             id="operation-select",
             value="retrieve",
+        )
+        yield Static(
+            "Add File now runs through the WebUI's Store page (store role) - "
+            "see Access Tokens. This screen still handles Recover File, "
+            "List Files, and Remove File.",
+            id="webui-redirect-note",
         )
         yield Label("Input file (store)", classes="field-label", id="input-file-label")
         yield Input(placeholder="Path to local file or stored name", id="input-file")
