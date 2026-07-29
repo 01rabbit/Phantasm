@@ -62,7 +62,8 @@
       ```bash
       cd ~/Phasmid && bash scripts/pi_zero2w/run_demo_console.sh
       ```
-      `LIBCAMERA_LOG_LEVELS` / `PHASMID_WEBUI_EXPOSE_GADGET` / `PHASMID_WEB_TOKEN` /
+      `LIBCAMERA_LOG_LEVELS` / `PHASMID_WEBUI_EXPOSE_GADGET` /
+      `PHASMID_STORE_TOKEN` / `PHASMID_RECOVER_TOKEN` /
       `PHASMID_RECOGNITION_MODE=demo` と `stty -ixon` を設定する。**素の起動では
       デモが成立しない**（→ §0）。
 - [ ] **【重要】囮ファイルを自分で用意し、開示する Face に保存しておく。**
@@ -77,7 +78,9 @@
 - [ ] （任意）**Fill Free Space を事前実行**（約4分）。空き領域を埋め、
       容器が不自然に空でないようにする。経過時間が表示され画面は固まらない。
 - [ ] ラップトップのブラウザで `http://10.12.194.1:8000/unlock` を開き、
-      トークン（既定 `phasmid-demo-token`）を入力して**Homeまで進めた状態でタブを用意**。
+      **Recoverトークン**（既定 `phasmid-demo-recover-token`）を入力して
+      **Homeまで進めた状態でタブを用意**。Step 5は見せるだけで操作しないので、
+      壇上に出す面はStore/Maintenanceリンクの出ないRecoverロールにしておく。
       ※ `phasmid-pi.local` は使わない。**IPアドレス直指定**。
 - [ ] **バックアップ録画**（全手順を通した2〜3分クリップ）を再生機に用意し**頭出し**。
 - [ ] 予備電源／ケーブル。会場ネットワークは不要（WebUIはUSBガジェット面のみ）。
