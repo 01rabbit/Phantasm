@@ -951,14 +951,18 @@
             {% if active != "lock" and active != "emergency" %}
             <nav class="nav" aria-label="Primary navigation">
                 <a href="/" class="{{ 'active' if active == 'home' else '' }}">Home</a>
+                {% if store_role %}
                 <a href="/store" class="{{ 'active' if active == 'store' else '' }}">Store</a>
+                {% endif %}
                 <a href="/retrieve" class="{{ 'active' if active == 'retrieve' else '' }}">Retrieve</a>
+                {% if store_role %}
                 <a href="/maintenance" class="{{ 'active' if active == 'maintenance' else '' }}">Maintenance</a>
                 <span class="nav-sep" aria-hidden="true"></span>
                 <a href="/operator/doctor"  class="operator {{ 'active' if active == 'operator-doctor'  else '' }}">Diagnostics</a>
                 <a href="/operator/audit"   class="operator {{ 'active' if active == 'operator-audit'   else '' }}">Audit</a>
                 <a href="/operator/guided"  class="operator {{ 'active' if active == 'operator-guided'  else '' }}">Workflows</a>
                 <a href="/operator/inspect" class="operator {{ 'active' if active == 'operator-inspect' else '' }}">Inspect</a>
+                {% endif %}
                 {% if ui_unlock_required %}
                 <span class="nav-sep" aria-hidden="true"></span>
                 <form method="post" action="/lock" class="nav-lock">

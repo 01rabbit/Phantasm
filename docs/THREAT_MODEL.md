@@ -95,6 +95,7 @@ The current codebase does not claim to solve possession plausibility or hostile-
 - Local vault access key in the configured state directory.
 - Panic token in the configured state directory.
 - Web UI mutation token created at process start or supplied through `PHASMID_WEB_TOKEN`.
+- Encrypted store/recover access-token hash map in the configured state directory (see [WebUI Access Roles](#webui-access-roles)).
 - Browser-visible surfaces such as rendered HTML, console output, response headers, filenames, and cached pages.
 - CLI output, shell history, application stdout/stderr, and systemd logs.
 - camera overlay text and Maintenance diagnostics output.
@@ -183,6 +184,42 @@ file-system trust boundary.
 the token out of the WebUI process environment when `PHASMID_WEB_TOKEN` is set,
 and a loopback peer needs neither. The page session gate is a boundary against a
 network or USB-gadget peer, not against same-user code execution on the device.
+
+### WebUI Access Roles
+
+An unlocked WebUI page session carries one of two roles, decided by which
+credential was presented at `/unlock`, not by anything the operator picks
+after unlocking:
+
+- **Store role** - reaches `/store`, `/maintenance`, `/maintenance/entries`,
+  and `/operator/*` (Diagnostics, Audit, Workflows, Inspect), in addition to
+  everything the recover role reaches. This is the only role from which a
+  Face can be selected or a restricted (destroy) passphrase entered, in
+  either the TUI's Open Vessel screen or the WebUI's Store page.
+- **Recover role** - reaches `/`, `/retrieve`, `/status`, `/video_feed`, and
+  the destroy routes under `/emergency`. It has no Face selector anywhere,
+  and no field named as a restricted or destroy passphrase; which face
+  answers is resolved from the passphrase and the object cue, the same way
+  `retrieve_file(selector=None)` resolves it at the service layer.
+
+**The legacy shared `WEB_TOKEN` still grants the store role**, so a device
+with no role token issued, or an operator not using role tokens yet, is not
+locked out. A **role token** is issued from the TUI (never from the WebUI),
+persisted only as a salted hash, and requires a live USB gadget connection to
+issue or reissue - granting either role is meant to require the operator's
+hands on the device over USB, not reachability from the same Wi-Fi network or
+across a room. Only one token per role may exist at a time; issuing a second
+requires revoking the first.
+
+**Assumption this role split depends on:** encrypting or storing new material
+(the store role's surface) is assumed to happen outside any coercive event.
+Nothing enforces that assumption technically - if an operator were compelled
+to unlock with a store-role credential, the same disclosure the recover role
+exists to prevent would still occur. The role split's guarantee is narrower
+and unconditional: an operator who was only ever handed a recover-role
+credential has no UI path in either interface to reveal that a second face or
+a second credential category exists, regardless of what they are compelled to
+do with it.
 
 ### Host Header Validation
 
@@ -516,6 +553,7 @@ Phasmid explicitly does not aim to provide:
 - Browser history, cache, shell history, systemd logs, environment variables, and temporary files can leak operational context if the appliance is not configured carefully.
 - Legacy v1/v2 retrieval has been removed. Old containers must be migrated by retrieving with an older build and storing again with this build.
 - Timing normalization between the NORMAL, FAILED, and RESTRICTED recovery paths is best-effort only. The Argon2id KDF cost dominates end-to-end latency, but the RESTRICTED path includes additional filesystem writes for local-state updates that are measurable with process-level instrumentation. This difference cannot be eliminated without removing the local-state update itself. An adversary with kernel-level tracing tools can distinguish the RESTRICTED path from the FAILED path. The NORMAL and RESTRICTED paths share the same HTTP response structure and file download format; they are not distinguishable from the WebUI client's perspective.
+- The access-token store records which of the store/recover roles currently have an issued token as separate encrypted map entries (see [WebUI Access Roles](#webui-access-roles)). A party who recovers the local state key can decrypt this map and learn which roles exist, even though the tokens themselves remain unrecoverable from it. This is a narrower leak than the Face or credential-category disclosure the role split exists to prevent - it reveals that a role tier exists, not which Face was accessed or what either passphrase is - but it is not nothing, and is accepted as a residual risk rather than solved.
 - Response headers and download filenames for the NORMAL and RESTRICTED paths are structurally identical. Both return `retrieved_payload.bin` in `Content-Disposition` and the same media type. The `purge_applied` internal flag does not appear in any response header.
 
 ---
