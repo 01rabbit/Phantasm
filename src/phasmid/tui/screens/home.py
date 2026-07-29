@@ -231,6 +231,17 @@ class HomeScreen(OperatorScreen):
         self._run_startup_checks()
         self._log("Vessel list refreshed.")
 
+    # Duplicated by the role-gated WebUI (#169): Doctor -> /operator/doctor
+    # and Inspect -> /operator/inspect call the identical service function.
+    # Hidden here rather than removed - a fast, low-risk revert (Phase 1:
+    # deactivate, delete once stable) - the action_* methods below are
+    # untouched and still reachable from the command palette, same as the
+    # LUKS precedent. Audit is equally duplicated by /operator/audit but
+    # stays visible: the demo runbook's Step 5 drives it directly from this
+    # binding, and hiding it would force a slower command-palette detour on
+    # stage with no benefit until that beat moves to the WebUI too.
+    _WEBUI_DUPLICATED_ACTIONS = ("doctor", "inspect_vessel")
+
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         # Footer cells sit at fixed offsets, so anything past the terminal
         # width is simply not drawn - and `w` (WebUI), an app-level binding
@@ -241,6 +252,8 @@ class HomeScreen(OperatorScreen):
         # Textual treats False as "disabled and not shown"; None would keep
         # the cell and only grey it out, which would not free any columns.
         if action == "luks_panel" and PHASMID_LUKS_MODE.strip().lower() == "disabled":
+            return False
+        if action in self._WEBUI_DUPLICATED_ACTIONS:
             return False
         return True
 

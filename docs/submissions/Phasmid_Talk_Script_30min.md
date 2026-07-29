@@ -2,6 +2,7 @@
 
 **Deck:** Phasmid_DEFCON_DemoLabs.pptx（全26枚 / 各スライドに同内容のスピーカーノート埋め込み済み）
 **Presenter:** Makoto Sugita (Mr.Rabbit / 01rabbit)
+**改訂 v5（0.4.0）:** Slide 24 のデモ構成を、実機で検証済みの WebUI 中心の Bind/Operate に更新。**Step 2「Bind」と Step 3「Operate（正しい物体での復元）」は WebUI**（役割別トークン: store / recover）で行い、**Step 4「物体なしでの失敗」だけを TUI に残す**（この否定証明はWebUI側で今回のセッションでは未再検証のため）。プロジェクタ切替は Step 1→2 と Step 3→4 の**1往復のみ**に抑制。Issue #169（TUI の Add File・Doctor・Inspect を非活性化、WebUIと重複するため）を反映し、Slide 24 の手順表と Q&A の一部を更新。
 **改訂 v4:** 製品モデルの確定を反映。**囮ファイルはツールが作らない — 利用者が用意する。** 生成機能は「空き領域の填充」へ降格し、Slide 14・21・22 の記述を差し替え。**強要下では開示しない**（制限パスフレーズは破壊資格であり取出資格ではない）ことを Slide 21 で明言。**パスフレーズは3つ**（真の復号／真の破壊／偽の復号）を Slide 12 に明示。Slide 24 のデモ手順を実機ランブック（8ステップ）と一致させ、**Step 3b（物体なしでの失敗）** を山場として新設。**ステッカーは未作成のため Slide 25・26 の言及を削除**し、卓上デモへの導線に差し替え。
 > 旧 v3: 実装（silent_brick／purge／emergency_daemon）と整合させ、Slide 6・21 の「破壊しない」記述を撤回。核心を「**Phasmid destroys, but never fabricates**（破壊はする／偽造・隠蔽はしない）」へ変更し、owner-triggered destruction の存在と §2232 リスクを開示。
 > 旧 v2: 軍歴＝着想源＋inverse framing（Slide 2）、REAL CASE(2026)（Slide 4）、国境事案 Q&A を追加。
@@ -27,7 +28,7 @@
 | 機構 | 12 Pillars → 16 Flow | 08:50–13:50 |
 | 内部・実機 | 17 Tech → 20 Guards | 13:50–17:05 |
 | 倫理・限界 | 21 Ethics → 22 Scope | 17:05–19:05 |
-| **デモ（全TUI・8ステップ）** | 23 Divider → 24 Demo | 19:05–26:20 |
+| **デモ（TUI+WebUI・8ステップ、切替は1往復）** | 23 Divider → 24 Demo | 19:05–26:20 |
 | 締め | 25 Quick start → 26 Closing | 26:20–~27:30 |
 | **Q&A・卓上デモ・交流** | — | ~27:30–45:00 |
 
@@ -85,7 +86,7 @@
 
 ## [09:40] Slide 13 — The object is a cue, not a key　★見せ場
 **EN:** "Here's the fun part. You show an everyday **object** to the camera to operate the access gate — nothing to type, nothing that looks like a secret. But this is the part people get wrong, so let me be clear: the object is a **cue, not a key**. It drives operation and policy checks. It is **not** the encryption key. A photo of the object unlocks nothing. The crypto stays with Argon2id and AES-GCM — the object just decides whether you get to act. **And you'll watch this fail live in a few minutes** — same file, same password, no object."
-**JA:** ゆっくり。cue≠key を二度言う。手元の物体を掲げると効果的。**最後の一文で Step 3b を予告する。** 実証を約束しておくとデモの山が強くなる。
+**JA:** ゆっくり。cue≠key を二度言う。手元の物体を掲げると効果的。**最後の一文で Step 4 を予告する。** 実証を約束しておくとデモの山が強くなる。
 
 ## [11:00] Slide 14 — Coercion-safe delaying　★製品モデルの核心
 **EN:** "This is what makes it coercion-*safe*. **Silent Standby** — a hotkey drops the sensitive UI into a harmless state; recovery needs re-auth. Then the material itself, and I want to be exact about this: **the file you would hand over is one *you* wrote and stored yourself**, before any coercion. **Phasmid does not manufacture your cover story.** A generated dataset would not survive five minutes of questioning by someone holding your passport — realism has to come from your own material, not from my random-text generator. What the tool *does* offer is a **filler** that occupies free space, so an otherwise empty container doesn't read as empty. That's a volume problem, and volume is something software can actually solve. And **context profiles** — travel, field engineer, researcher — tell you what 'normal' should look like, so you know what to prepare. In coercion-safe mode, a low-confidence match routes to the disclosure face instead of failing loudly. The goal isn't magic invisibility — it's **uncertainty and delay**."
@@ -127,30 +128,30 @@
 **EN:** "Alright — live demo."
 **JA:** 呼吸を整え実機へ。プロジェクタ入力をTUIへ切替。**バックアップ録画の頭出しを確認。**
 
-## [19:20] Slide 24 — Live demo（実TUI）　★中心 / 約7分
-**EN（最小限・手を動かしながら）:** "This is the real TUI — **Local Disclosure Control**. I'll **create a vessel**. I'll **store a file** while holding an everyday object in front of the camera. I'll **recover it** with the object — it comes back. Then watch this: **same file, same password, same everything — only the object is gone.** Ten seconds, and it refuses. That is what 'the cue gates the operation' means. Then **Audit** — and notice what it *doesn't* claim. Then the local **WebUI** over USB, and **Silent Standby**. Watch the bottom bar."
+## [19:20] Slide 24 — Live demo（TUI + WebUI）　★中心 / 約7分半
+**EN（最小限・手を動かしながら）:** "This is the real system — the **TUI** handles prepare, refuse, and disclose; the local **WebUI**, reached over USB, handles bind and operate. I'll **create a vessel** here. Then I switch to the browser, log in with a store-scoped token, and **register two Faces** — each one bound to an everyday object in front of the camera. I'll open one back with the correct object — it comes back, and I'll show you a second, narrower session that can never reach Face setup at all. Then I switch back here and do the important part: **same file, same password, same everything — only the object is gone.** Ten seconds, and it refuses. That is what 'the cue gates the operation' means. Then **Audit** — and notice what it *doesn't* claim. Then **Silent Standby**. Watch the bottom bar."
 
-**JA デモ手順:** 詳細は別紙 **`docs/submissions/Phasmid_Demo_Runbook.md`（8ステップ）** に従う。要点のみ：
+**JA デモ手順:** 詳細は別紙 **`docs/submissions/Phasmid_Demo_Runbook.md`（8ステップ、合計 ~7:30）** に従う。要点のみ：
 
-| # | 手順 | 目安 | 要点 |
-|---|---|---|---|
-| 0 | オリエンテーション | 0:20 | Simple 画面の6キーを指す。最小面も coercion-aware 設計の一部 |
-| 1 | `n` Create Vessel | 0:50 | ヘッダなし・マジックバイトなし |
-| 2 | `o` Open → **Add File**（物体を構える） | 1:10 | **Faces 画面ではない。** カメラを使うのは Add File だけ |
-| 3a | `o` Open → Recover（物体あり） | 0:40 | "Same object, correct password — the file comes back." |
-| **3b** | **Recover（物体なし）→ 約10秒後に失敗** | 0:40 | **★本デモの証明。ここで必ず間を取る。** 可能なら物体を戻して往復させる |
-| 4 | `e` → `a` Audit | 0:50 | `Free Space Filler` を指す。**判定しないことを誇る** |
-| 5 | `w` WebUI（見せるだけ） | 0:40 | 露出バナーを両端で見せる。**操作はしない** |
-| 6 | `Ctrl+S` Silent Standby | 1:20 | **山場。** WebUI も同時に落ちる。ゆっくり |
-| 7 | `Esc` で復帰・ラップ | 0:10 | Prepare→Bind→Operate→Disclose を一言で |
+| # | 手順 | 目安 | 画面 | 要点 |
+|---|---|---|---|---|
+| 0 | オリエンテーション | 0:20 | TUI | Simple 画面の6キーを指す。最小面も coercion-aware 設計の一部 |
+| 1 | `n` Create Vessel | 0:50 | TUI | ヘッダなし・マジックバイトなし |
+| 2 | Bind — Face 1・Face 2 登録 | 1:30 | **WebUI**（store） | **プロジェクタ切替①。** カメラを使うのはここだけ。物体は Face ごとに差し替える |
+| 3 | Operate — 復元成功／役割の境界 | 0:50 | **WebUI**（store・recover） | recover トークンには Store/Maintenance への導線が無いことを見せる |
+| 4 | **復元 失敗（物体なし）** | 0:50 | TUI | **プロジェクタ切替②。★本デモ唯一の証明。** ここで必ず間を取る。可能なら物体を戻して往復させる |
+| 5 | `e` → `a` Audit | 0:50 | TUI Expert | `Free Space Filler` を指す。**判定しないことを誇る** |
+| 6 | `Ctrl+S` Silent Standby | 1:20 | TUI | **山場。** WebUI も同時に落ちる。ゆっくり |
+| 7 | `Esc` で復帰・ラップ | 0:10 | TUI | Prepare→Bind→Operate→Disclose を一言で |
 
 **JA 注意:**
 - **マウスは使わない。** SSH越しではクリックが Textual に届かない。`Tab` / `Enter` のみ。
-- **端末幅123桁以上。** 下回ると Expert フッタから `w WebUI` が無言で消える。
+- **端末幅124桁以上。** 下回ると Expert フッタから `w WebUI` が無言で消える。
+- **プロジェクタ切替は1往復だけ。** Step 1→2 でTUIからブラウザへ、Step 3→4 でブラウザからTUIへ。以降は切替なし。
 - **`Fill Free Space` は壇上で実行しない**（実測約4分）。事前に埋めておき `Inspect` のみ。
-- **囮ファイルは事前に自分で用意し保存しておく。** 壇上でツールに生成させない。
-- **成功例だけを見せない。** Step 3b の対比が無ければ cue≠key は何も証明していない。
-- **7分で切り上げ、Q&Aに15分以上を残す。** 26:00 を超えたら残手順を口頭要約。失敗時は録画へ切替し設計点を口頭補強。
+- **囮ファイルは事前に自分で用意しておく。** 壇上でツールに生成させない。保存自体は Step 2 の WebUI で行う（#169 で TUI の `Add File` は非活性化済み）。
+- **成功例だけを見せない。** Step 4 の対比が無ければ cue≠key は何も証明していない。
+- **7分半で切り上げ、Q&Aに15分以上を残す。** 26:00 を超えたら Step 2〜3 を口頭要約。失敗時は録画へ切替し設計点を口頭補強。
 
 ## [26:20] Slide 25 — Quick start
 **EN:** "Want to try it? Clone the repo, cd in, run `./phasmid` — first run sets up a venv and opens the console. Research software, Apache-2.0. Evaluate it locally, in field-test conditions — not as production protection."
@@ -171,11 +172,11 @@
 - **「LUKSとの関係は?」** → TUIのLUKS連携に触れつつ、Phasmidは*開示制御の層*でありFDEの代替ではない（Slide 6・22）。
 - **「否認可能性は?」** → データ存在の否認は*部分的*、完全否認は*非主張*（Slide 22）。
 - **「押収後、本当に守れるのか?」** → ホスト侵害・カーネル奪取は*対象外*（Slide 8）。増やすのは不確実性と時間（Slide 21）。
-- **「object-cueは生体認証/鍵?」** → 否。*cueであってkeyではない*（Slide 13）。壇上で失敗を実演済み（Step 3b）。
+- **「object-cueは生体認証/鍵?」** → 否。*cueであってkeyではない*（Slide 13）。壇上で失敗を実演済み（Step 4）。
 - **「囮ファイルはツールが作るのか?」** → **否。利用者が用意する。** *"The tool has no idea what a believable version of your life looks like. You do. What it generates is filler for free space — that's a volume problem, and it says so. It never claims the filler is what you hand over."*（Slide 14・22）
 - **「plausibility score は何を測っているのか?」** → **空き領域の占有率であって、説得力ではない。** Audit も Doctor も**分量しか報告しない**。旧版はこれを可信性として表示していたが、判定できないものを判定しているように見えるため撤去した。
 - **「強要されてパスワードを言わされたら?」** → 渡すのは**偽ファイル用のパスフレーズ**で、自分で用意した囮が開く。**制限（duress）パスフレーズは破壊資格であり、開示はしない。** 偽の中身を自動生成して差し出す経路は**意図的に持っていない**——それは偽造だから（Slide 21）。
-- **「WebUIとTUIで見えるものが違うのでは?」** → **保管層は統一済み。** 以前は TUI が `*.vessel`、WebUI が別の `vault.bin` を操作していたが、現在は両者とも同じ Vessel を操作する。ただし**デモ本編では WebUI で保存・復元しない**——統合経路を壇上でまだ実機検証しておらず、判定が物体キュー照合に依存するため CI でも検証できないため。
+- **「WebUIとTUIで見えるものが違うのでは?」** → **保管層は統一済み。** 以前は TUI が `*.vessel`、WebUI が別の `vault.bin` を操作していたが、現在は両者とも同じ Vessel を操作する。**デモ本編でも Step 2・3 は実際に WebUI で Face 登録と復元を行っており**、実機で検証済み。唯一まだ WebUI 側で再検証していないのは Step 4 の「物体なし→拒否」という否定証明1点だけで、それだけは引き続き TUI の `Recover File` で行っている。"The only piece I haven't re-confirmed through the browser yet is the negative case — object completely absent. Everything else you saw tonight, store and retrieve both, ran through the same WebUI."
 - **「法的に問題は?」** → 偽造・改ざん・隠蔽（fabricate/forge/hide）は*行わない*。一方 **owner-triggered の破壊（silent-brick／purge）は実装されており、法的に危険**（§2232型）。合法性は管轄依存であり助言はしない（Slide 21）。
 - **「あの国境の duress-wipe 訴追事案をどう見る?」** → *"That case turns on a destructive act. Phasmid actually **includes** owner-triggered destruction — silent-brick and purge — so this risk applies directly to anyone who uses it. I'm not going to pretend otherwise, and I'm not going to advise using it against lawful process. Legality is jurisdiction-dependent, this is a research prototype, and I won't comment on an active prosecution or give legal advice. The design principle is that Phasmid destroys but never fabricates."* 個別事案の是非・政治的背景には立ち入らない。破壊機能の存在は隠さず、利用者リスクとして開示する。
 
@@ -184,4 +185,4 @@
 - **巻いている（-3分以上）:** Slide 8・14・21 を丁寧に。デモで Audit と Doctor を実演拡張。
 - **デモ不調:** 章扉（23）で頭出しした録画へ即切替。「設計点は録画でも成立する」と明言し、口頭で Prepare→Bind→Operate→Disclose を辿る。
 - **物体認識が不安定:** 起動スクリプトの既定は `demo` モード。それでも不安定なら `coercion_safe` の低信頼→開示面ルートを**設計意図として逆手に説明**する。
-- **時計運用:** 19:20 でデモ開始、**26:00 を超えたら残手順を口頭要約**して締めへ。**Step 3b と Step 6 だけは何があっても見せる。** 45:00 厳守。
+- **時計運用:** 19:20 でデモ開始、**26:00 を超えたら Step 2〜3 を口頭要約**して締めへ。**Step 4 と Step 6 だけは何があっても見せる。** 45:00 厳守。
