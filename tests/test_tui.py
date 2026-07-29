@@ -1812,6 +1812,44 @@ def test_expert_entry_refreshes_simple_home_on_return(monkeypatch):
     assert refreshed == [True]
 
 
+def test_simple_home_shows_a_persistent_webui_warning_like_expert_does():
+    """Simple Home must not go quiet about an exposed WebUI.
+
+    HomeScreen (Expert) carries a dedicated WarningBox in the body, in
+    addition to the shared top banner both screens compose, so the exposure
+    stays visible even if the top banner is easy to miss. SimpleHomeScreen
+    only had the top banner - reported missing on real hardware when the
+    WebUI was started while Expert was the active screen and the operator
+    then looked at Simple underneath it in the stack.
+    """
+    import asyncio
+
+    from phasmid.tui.app import PhasmidApp
+    from phasmid.tui.widgets.warning_box import WarningBox
+
+    async def scan():
+        app = PhasmidApp(initial_screen="home")
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            panel = app.screen.query_one("#webui-warning-panel", WarningBox)
+            assert not panel.display, "warning shown before WebUI ever started"
+
+            app.webui_svc.is_running = lambda: True
+            app.webui_svc.access_url = lambda: "http://10.55.0.10:8000"
+            app.screen.refresh_webui_status()
+            await pilot.pause()
+
+            assert panel.display, "WebUI is running but Simple Home stayed quiet"
+            assert "10.55.0.10:8000" in panel._message
+
+            app.webui_svc.is_running = lambda: False
+            app.screen.refresh_webui_status()
+            await pilot.pause()
+            assert not panel.display, "warning survived after WebUI stopped"
+
+    asyncio.run(scan())
+
+
 def test_key_name_brackets_survive_rich_markup_parsing():
     """`[x]` in a user-facing string is Rich markup, not a literal key name.
 
