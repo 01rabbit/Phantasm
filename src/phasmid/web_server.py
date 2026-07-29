@@ -668,8 +668,22 @@ async def unlock_submit(request: Request, token: str = Form(default="")):
     # still works and grants the store role, so a device with no role token
     # issued yet - or an operator not using the newer per-role tokens - is
     # not locked out.
+    #
+    # Once any role token is in use, WEB_TOKEN stops being able to mint a
+    # session on its own. WEB_TOKEN is embedded as the CSRF mutation guard in
+    # every unlocked page's HTML - including a recover-role session's -
+    # because that is the only thing `require_web_token` has ever checked.
+    # If it kept working here too, reading a recover-role session's page
+    # source would hand over everything needed to open an independent,
+    # full store-role session through this endpoint, defeating the entire
+    # reason a narrower role exists. A device that has not adopted role
+    # tokens yet has nothing narrower to defeat, so it is unaffected.
     role = access_token_service.verify(token)
-    if role is None and secrets.compare_digest(token, WEB_TOKEN):
+    if (
+        role is None
+        and not access_token_service.issued_roles()
+        and secrets.compare_digest(token, WEB_TOKEN)
+    ):
         role = ROLE_STORE
     if role is None:
         _unlock_attempts.record_failure(attempt_scope)

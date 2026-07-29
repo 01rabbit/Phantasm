@@ -202,14 +202,34 @@ after unlocking:
   answers is resolved from the passphrase and the object cue, the same way
   `retrieve_file(selector=None)` resolves it at the service layer.
 
-**The legacy shared `WEB_TOKEN` still grants the store role**, so a device
-with no role token issued, or an operator not using role tokens yet, is not
-locked out. A **role token** is issued from the TUI (never from the WebUI),
-persisted only as a salted hash, and requires a live USB gadget connection to
-issue or reissue - granting either role is meant to require the operator's
-hands on the device over USB, not reachability from the same Wi-Fi network or
-across a room. Only one token per role may exist at a time; issuing a second
-requires revoking the first.
+**The legacy shared `WEB_TOKEN` still grants the store role, but only until a
+role token has been issued.** `WEB_TOKEN` is embedded as the CSRF mutation
+guard in every unlocked page's HTML, recover-role sessions included - it is
+the only thing `require_web_token` has ever checked, and the server never
+learns which specific session read it back. If it kept working at `/unlock`
+after a role token exists, reading a recover-role session's page source would
+be enough to open an independent, full store-role session through that
+endpoint, which would defeat the entire reason a narrower role exists.
+`/unlock` therefore stops accepting `WEB_TOKEN` on its own the moment any role
+token has been issued for either role; a device that has not adopted role
+tokens yet has nothing narrower to defeat, so it is unaffected.
+
+A **role token** is issued from the TUI (never from the WebUI), persisted
+only as a salted hash, and requires a live USB gadget connection to issue or
+reissue - granting either role is meant to require the operator's hands on
+the device over USB, not reachability from the same Wi-Fi network or across a
+room. Only one token per role may exist at a time; issuing a second requires
+revoking the first.
+
+**Residual risk this does not close:** `WEB_TOKEN` is still embedded in a
+recover-role session's own page HTML as its CSRF guard, and remains valid
+proof of *that* session for as long as it is unlocked - `require_store_role`
+is what keeps it from mutating store-only routes, not the absence of the
+token. Closing this fully would mean deriving the CSRF guard from a value scoped to
+the individual session instead of the one static `WEB_TOKEN`, which is a
+larger change than this pass makes; what is closed here is specifically the
+ability to mint a *new, independent* store-role session from a leaked
+recover-role page.
 
 **Assumption this role split depends on:** encrypting or storing new material
 (the store role's surface) is assumed to happen outside any coercive event.

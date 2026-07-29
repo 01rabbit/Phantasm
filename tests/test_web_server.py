@@ -1599,6 +1599,31 @@ class AccessTokenRoleGateTests(unittest.TestCase):
 
         self.assertEqual(response["status"], 200)
 
+    def test_web_token_stops_minting_sessions_once_a_role_token_is_issued(self):
+        """A recover session's page HTML must not be a route back to store role.
+
+        WEB_TOKEN is embedded as the CSRF mutation guard in every unlocked
+        page's HTML, recover-role sessions included - it is the only thing
+        `require_web_token` has ever checked. If it could still open a fresh
+        session here once role tokens are in use, reading a recover-role
+        session's page source would be enough to mint an independent
+        store-role session through this endpoint, defeating the entire
+        reason a narrower role exists.
+        """
+        from phasmid.services.access_token_service import ROLE_RECOVER
+
+        self._service.issue(ROLE_RECOVER, gadget_ip=GADGET_BIND)
+
+        response = _asgi_request(
+            "POST",
+            "/unlock",
+            body=urllib.parse.urlencode({"token": web_server.WEB_TOKEN}).encode(),
+        )
+
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["location"], "/unlock?rejected=1")
+        self.assertEqual(web_server._ui_sessions, {})
+
     def test_garbage_token_is_still_rejected(self):
         response = _asgi_request(
             "POST",
