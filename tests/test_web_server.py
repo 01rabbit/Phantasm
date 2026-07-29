@@ -1149,6 +1149,117 @@ class WebServerBoundaryTests(unittest.TestCase):
         asyncio.run(run())
 
 
+class SelectEntryForStoreTests(unittest.TestCase):
+    """The Store page's visible entry selector must actually control targeting.
+
+    Before this, `/store` ignored `entry_hint` unless `overwrite` was set,
+    so there was no way for an operator to deliberately choose which entry a
+    file went into - the very first store on a fresh Vessel silently landed
+    on Entry 1 because of dict iteration order in `_first_unbound_entry()`,
+    not operator intent.
+    """
+
+    def test_explicit_hint_on_an_unbound_entry_requests_a_fresh_capture(self):
+        with mock.patch.object(
+            web_server,
+            "_raw_gate_status",
+            return_value={"registered_modes": {"dummy": False, "secret": False}},
+        ):
+            entry_id, needs_capture = web_server._select_entry_for_store(
+                entry_hint="entry_2"
+            )
+        self.assertEqual(entry_id, "entry_2")
+        self.assertTrue(needs_capture)
+
+    def test_explicit_hint_on_an_already_bound_entry_reuses_it_when_matched(self):
+        with (
+            mock.patch.object(
+                web_server,
+                "_raw_gate_status",
+                return_value={"registered_modes": {"dummy": True, "secret": False}},
+            ),
+            mock.patch.object(web_server, "_matched_entry", return_value="entry_1"),
+        ):
+            entry_id, needs_capture = web_server._select_entry_for_store(
+                entry_hint="entry_1"
+            )
+        self.assertEqual(entry_id, "entry_1")
+        self.assertFalse(needs_capture)
+
+    def test_explicit_hint_on_an_already_bound_entry_is_refused_without_a_match(self):
+        """Picking an entry from the menu can target a slot, not substitute for its object.
+
+        The camera must currently show the object already registered for the
+        chosen entry - otherwise this would let an operator write to Entry 1
+        while merely selecting it from a dropdown, with no object check at all.
+        """
+        with (
+            mock.patch.object(
+                web_server,
+                "_raw_gate_status",
+                return_value={"registered_modes": {"dummy": True, "secret": False}},
+            ),
+            mock.patch.object(web_server, "_matched_entry", return_value=None),
+        ):
+            entry_id, needs_capture = web_server._select_entry_for_store(
+                entry_hint="entry_1"
+            )
+        self.assertIsNone(entry_id)
+        self.assertFalse(needs_capture)
+
+    def test_explicit_hint_on_an_already_bound_entry_with_overwrite_recaptures(self):
+        with mock.patch.object(
+            web_server,
+            "_raw_gate_status",
+            return_value={"registered_modes": {"dummy": True, "secret": False}},
+        ):
+            entry_id, needs_capture = web_server._select_entry_for_store(
+                entry_hint="entry_1", overwrite=True
+            )
+        self.assertEqual(entry_id, "entry_1")
+        self.assertTrue(needs_capture)
+
+    def test_no_hint_falls_back_to_matched_then_first_unbound_as_before(self):
+        with (
+            mock.patch.object(
+                web_server,
+                "_raw_gate_status",
+                return_value={"registered_modes": {"dummy": True, "secret": False}},
+            ),
+            mock.patch.object(web_server, "_matched_entry", return_value="entry_1"),
+        ):
+            entry_id, needs_capture = web_server._select_entry_for_store()
+        self.assertEqual(entry_id, "entry_1")
+        self.assertFalse(needs_capture)
+
+        with (
+            mock.patch.object(
+                web_server,
+                "_raw_gate_status",
+                return_value={"registered_modes": {"dummy": True, "secret": False}},
+            ),
+            mock.patch.object(web_server, "_matched_entry", return_value=None),
+        ):
+            entry_id, needs_capture = web_server._select_entry_for_store()
+        self.assertEqual(entry_id, "entry_2")
+        self.assertTrue(needs_capture)
+
+    def test_invalid_hint_is_treated_the_same_as_no_hint(self):
+        with (
+            mock.patch.object(
+                web_server,
+                "_raw_gate_status",
+                return_value={"registered_modes": {"dummy": False, "secret": False}},
+            ),
+            mock.patch.object(web_server, "_matched_entry", return_value=None),
+        ):
+            entry_id, needs_capture = web_server._select_entry_for_store(
+                entry_hint="not-a-real-entry"
+            )
+        self.assertEqual(entry_id, "entry_1")
+        self.assertTrue(needs_capture)
+
+
 def _asgi_request(
     method,
     path,

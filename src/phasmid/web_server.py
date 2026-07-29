@@ -603,6 +603,28 @@ def _matched_entry():
 
 
 def _select_entry_for_store(entry_hint=None, overwrite=False):
+    """Resolve which entry a store operation targets.
+
+    An explicit, valid ``entry_hint`` takes priority - the store page's
+    visible entry selector lets an operator deliberately set up Entry 1 and
+    Entry 2 in turn, rather than depending on whichever entry the camera
+    happens to match or the dict-iteration order of the first unbound one.
+    The object cue itself is still what actually authorizes the write: an
+    already-bound entry is only reused when the camera currently matches it
+    (or, for a deliberate replacement, when ``overwrite`` is set), so picking
+    an entry from a menu can target a slot but can never substitute for
+    presenting its object.
+    """
+    if entry_hint in ENTRY_TO_MODE:
+        mode = ENTRY_TO_MODE[entry_hint]
+        if not _raw_gate_status().get("registered_modes", {}).get(mode):
+            return entry_hint, True
+        if overwrite:
+            return entry_hint, True
+        if _matched_entry() == entry_hint:
+            return entry_hint, False
+        return None, False
+
     matched_entry = _matched_entry()
     if matched_entry:
         return matched_entry, False
@@ -610,9 +632,6 @@ def _select_entry_for_store(entry_hint=None, overwrite=False):
     free_entry = _first_unbound_entry()
     if free_entry:
         return free_entry, True
-
-    if overwrite and entry_hint in ENTRY_TO_MODE:
-        return entry_hint, True
 
     return None, False
 
