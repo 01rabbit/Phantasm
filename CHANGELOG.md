@@ -186,36 +186,6 @@ and this project follows SemVer-style release intent for documented interfaces.
   Vessel existed: `_refresh_table` only ever assigned the "No protected
   storage found" text and never restored the default, so it kept
   contradicting the vessel table listed directly above it.
-- `scripts/pi_zero2w/run_webui_probe.sh` treated an `/unlock` redirect as a
-  successful response, timing an empty 303 instead of failing with an
-  explanation.
-- `scripts/bootstrap_pi.sh` aborted before creating the virtualenv on
-  Raspberry Pi OS Trixie: the apt package list named `libatlas-base-dev`,
-  which Debian 13 dropped, and `set -e` turned one missing candidate into a
-  total failure. The list now names `libopenblas-dev`; packages with no
-  installation candidate are reported and skipped instead of ending the run.
-- `scripts/validate_pi_environment.sh` recorded Stage A as failed under
-  Python 3.13 because `import importlib` does not bind `importlib.util` as an
-  attribute; it now imports `importlib.util` directly.
-- `.gitignore` did not cover `_pi_field_test/`, so running the remote
-  performance or demo smoke test scripts left the working tree dirty for
-  good.
-
-### Changed
-
-- The demo launch script and runbook pin `PHASMID_STORE_TOKEN` /
-  `PHASMID_RECOVER_TOKEN` rather than the legacy `PHASMID_WEB_TOKEN`, since
-  `/unlock` stops accepting the legacy token the moment any role token
-  exists; the pre-staged browser tab for the runbook's show-only step now
-  unlocks with the Recover token, the role with nothing to disclose.
-- The DEF CON Demo Labs materials (runbook, talk script, deck) are revised to
-  v4 to match the settled product model: the operator supplies both the
-  material they would disclose and the material they would withhold, and the
-  restricted credential destroys under coercion rather than fabricating a
-  false disclosure. The demo walkthrough now includes recovering with the
-  object absent, refused after ten seconds — without that contrast, a
-  successful recovery alone does not demonstrate that the object cue gates
-  anything.
 
 - Expert controls are no longer a one-way trip. `escape` returns to the Simple
   Operator screen, matching every other pushed screen in the TUI; previously the
@@ -256,6 +226,20 @@ and this project follows SemVer-style release intent for documented interfaces.
   directory itself was not.
 
 ### Changed
+
+- The demo launch script and runbook pin `PHASMID_STORE_TOKEN` /
+  `PHASMID_RECOVER_TOKEN` rather than the legacy `PHASMID_WEB_TOKEN`, since
+  `/unlock` stops accepting the legacy token the moment any role token
+  exists; the pre-staged browser tab for the runbook's show-only step now
+  unlocks with the Recover token, the role with nothing to disclose.
+- The DEF CON Demo Labs materials (runbook, talk script, deck) are revised to
+  v4 to match the settled product model: the operator supplies both the
+  material they would disclose and the material they would withhold, and the
+  restricted credential destroys under coercion rather than fabricating a
+  false disclosure. The demo walkthrough now includes recovering with the
+  object absent, refused after ten seconds — without that contrast, a
+  successful recovery alone does not demonstrate that the object cue gates
+  anything.
 
 - The DEF CON Demo Labs materials described a TUI that no longer exists. The
   runbook, the talk script and slide 24 of the deck all documented one command
