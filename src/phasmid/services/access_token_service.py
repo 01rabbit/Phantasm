@@ -8,7 +8,7 @@ import secrets
 import time
 from typing import Any
 
-from ..config import state_dir
+from ..config import recover_token_env, state_dir, store_token_env
 from ..local_state_crypto import LocalStateCipher
 
 ROLE_STORE = "store"
@@ -18,6 +18,11 @@ ROLES = (ROLE_STORE, ROLE_RECOVER)
 _TOKEN_BLOB_NAME = "access_tokens.bin"
 _TOKEN_KEY_NAME = "access_tokens.key"
 _TOKEN_BYTES = 32
+ENV_ISSUED_AT = "env"
+_ROLE_ENV_GETTERS = {
+    ROLE_STORE: store_token_env,
+    ROLE_RECOVER: recover_token_env,
+}
 
 
 class AccessTokenRoleAlreadyIssued(ValueError):
@@ -26,6 +31,16 @@ class AccessTokenRoleAlreadyIssued(ValueError):
 
 class AccessTokenGadgetRequired(RuntimeError):
     """Token issuance requires a live USB gadget connection."""
+
+
+class AccessTokenEnvPinned(ValueError):
+    """This role's token is fixed by an environment variable, not the TUI.
+
+    Set for reproducible demo runs (``PHASMID_STORE_TOKEN`` /
+    ``PHASMID_RECOVER_TOKEN``); issuing or revoking through the TUI while
+    the variable is set would only be silently overridden the next time the
+    console starts.
+    """
 
 
 class AccessTokenService:
@@ -54,6 +69,9 @@ class AccessTokenService:
     def _validate_role(self, role: str) -> None:
         if role not in ROLES:
             raise ValueError(f"unsupported access token role: {role}")
+
+    def _env_token(self, role: str) -> str:
+        return _ROLE_ENV_GETTERS[role]()
 
     def _load(self) -> dict[str, Any]:
         if not os.path.exists(self.blob_path):
@@ -84,14 +102,26 @@ class AccessTokenService:
 
     def has_token(self, role: str) -> bool:
         self._validate_role(role)
+        if self._env_token(role):
+            return True
         return role in self._load()
 
     def issued_roles(self) -> dict[str, str]:
-        """Return {role: issued_at} for every currently-issued token."""
+        """Return {role: issued_at} for every currently-issued token.
+
+        An environment-pinned role (see :class:`AccessTokenEnvPinned`)
+        reports ``"env"`` and always wins over any persisted hash for that
+        same role - the two are never both consulted for one role, so which
+        one happens to also be on disk does not matter.
+        """
         data = self._load()
-        return {
-            role: str(data[role].get("issued_at", "")) for role in ROLES if role in data
-        }
+        result: dict[str, str] = {}
+        for role in ROLES:
+            if self._env_token(role):
+                result[role] = ENV_ISSUED_AT
+            elif role in data:
+                result[role] = str(data[role].get("issued_at", ""))
+        return result
 
     def issue(self, role: str, *, gadget_ip: str | None) -> str:
         """Issue a new token for ``role`` and return the raw value.
@@ -105,6 +135,11 @@ class AccessTokenService:
         credential tier exists at all.
         """
         self._validate_role(role)
+        if self._env_token(role):
+            raise AccessTokenEnvPinned(
+                f"the {role} token is fixed by an environment variable; "
+                "unset it and restart to issue one from here"
+            )
         if not gadget_ip:
             raise AccessTokenGadgetRequired(
                 "a USB gadget connection is required to issue an access token"
@@ -128,6 +163,11 @@ class AccessTokenService:
     def revoke(self, role: str) -> bool:
         """Clear the issued token for ``role``. Returns False if none existed."""
         self._validate_role(role)
+        if self._env_token(role):
+            raise AccessTokenEnvPinned(
+                f"the {role} token is fixed by an environment variable; "
+                "unset it and restart to revoke it"
+            )
         data = self._load()
         if role not in data:
             return False
@@ -136,12 +176,23 @@ class AccessTokenService:
         return True
 
     def verify(self, token: str) -> str | None:
-        """Return the role ``token`` belongs to, or None if it matches neither."""
+        """Return the role ``token`` belongs to, or None if it matches neither.
+
+        Every role is checked, and every check does exactly one comparison,
+        so how long this takes does not depend on which role - or whether
+        any - matched. A role with an environment-pinned value is compared
+        directly against it and never falls through to a persisted hash.
+        """
         if not token:
             return None
         data = self._load()
         matched_role: str | None = None
         for role in ROLES:
+            env_value = self._env_token(role)
+            if env_value:
+                if secrets.compare_digest(token, env_value):
+                    matched_role = role
+                continue
             record = data.get(role)
             if not isinstance(record, dict):
                 continue

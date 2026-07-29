@@ -1,8 +1,12 @@
+import os
 import unittest
+from unittest import mock
 
 from src.phasmid.services.access_token_service import (
+    ENV_ISSUED_AT,
     ROLE_RECOVER,
     ROLE_STORE,
+    AccessTokenEnvPinned,
     AccessTokenGadgetRequired,
     AccessTokenRoleAlreadyIssued,
     AccessTokenService,
@@ -100,6 +104,47 @@ class TestAccessTokenService(unittest.TestCase):
         token = self.service.issue(ROLE_STORE, gadget_ip="10.55.0.1")
         other = AccessTokenService(state_directory=self.tmp_dir)
         self.assertEqual(other.verify(token), ROLE_STORE)
+
+    def test_env_pinned_token_verifies_without_ever_being_issued(self):
+        """A fixed demo token needs no TUI issuance step at all.
+
+        PHASMID_STORE_TOKEN/PHASMID_RECOVER_TOKEN mirror PHASMID_WEB_TOKEN:
+        set once at process startup for a reproducible demo, instead of
+        depending on a value the TUI only ever shows once.
+        """
+        with mock.patch.dict(os.environ, {"PHASMID_STORE_TOKEN": "demo-store-fixed"}):
+            self.assertEqual(self.service.verify("demo-store-fixed"), ROLE_STORE)
+            self.assertIsNone(self.service.verify("wrong-value"))
+
+    def test_env_pinned_token_reports_has_token_and_issued_roles(self):
+        with mock.patch.dict(os.environ, {"PHASMID_RECOVER_TOKEN": "demo-recover"}):
+            self.assertTrue(self.service.has_token(ROLE_RECOVER))
+            self.assertEqual(self.service.issued_roles()[ROLE_RECOVER], ENV_ISSUED_AT)
+
+    def test_env_pinned_role_blocks_issue_and_revoke(self):
+        with mock.patch.dict(os.environ, {"PHASMID_STORE_TOKEN": "demo-store-fixed"}):
+            with self.assertRaises(AccessTokenEnvPinned):
+                self.service.issue(ROLE_STORE, gadget_ip="10.55.0.1")
+            with self.assertRaises(AccessTokenEnvPinned):
+                self.service.revoke(ROLE_STORE)
+
+    def test_env_pinned_token_overrides_a_previously_persisted_hash(self):
+        """The env value always wins, even over an existing issued token.
+
+        Otherwise an operator who issued a token earlier and later sets the
+        env var for a demo would get inconsistent behavior depending on
+        which code path happened to run first.
+        """
+        old_token = self.service.issue(ROLE_STORE, gadget_ip="10.55.0.1")
+        with mock.patch.dict(os.environ, {"PHASMID_STORE_TOKEN": "demo-store-fixed"}):
+            self.assertIsNone(self.service.verify(old_token))
+            self.assertEqual(self.service.verify("demo-store-fixed"), ROLE_STORE)
+
+    def test_env_pinning_one_role_leaves_the_other_role_normal(self):
+        with mock.patch.dict(os.environ, {"PHASMID_STORE_TOKEN": "demo-store-fixed"}):
+            recover_token = self.service.issue(ROLE_RECOVER, gadget_ip="10.55.0.1")
+            self.assertEqual(self.service.verify(recover_token), ROLE_RECOVER)
+            self.assertEqual(self.service.verify("demo-store-fixed"), ROLE_STORE)
 
 
 if __name__ == "__main__":

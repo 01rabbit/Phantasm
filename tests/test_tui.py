@@ -1508,6 +1508,30 @@ def test_access_token_screen_revoke_success_and_when_nothing_issued(
     assert any(kwargs.get("severity") == "warning" for _args, kwargs in notifications)
 
 
+def test_access_token_screen_env_pinned_role_notifies_instead_of_crashing(
+    monkeypatch, tmp_path
+):
+    """A demo-fixed PHASMID_STORE_TOKEN must not be issuable or revocable here.
+
+    Doing either from the TUI would only be silently overridden the next
+    time the console starts, since the environment variable always wins.
+    """
+    from phasmid.services.access_token_service import ROLE_STORE
+
+    screen, _test_service, notifications, token_area_updates = (
+        _access_token_screen_harness(monkeypatch, tmp_path)
+    )
+    monkeypatch.setenv("PHASMID_STORE_TOKEN", "demo-store-fixed")
+
+    screen._issue(ROLE_STORE)
+    assert token_area_updates == []
+    assert any(kwargs.get("severity") == "error" for _args, kwargs in notifications)
+
+    notifications.clear()
+    screen._revoke(ROLE_STORE)
+    assert any(kwargs.get("severity") == "error" for _args, kwargs in notifications)
+
+
 def test_face_manager_screen_uses_shared_workflow(monkeypatch):
     from textual.widgets import DataTable
 

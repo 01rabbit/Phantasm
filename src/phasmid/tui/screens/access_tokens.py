@@ -5,8 +5,10 @@ from textual.binding import Binding
 from textual.widgets import Button, Footer, Select, Static
 
 from ...services.access_token_service import (
+    ENV_ISSUED_AT,
     ROLE_RECOVER,
     ROLE_STORE,
+    AccessTokenEnvPinned,
     AccessTokenGadgetRequired,
     AccessTokenRoleAlreadyIssued,
     access_token_service,
@@ -107,7 +109,9 @@ class AccessTokenScreen(OperatorScreen):
         issued = access_token_service.issued_roles()
         lines = []
         for _label, role in _ROLE_OPTIONS:
-            if role in issued:
+            if issued.get(role) == ENV_ISSUED_AT:
+                lines.append(f"{_ROLE_LABELS[role]}: fixed by environment variable")
+            elif role in issued:
                 lines.append(f"{_ROLE_LABELS[role]}: issued at {issued[role]}")
             else:
                 lines.append(f"{_ROLE_LABELS[role]}: not issued")
@@ -134,6 +138,9 @@ class AccessTokenScreen(OperatorScreen):
         except AccessTokenRoleAlreadyIssued as exc:
             self.app.notify(str(exc), title="Access Tokens", severity="error")
             return
+        except AccessTokenEnvPinned as exc:
+            self.app.notify(str(exc), title="Access Tokens", severity="error")
+            return
 
         self.query_one("#issued-token-area", Static).update(
             f"New {_ROLE_LABELS[role]} token (copy it now - it will not be "
@@ -142,7 +149,11 @@ class AccessTokenScreen(OperatorScreen):
         self._refresh_status()
 
     def _revoke(self, role: str) -> None:
-        revoked = access_token_service.revoke(role)
+        try:
+            revoked = access_token_service.revoke(role)
+        except AccessTokenEnvPinned as exc:
+            self.app.notify(str(exc), title="Access Tokens", severity="error")
+            return
         self.query_one("#issued-token-area", Static).update("")
         if revoked:
             self.app.notify(

@@ -1643,6 +1643,26 @@ class AccessTokenRoleGateTests(unittest.TestCase):
         self.assertEqual(response["location"], "/unlock?rejected=1")
         self.assertEqual(web_server._ui_sessions, {})
 
+    def test_env_pinned_demo_token_also_disables_the_web_token_fallback(self):
+        """A fixed demo token gets the same protection as an issued one.
+
+        issued_roles() (the signal that disables the legacy WEB_TOKEN
+        fallback) must count an environment-pinned role, not just one
+        persisted via the TUI - otherwise pinning a demo token would
+        silently reopen the exact escalation the other test in this class
+        closes.
+        """
+        with mock.patch.dict(os.environ, {"PHASMID_RECOVER_TOKEN": "demo-recover"}):
+            response = _asgi_request(
+                "POST",
+                "/unlock",
+                body=urllib.parse.urlencode({"token": web_server.WEB_TOKEN}).encode(),
+            )
+
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["location"], "/unlock?rejected=1")
+        self.assertEqual(web_server._ui_sessions, {})
+
     def test_garbage_token_is_still_rejected(self):
         response = _asgi_request(
             "POST",

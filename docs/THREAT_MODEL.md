@@ -226,6 +226,13 @@ the device over USB, not reachability from the same Wi-Fi network or across a
 room. Only one token per role may exist at a time; issuing a second requires
 revoking the first.
 
+`PHASMID_STORE_TOKEN`/`PHASMID_RECOVER_TOKEN` pin either role to a fixed
+value at process startup instead, for a reproducible demo run where a token
+the TUI shows exactly once is impractical. An env-pinned role always wins
+over any persisted hash for that role, counts as "issued" for the `WEB_TOKEN`
+fallback rule above, and cannot be issued or revoked from the TUI while the
+variable is set - the environment is the only thing that can change it.
+
 **Residual risk this does not close:** `WEB_TOKEN` is still embedded in a
 recover-role session's own page HTML as its CSRF guard, and remains valid
 proof of *that* session for as long as it is unlocked - `require_store_role`
