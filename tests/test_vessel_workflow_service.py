@@ -158,6 +158,36 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                 with self.assertRaises(FileExistsError):
                     svc.create_vessel(vessel_path, "8M")
 
+    def test_create_vessel_clears_any_object_cue_left_by_a_prior_vessel(self):
+        """A new Vessel's Faces are unbound; a stale cue must not look bound.
+
+        The object-cue reference store is a device-wide singleton, not
+        scoped to any one Vessel file. Without this, a physical object
+        registered for a Vessel that was since deleted (or a different
+        Vessel entirely) made the very first Store attempt on a brand new
+        Vessel look already-bound, forcing an operator through the Replace
+        confirmation flow for data that had nothing to do with the new
+        Vessel - reproduced live on hardware.
+        """
+        from phasmid.services.vessel_workflow_service import access_cue_service
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+                mock.patch.object(access_cue_service, "clear_references") as cleared,
+            ):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+                cleared.assert_called_once()
+
     def test_newly_created_vessel_is_inspectable(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             state_dir = Path(tmpdir) / "state"

@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 from textual.app import ComposeResult
 from textual.binding import Binding
+from textual.css.query import NoMatches
 from textual.widgets import DataTable, Footer, Static
 
 from ...models.vessel import VesselMeta
 from ...services.profile_service import load_profile
 from ...services.vessel_service import VesselService
 from ..banner import COMPACT_BANNER, get_banner
+from ..widgets.warning_box import WarningBox
 from .base import OperatorScreen
+
+if TYPE_CHECKING:
+    from ..app import PhasmidApp
 
 
 class SimpleHomeScreen(OperatorScreen):
@@ -42,6 +49,10 @@ class SimpleHomeScreen(OperatorScreen):
         text-align: left;
         padding: 0 4;
         height: 2;
+    }
+    SimpleHomeScreen #webui-warning-panel {
+        margin: 0 0 1 0;
+        display: none;
     }
     SimpleHomeScreen #health {
         height: 3;
@@ -101,6 +112,11 @@ class SimpleHomeScreen(OperatorScreen):
             id="health",
             markup=True,
         )
+        yield WarningBox(
+            "WebUI active.",
+            level="error",
+            id="webui-warning-panel",
+        )
         yield Static("PROTECTED STORAGE", id="storage-label")
         yield DataTable(id="storage-table", cursor_type="row", zebra_stripes=True)
         yield Static(
@@ -127,6 +143,16 @@ class SimpleHomeScreen(OperatorScreen):
 
     def refresh_webui_status(self) -> None:
         super().refresh_webui_status()
+        try:
+            warning = self.query_one("#webui-warning-panel", WarningBox)
+        except NoMatches:
+            return
+        app = cast("PhasmidApp", self.app)
+        is_running = app.webui_svc.is_running()
+        warning.update_message(
+            self.webui_running_message().replace(" - PRESS \\[w] TO RETRACT", "")
+        )
+        warning.display = is_running
 
     def _refresh_table(self) -> None:
         default_dir = self._profile.default_vessel_dir if self._profile else None

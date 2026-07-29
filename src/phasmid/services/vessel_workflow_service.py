@@ -204,6 +204,13 @@ class VesselWorkflowService:
         self._vessels.register(vessel_path)
         if label:
             self._vessels.set_metadata(vessel_path, label=label)
+        # A brand new Vessel's two Faces are both unbound. The physical-object
+        # cue store is a device-wide singleton, not scoped to any one Vessel,
+        # so a reference left over from a prior Vessel would otherwise make
+        # the very first Store attempt here look already-bound to an object
+        # that has nothing to do with this Vessel - forcing an operator
+        # through the Replace confirmation flow for someone else's old data.
+        access_cue_service.clear_references()
         return CreateVesselResult(vessel_path=vessel_path, size_bytes=size_bytes)
 
     def create_face(
