@@ -1401,6 +1401,113 @@ def test_open_vessel_screen_sync_field_visibility_hides_face_for_recover_and_lis
         assert widgets["#output-file"].display is output_expected
 
 
+def _access_token_screen_harness(monkeypatch, tmp_path, *, gadget_ip="10.55.0.1"):
+    from phasmid.services.access_token_service import AccessTokenService
+    from phasmid.tui.screens.access_tokens import ROLE_STORE, AccessTokenScreen
+
+    screen = AccessTokenScreen()
+    test_service = AccessTokenService(state_directory=str(tmp_path))
+    monkeypatch.setattr(
+        "phasmid.tui.screens.access_tokens.access_token_service", test_service
+    )
+    monkeypatch.setattr(screen._webui_svc, "gadget_ip", lambda: gadget_ip)
+
+    notifications = []
+    token_area_updates = []
+    monkeypatch.setattr(
+        AccessTokenScreen,
+        "app",
+        property(
+            lambda self: SimpleNamespace(
+                notify=lambda *args, **kwargs: notifications.append((args, kwargs))
+            )
+        ),
+    )
+    widgets = {
+        "#role-select": SimpleNamespace(value=ROLE_STORE),
+        "#status-area": SimpleNamespace(update=lambda text: None),
+        "#issued-token-area": SimpleNamespace(
+            update=lambda text: token_area_updates.append(text)
+        ),
+    }
+    monkeypatch.setattr(
+        screen, "query_one", lambda selector, _type=None: widgets[selector]
+    )
+    return screen, test_service, notifications, token_area_updates
+
+
+def test_access_token_screen_issue_without_gadget_is_refused(monkeypatch, tmp_path):
+    """Issuance must require a live USB gadget connection, not just a click.
+
+    A token grants access to either the full store surface or the decrypt/
+    destroy surface; handing one out has to require the operator's hands
+    physically on the device over USB, not reachability from the same Wi-Fi
+    network or across a room.
+    """
+    from phasmid.services.access_token_service import ROLE_STORE
+
+    screen, test_service, notifications, token_area_updates = (
+        _access_token_screen_harness(monkeypatch, tmp_path, gadget_ip=None)
+    )
+
+    screen._issue(ROLE_STORE)
+
+    assert not test_service.has_token(ROLE_STORE)
+    assert any(kwargs.get("severity") == "error" for _args, kwargs in notifications)
+    assert token_area_updates == []
+
+
+def test_access_token_screen_issue_success_shows_token_once(monkeypatch, tmp_path):
+    from phasmid.services.access_token_service import ROLE_STORE
+
+    screen, test_service, _notifications, token_area_updates = (
+        _access_token_screen_harness(monkeypatch, tmp_path)
+    )
+
+    screen._issue(ROLE_STORE)
+
+    assert test_service.has_token(ROLE_STORE)
+    assert len(token_area_updates) == 1
+    assert "will not be shown again" in token_area_updates[0]
+
+
+def test_access_token_screen_issue_when_already_issued_notifies_without_crashing(
+    monkeypatch, tmp_path
+):
+    from phasmid.services.access_token_service import ROLE_STORE
+
+    screen, test_service, notifications, token_area_updates = (
+        _access_token_screen_harness(monkeypatch, tmp_path)
+    )
+    test_service.issue(ROLE_STORE, gadget_ip="10.55.0.1")
+
+    screen._issue(ROLE_STORE)
+
+    assert any(kwargs.get("severity") == "error" for _args, kwargs in notifications)
+    assert token_area_updates == []
+
+
+def test_access_token_screen_revoke_success_and_when_nothing_issued(
+    monkeypatch, tmp_path
+):
+    from phasmid.services.access_token_service import ROLE_STORE
+
+    screen, test_service, notifications, _token_area_updates = (
+        _access_token_screen_harness(monkeypatch, tmp_path)
+    )
+    test_service.issue(ROLE_STORE, gadget_ip="10.55.0.1")
+
+    screen._revoke(ROLE_STORE)
+    assert not test_service.has_token(ROLE_STORE)
+    assert any(
+        kwargs.get("severity") == "information" for _args, kwargs in notifications
+    )
+
+    notifications.clear()
+    screen._revoke(ROLE_STORE)
+    assert any(kwargs.get("severity") == "warning" for _args, kwargs in notifications)
+
+
 def test_face_manager_screen_uses_shared_workflow(monkeypatch):
     from textual.widgets import DataTable
 
@@ -1938,12 +2045,14 @@ def test_expert_footer_shows_every_binding_at_the_documented_minimum_width():
     MIN_WIDTH is the measured threshold. It is asserted from both sides so
     that adding a binding to HomeScreen fails here and forces the number in
     the runbook to be updated rather than silently going stale.
+
+    Raised from 123 to 133 when `t` (Access Tokens, #168) was added.
     """
     import asyncio
 
     from textual.widgets._footer import FooterKey
 
-    MIN_WIDTH = 123
+    MIN_WIDTH = 133
 
     async def offscreen_at(width: int) -> list[str]:
         from phasmid.tui.app import PhasmidApp

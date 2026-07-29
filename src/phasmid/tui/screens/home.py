@@ -34,6 +34,7 @@ class HomeScreen(OperatorScreen):
         Binding("a", "audit", "Audit"),
         Binding("d", "doctor", "Doctor"),
         Binding("s", "settings", "Settings"),
+        Binding("t", "access_tokens", "Tokens"),
         Binding("l", "luks_panel", "LUKS"),
         Binding("question_mark", "help", "Help"),
         Binding("q", "quit", "Quit"),
@@ -366,6 +367,11 @@ class HomeScreen(OperatorScreen):
         from .about import AboutScreen
 
         self.app.push_screen(AboutScreen())
+
+    def action_access_tokens(self) -> None:
+        from .access_tokens import AccessTokenScreen
+
+        self.app.push_screen(AccessTokenScreen())
 
     def action_help(self) -> None:
         from .about import AboutScreen
