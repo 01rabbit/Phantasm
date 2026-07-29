@@ -2056,6 +2056,110 @@ def test_webui_cannot_be_exposed_from_a_sealed_state():
     assert started == [], "sealed state re-exposed the WebUI"
 
 
+def test_home_screen_delete_vessel_without_selection_warns(monkeypatch):
+    from phasmid.tui.screens.home import HomeScreen
+
+    screen = HomeScreen()
+    notifications = []
+    pushed = []
+    monkeypatch.setattr(
+        screen, "query_one", lambda *a, **k: SimpleNamespace(selected_vessel=None)
+    )
+    monkeypatch.setattr(
+        HomeScreen,
+        "app",
+        property(
+            lambda self: SimpleNamespace(
+                notify=lambda *args, **kwargs: notifications.append((args, kwargs)),
+                push_screen=lambda *args, **kwargs: pushed.append(args),
+            )
+        ),
+    )
+
+    screen.action_delete_vessel()
+
+    assert any(kwargs.get("severity") == "warning" for _args, kwargs in notifications)
+    assert pushed == []
+
+
+def test_home_screen_delete_vessel_calls_the_service_only_when_confirmed(monkeypatch):
+    """Deletion must go through the Y/N modal, not fire on the keypress alone.
+
+    This is the first destructive, irreversible vessel-lifecycle action the
+    TUI exposes (Close only marks state; this actually scrambles data and
+    unlinks the file), so the confirm step doing its job matters more here
+    than for Close.
+    """
+    from phasmid.services.vessel_workflow_service import (
+        DeleteVesselResult,
+        VesselWorkflowService,
+    )
+    from phasmid.tui.screens.home import HomeScreen
+
+    screen = HomeScreen()
+    notifications = []
+    logged = []
+    refreshed = []
+    fake_vessel = SimpleNamespace(path=Path("/tmp/travel.vessel"))
+    monkeypatch.setattr(
+        screen,
+        "query_one",
+        lambda *a, **k: SimpleNamespace(selected_vessel=fake_vessel),
+    )
+    monkeypatch.setattr(screen, "_refresh_vessels", lambda: refreshed.append(True))
+    monkeypatch.setattr(
+        screen, "_log", lambda message, level: logged.append((message, level))
+    )
+
+    with mock.patch.object(
+        VesselWorkflowService,
+        "delete_vessel",
+        return_value=DeleteVesselResult(
+            vessel_path=Path("/tmp/travel.vessel"), vessel_name="travel.vessel"
+        ),
+    ) as delete_mock:
+        # Cancelled: the modal calls back with False, the service must not run.
+        monkeypatch.setattr(
+            HomeScreen,
+            "app",
+            property(
+                lambda self: SimpleNamespace(
+                    notify=lambda *args, **kwargs: notifications.append((args, kwargs)),
+                    push_screen=lambda modal, callback=None: (
+                        callback(False) if callback else None
+                    ),
+                )
+            ),
+        )
+        screen.action_delete_vessel()
+        delete_mock.assert_not_called()
+        assert refreshed == []
+
+        # Confirmed: the modal calls back with True, the service must run.
+        monkeypatch.setattr(
+            HomeScreen,
+            "app",
+            property(
+                lambda self: SimpleNamespace(
+                    notify=lambda *args, **kwargs: notifications.append((args, kwargs)),
+                    push_screen=lambda modal, callback=None: (
+                        callback(True) if callback else None
+                    ),
+                )
+            ),
+        )
+        screen.action_delete_vessel()
+
+    delete_mock.assert_called_once_with(
+        "/tmp/travel.vessel", confirmation="DELETE VESSEL"
+    )
+    assert refreshed == [True]
+    assert any("deleted" in message.lower() for message, _level in logged)
+    assert any(
+        kwargs.get("severity") == "information" for _args, kwargs in notifications
+    )
+
+
 def test_expert_footer_shows_every_binding_at_the_documented_minimum_width():
     """The Expert footer silently loses bindings on a narrow terminal.
 
@@ -2070,13 +2174,14 @@ def test_expert_footer_shows_every_binding_at_the_documented_minimum_width():
     that adding a binding to HomeScreen fails here and forces the number in
     the runbook to be updated rather than silently going stale.
 
-    Raised from 123 to 133 when `t` (Access Tokens, #168) was added.
+    Raised from 123 to 133 when `t` (Access Tokens, #168) was added, then to
+    145 when `delete` (Delete Vessel) was added.
     """
     import asyncio
 
     from textual.widgets._footer import FooterKey
 
-    MIN_WIDTH = 133
+    MIN_WIDTH = 145
 
     async def offscreen_at(width: int) -> list[str]:
         from phasmid.tui.app import PhasmidApp

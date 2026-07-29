@@ -27,6 +27,7 @@ class HomeScreen(OperatorScreen):
         Binding("escape", "dismiss", "Back"),
         Binding("o", "open_vessel", "Open"),
         Binding("x", "close_vessel", "Close"),
+        Binding("delete", "delete_vessel", "Delete"),
         Binding("c", "create_vessel", "Create"),
         Binding("i", "inspect_vessel", "Inspect"),
         Binding("f", "face_manager", "Faces"),
@@ -300,6 +301,39 @@ class HomeScreen(OperatorScreen):
             ConfirmModal(
                 "CLOSE VESSEL",
                 "You are about to close the selected Vessel.\nThis preserves local metadata.",
+            ),
+            _on_confirm,
+        )
+
+    def action_delete_vessel(self) -> None:
+        from ...services.vessel_workflow_service import VesselWorkflowService
+        from .confirm_modal import ConfirmModal
+
+        table = self.query_one(VesselTable)
+        vessel = table.selected_vessel
+        path = str(vessel.path) if vessel else ""
+        if not path:
+            self.app.notify("Select a Vessel first.", severity="warning")
+            return
+
+        def _on_confirm(result: bool | None) -> None:
+            if result:
+                try:
+                    deleted = VesselWorkflowService().delete_vessel(
+                        path, confirmation="DELETE VESSEL"
+                    )
+                except FileNotFoundError as exc:
+                    self.app.notify(str(exc), severity="error")
+                    return
+                self._refresh_vessels()
+                self._log(f"Vessel deleted: {deleted.vessel_name}", "info")
+                self.app.notify("Vessel deleted.", severity="information")
+
+        self.app.push_screen(
+            ConfirmModal(
+                "DELETE VESSEL",
+                "This permanently scrambles and removes the selected Vessel "
+                "file.\nThis cannot be undone.",
             ),
             _on_confirm,
         )

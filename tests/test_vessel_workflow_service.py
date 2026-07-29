@@ -926,6 +926,72 @@ class VesselWorkflowServiceTests(unittest.TestCase):
                         object_image_path=str(image_a),
                     )
 
+    def test_delete_vessel_removes_the_file_and_the_registry_entry(self):
+        """Ordinary cleanup, not the duress path: no credentials required.
+
+        Unlike destroy_vessel (which scrambles the container but keeps it
+        in place, at its original size, so a coerced operator still has
+        something to point to), a Vessel the operator is simply done with
+        has no cover story left to preserve - this frees the disk space.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+                self.assertTrue(vessel_path.exists())
+
+                result = svc.delete_vessel(vessel_path, confirmation="DELETE VESSEL")
+
+                self.assertEqual(result.vessel_path, vessel_path.resolve())
+                self.assertFalse(vessel_path.exists())
+                self.assertIsNone(vessel_service_mod.get_vessel_record(vessel_path))
+
+    def test_delete_vessel_rejects_wrong_confirmation(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+
+                with self.assertRaisesRegex(ValueError, "confirmation rejected"):
+                    svc.delete_vessel(vessel_path, confirmation="delete vessel")
+
+                self.assertTrue(vessel_path.exists())
+                self.assertIsNotNone(vessel_service_mod.get_vessel_record(vessel_path))
+
+    def test_delete_vessel_missing_file_raises(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            missing_path = Path(tmpdir) / "nope.vessel"
+
+            with mock.patch.dict(
+                os.environ,
+                {"PHASMID_STATE_DIR": str(state_dir)},
+                clear=False,
+            ):
+                svc = VesselWorkflowService()
+                with self.assertRaises(FileNotFoundError):
+                    svc.delete_vessel(missing_path, confirmation="DELETE VESSEL")
+
 
 if __name__ == "__main__":
     unittest.main()

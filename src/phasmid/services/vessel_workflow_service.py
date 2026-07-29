@@ -122,6 +122,12 @@ class EmergencyDestroyResult:
     scope: str
 
 
+@dataclass(frozen=True)
+class DeleteVesselResult:
+    vessel_path: Path
+    vessel_name: str
+
+
 class VesselWorkflowService:
     def __init__(self) -> None:
         self._vessels = VesselService()
@@ -1353,6 +1359,37 @@ class VesselWorkflowService:
             face_id=face_id,
             scope="vessel",
         )
+
+    def delete_vessel(
+        self,
+        vessel_path: str | Path,
+        confirmation: str = "",
+    ) -> DeleteVesselResult:
+        """Permanently remove a Vessel an operator is finished with.
+
+        This is ordinary end-of-life cleanup, not the duress destroy path
+        above: it requires no face credentials or emergency password, because
+        there is no coercion scenario to authenticate against here - the
+        operator at the TUI console is simply done with this Vessel. It also
+        differs from ``destroy_vessel`` in what it does to the file itself:
+        ``silent_brick`` deliberately keeps the container in place, at its
+        original size, so an operator under duress still has something to
+        point to. A finished Vessel has no cover story left to preserve, so
+        this scrambles the data the same way and then removes the file,
+        actually freeing the disk space rather than leaving a same-size
+        husk behind.
+        """
+        if confirmation.strip() != "DELETE VESSEL":
+            raise ValueError("confirmation rejected")
+        vessel = Path(vessel_path).expanduser().resolve()
+        if not vessel.exists():
+            raise FileNotFoundError(f"vessel file not found: {vessel}")
+        vessel_name = vessel.name
+        vault = PhasmidVault(str(vessel), size_mb=vessel.stat().st_size / (1024 * 1024))
+        vault.silent_brick()
+        vessel.unlink()
+        self._vessels.unregister(vessel)
+        return DeleteVesselResult(vessel_path=vessel, vessel_name=vessel_name)
 
     def store_file(
         self,
