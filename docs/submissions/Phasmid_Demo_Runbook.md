@@ -120,7 +120,8 @@
 
 ### Step 1 — Create a Vessel（0:50｜Prepare｜TUI Simple）
 
-- **操作:** **`n` (New)** → `vessel-path` → `vessel-size`（Select、既定 `512M`）→
+- **操作:** **`n` (New)** → `vessel-path` → **`vessel-size` を `64M` に変更**（Select、
+  既定は `512M`。**既定のまま作らないこと** — 下記参照）→
   `vessel-label`（"Non-sensitive label"、任意）→ `create-btn`。
 - **発話（EN）:** "First I create a **vessel** — a deniable container file. This is the Prepare step. It has no header and no magic bytes: on disk it is indistinguishable from random data."
 - **画面期待:** `PROTECTED STORAGE` に新規Vesselが出現。
@@ -129,6 +130,11 @@
   **Create Face を押す必要はない。デモ手順に含めない。**
 - **任意:** `e` → `i`（Inspect）で `Header absent` / `Magic Bytes absent` /
   `Entropy high / random-like (8.00 bits/byte)` を見せると Slide 19 の直接的裏付けになる。
+- **【重要】サイズは既定のままにしない。** 作成はコンテナ全体を乱数で埋める。
+  512 MiB を指定すると Pi Zero 2 W では**書き込みに時間がかかり、枠の0:50に収まらない**。
+  実機では 512 MiB 指定で**プロセスが OOM kill された**（2026-07-29）。原因は
+  `os.urandom(container_size)` がコンテナ全体を一度にメモリへ確保していたことで、
+  チャンク書き込みに修正済み。修正後もサイズなりの時間はかかるため、**壇上は `64M`**。
 - **失敗時:** 作成が滞れば既存デモVesselを **`o` (Open)** して以降を継続。
 
 ### Step 2 — Object cue: Bind（1:10｜Bind, ★cue≠key｜TUI）
@@ -357,7 +363,8 @@ Standby ホットキーの既定は `config.py` の `PHASMID_STANDBY_HOTKEY`（�
 
 **ダイアログ項目**
 
-- `CreateVesselScreen`（`n`）: `vessel-path` → `vessel-size`（Select、既定 `512M`）→
+- `CreateVesselScreen`（`n`）: `vessel-path` → `vessel-size`（Select、既定 `512M`。
+  **デモでは `64M` に変更する** → Step 1）→
   `vessel-label`（任意）→ `create-btn`
 - `FaceManagerScreen`（`e` → `f`）: `face-id`（Select）→ `new-label` → `add-label-btn` →
   `passphrase` → `restricted-passphrase` → `target-occupancy`（既定 `15%`）→

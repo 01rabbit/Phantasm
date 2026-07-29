@@ -6,6 +6,15 @@ from .crypto_params import OPEN_ROLE, RECORD_OVERHEAD, SLOT_ROLES
 class ContainerLayout:
     MIN_CONTAINER_SIZE = 4096
 
+    # Random fill is written a chunk at a time. Asking os.urandom for a whole
+    # span materialises that many bytes at once: a 512 MiB container needs a
+    # 512 MiB object, which the OOM killer ends on a 512 MB board - observed
+    # on a Pi Zero 2 W, where creating a container at the console's default
+    # size killed the process. It matters most for silent_brick, which is the
+    # duress destroy path: an operator who cannot afford the container in RAM
+    # is exactly the operator who most needs the destroy to complete.
+    _RANDOM_CHUNK = 1024 * 1024
+
     def __init__(self, container_path: str, container_size: int):
         self.container_path = container_path
         self.container_size = container_size
@@ -44,11 +53,19 @@ class ContainerLayout:
             raise ValueError("container is too small for encrypted record")
         return capacity
 
+    def _write_random(self, handle, length: int) -> None:
+        """Fill ``length`` bytes at the handle's position with random data."""
+        remaining = length
+        while remaining > 0:
+            block = min(remaining, self._RANDOM_CHUNK)
+            handle.write(os.urandom(block))
+            remaining -= block
+
     def format_container(self, rotate_access_key=False):
         """Initialize a new container file with random data"""
         # Note: rotate_access_key is handled by KDFEngine, just format the container
         with open(self.container_path, "wb") as f:
-            f.write(os.urandom(self.container_size))
+            self._write_random(f, self.container_size)
         try:
             os.chmod(self.container_path, 0o600)
         except OSError:
@@ -59,7 +76,7 @@ class ContainerLayout:
         self._require_container()
         with open(self.container_path, "r+b") as f:
             f.seek(0)
-            f.write(os.urandom(self.container_size))
+            self._write_random(f, self.container_size)
 
     def purge_mode(self, mode: str):
         """Overwrite a mode with random data"""
@@ -67,7 +84,7 @@ class ContainerLayout:
         start, length = self.get_mode_span(mode)
         with open(self.container_path, "r+b") as f:
             f.seek(start)
-            f.write(os.urandom(length))
+            self._write_random(f, length)
 
     def randomize_slot(self, mode: str, password_role: str):
         """Randomize a slot by overwriting with random data"""
@@ -75,7 +92,7 @@ class ContainerLayout:
         start, length = self.get_slot_span(mode, password_role)
         with open(self.container_path, "r+b") as f:
             f.seek(start)
-            f.write(os.urandom(length))
+            self._write_random(f, length)
 
     def purge_other_mode(self, accessed_mode: str):
         """Purge the mode that was not accessed"""
