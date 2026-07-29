@@ -168,23 +168,26 @@ Design concept: structured institutional UI with terminal-first aesthetics.
 Theme: `phasmid-dark` (`primary=#00d7af`, `background=#0d0d0d`, `success=#87d700`).
 
 Key TUI-only responsibilities (do not replicate these in WebUI):
-- Vessel creation, listing, and file-system operations via `VesselService`
+- Vessel lifecycle: creation and deletion via `VesselWorkflowService.create_vessel()` / `.delete_vessel()`; listing via `VesselService`. The WebUI operates only on a Vessel that already exists (store/retrieve); it never creates or deletes one.
+- Role-scoped WebUI access token issuance and revocation (`AccessTokenScreen` / `AccessTokenService`) — requires a live USB gadget interface, so granting either role happens with the operator's hands on the device
 - Profile and settings persistence via `ProfileService`
 - WebUI lifecycle control (start/stop/auto-kill) via `WebUIService`
 - Secure passphrase input (terminal prompt, not browser field)
 
 ### WebUI, API Routes, and Restricted Actions
 
-Use this context for changes involving FastAPI routes, Web mutation token, restricted confirmation, hidden routes, Field Mode, face lock sessions, store/retrieve routes, maintenance routes, emergency routes, response headers, or neutral download filenames:
+Use this context for changes involving FastAPI routes, Web mutation token, restricted confirmation, hidden routes, role-scoped access tokens (store/recover), Field Mode, face lock sessions, store/retrieve routes, maintenance routes, emergency routes, response headers, or neutral download filenames:
 
 - `src/phasmid/web_server.py`
 - `src/phasmid/templates/`
+- `src/phasmid/services/access_token_service.py`
+- `src/phasmid/services/vessel_workflow_service.py` (the WebUI operates on a Vessel through this same service the TUI uses)
 - `src/phasmid/restricted_actions.py`
 - `src/phasmid/capabilities.py`
 - `src/phasmid/emergency_daemon.py`
 - `src/phasmid/bridge_ui.py`
 - `docs/SPECIFICATION.md`, especially sections 7, 8, and 9
-- `docs/THREAT_MODEL.md`
+- `docs/THREAT_MODEL.md`, "WebUI Access Roles"
 - `tests/test_web_server.py` and related tests
 
 ### CLI Behavior
