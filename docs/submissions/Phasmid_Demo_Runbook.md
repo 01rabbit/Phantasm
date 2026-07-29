@@ -369,9 +369,13 @@ Standby ホットキーの既定は `config.py` の `PHASMID_STANDBY_HOTKEY`（�
 - `FaceManagerScreen`（`e` → `f`）: `face-id`（Select）→ `new-label` → `add-label-btn` →
   `passphrase` → `restricted-passphrase` → `target-occupancy`（既定 `15%`）→
   `inspect-` / `generate-` / `clear-plausibility-btn`
-- `OpenVesselScreen`（`o`）: `vessel-path` → `face-select` → `operation-select`
+- `OpenVesselScreen`（`o`）: `vessel-path` → `operation-select`
   （`Add File` / `List Files` / `Recover File` / `Remove File`、既定 `Recover File`）→
-  `input-file` → `output-file` → `passphrase` → `restricted-passphrase` → `open-btn`
+  `passphrase` → `open-btn`。**`face-select` / `input-file` / `restricted-passphrase` は
+  `Add File` と `Remove File` の時だけ表示される**（`Recover File` / `List Files` では
+  非表示。どちらの面が開いたかはパスフレーズと object cue から解決されるので、画面上で
+  面を選ばせない — 選ばせること自体が「面が2つある」ことを漏らしてしまうため）。
+  `output-file` は `Recover File` の時だけ表示される。
 - `SettingsScreen`（`s`）: `vessel-dir`, `output-dir`, `container-size`, `theme`,
   `recent-tracking`, `compact-banner`, `save-btn`。**認識モードのUIは存在しない**
   （`PHASMID_RECOGNITION_MODE` は環境変数のみ。既定 `strict`、

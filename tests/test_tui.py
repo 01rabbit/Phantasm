@@ -1276,7 +1276,17 @@ def test_create_vessel_screen_uses_shared_workflow(monkeypatch):
     assert notifications
 
 
-def test_open_vessel_screen_marks_vessel_open(monkeypatch):
+def test_open_vessel_screen_recover_does_not_select_a_face(monkeypatch):
+    """Recover File must resolve the face from the passphrase, not a menu.
+
+    An operator asked to unlock the vessel under duress should not have to
+    name which face out loud, or pick one from a screen, before anything is
+    checked - either already tells an onlooker that more than one face
+    exists. Recover File hides the face selector (see
+    _sync_field_visibility) and passes selector=None so the passphrase (and
+    object cue) decide which face answers; bookkeeping for "which face was
+    reached" only happens afterward, from the result.
+    """
     from phasmid.tui.screens.open_vessel import OpenVesselScreen
 
     screen = OpenVesselScreen(vessel_path="travel.vessel")
@@ -1285,6 +1295,9 @@ def test_open_vessel_screen_marks_vessel_open(monkeypatch):
     class FakeWorkflow:
         def open_vessel(self, path, face_id="face_a"):
             events.append(("open", path, face_id))
+
+        def resolve_face_id(self, selector):
+            return {"dummy": "face_a", "secret": "face_b"}[selector]
 
         def retrieve_file(
             self,
@@ -1295,7 +1308,9 @@ def test_open_vessel_screen_marks_vessel_open(monkeypatch):
             use_attempt_limiter=False,
         ):
             events.append(("retrieve", path, passphrase, output_path, selector))
-            return SimpleNamespace(bytes_retrieved=4, output_path=Path("/tmp/out.bin"))
+            return SimpleNamespace(
+                bytes_retrieved=4, output_path=Path("/tmp/out.bin"), mode="secret"
+            )
 
     monkeypatch.setattr(screen, "_workflow", FakeWorkflow())
     monkeypatch.setattr(
@@ -1319,7 +1334,7 @@ def test_open_vessel_screen_marks_vessel_open(monkeypatch):
         "query_one",
         lambda selector, _type=None: {
             "#vessel-path": SimpleNamespace(value="travel.vessel"),
-            "#face-select": SimpleNamespace(value="face_b"),
+            "#face-select": SimpleNamespace(value="face_a"),
             "#operation-select": SimpleNamespace(value="retrieve"),
             "#input-file": SimpleNamespace(value=""),
             "#output-file": SimpleNamespace(value="/tmp/out.bin"),
@@ -1330,9 +1345,60 @@ def test_open_vessel_screen_marks_vessel_open(monkeypatch):
 
     screen._attempt_open()
 
-    assert ("open", "travel.vessel", "face_b") in events
-    assert any(event[0] == "retrieve" for event in events)
+    # No pre-emptive open_vessel with a face the operator never chose - only
+    # the post-hoc bookkeeping call, using the face the passphrase actually
+    # resolved to (mode "secret" -> "face_b"), not the face-select widget's
+    # untouched default ("face_a").
+    assert events.count(("open", "travel.vessel", "face_b")) == 1
+    assert ("open", "travel.vessel", "face_a") not in events
+    assert ("retrieve", "travel.vessel", "passphrase", "/tmp/out.bin", None) in events
     assert ("dismiss",) in events
+
+
+def test_open_vessel_screen_sync_field_visibility_hides_face_for_recover_and_list(
+    monkeypatch,
+):
+    """Add/Remove show the face selector and restricted passphrase; List/Recover don't."""
+    from phasmid.tui.screens.open_vessel import OpenVesselScreen
+
+    screen = OpenVesselScreen(vessel_path="travel.vessel")
+
+    class FakeWidget:
+        def __init__(self, value=None):
+            self.value = value
+            self.display = True
+
+    widgets = {
+        "#operation-select": FakeWidget(value="retrieve"),
+        "#face-select-label": FakeWidget(),
+        "#face-select": FakeWidget(),
+        "#input-file-label": FakeWidget(),
+        "#input-file": FakeWidget(),
+        "#output-file-label": FakeWidget(),
+        "#output-file": FakeWidget(),
+        "#restricted-passphrase-label": FakeWidget(),
+        "#restricted-passphrase": FakeWidget(),
+    }
+    monkeypatch.setattr(
+        screen, "query_one", lambda selector, _type=None: widgets[selector]
+    )
+
+    for operation, face_expected, output_expected in (
+        ("retrieve", False, True),
+        ("list", False, False),
+        ("add", True, False),
+        ("remove", True, False),
+    ):
+        widgets["#operation-select"].value = operation
+        screen._sync_field_visibility()
+        assert widgets["#face-select-label"].display is face_expected
+        assert widgets["#face-select"].display is face_expected
+        assert widgets["#input-file-label"].display is face_expected
+        assert widgets["#input-file"].display is face_expected
+        assert widgets["#restricted-passphrase-label"].display is face_expected
+        assert widgets["#restricted-passphrase"].display is face_expected
+        assert widgets["#output-file-label"].display is output_expected
+        assert widgets["#output-file"].display is output_expected
 
 
 def test_face_manager_screen_uses_shared_workflow(monkeypatch):

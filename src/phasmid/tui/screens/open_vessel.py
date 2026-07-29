@@ -50,6 +50,14 @@ class OpenVesselScreen(OperatorScreen):
         ("Recover File", "retrieve"),
         ("Remove File", "remove"),
     ]
+    # Add/Remove manage which face a file lives on and cannot avoid saying so:
+    # there is no passphrase yet to resolve it from for a fresh Add, and
+    # Remove needs the same explicit target. Recover and List have an
+    # existing passphrase (and object cue) that already identifies the face,
+    # so asking the operator to also name one first would only be handing an
+    # onlooker, for free, the fact that more than one face exists.
+    _FACE_SELECTOR_OPERATIONS = ("add", "remove")
+    _OUTPUT_FILE_OPERATIONS = ("retrieve",)
 
     def __init__(self, vessel_path: str = "", **kwargs):
         super().__init__(**kwargs)
@@ -63,7 +71,7 @@ class OpenVesselScreen(OperatorScreen):
         yield Input(
             value=self._vessel_path, placeholder="Path to Vessel file", id="vessel-path"
         )
-        yield Label("Disclosure Face", classes="field-label")
+        yield Label("Disclosure Face", classes="field-label", id="face-select-label")
         yield Select(
             [(label, val) for label, val in self._FACE_OPTIONS],
             id="face-select",
@@ -75,13 +83,19 @@ class OpenVesselScreen(OperatorScreen):
             id="operation-select",
             value="retrieve",
         )
-        yield Label("Input file (store)", classes="field-label")
+        yield Label("Input file (store)", classes="field-label", id="input-file-label")
         yield Input(placeholder="Path to local file or stored name", id="input-file")
-        yield Label("Output file (recover)", classes="field-label")
+        yield Label(
+            "Output file (recover)", classes="field-label", id="output-file-label"
+        )
         yield Input(placeholder="~/Documents/recovered.bin", id="output-file")
         yield Label("Passphrase", classes="field-label")
         yield Input(password=True, id="passphrase")
-        yield Label("Restricted recovery passphrase (store)", classes="field-label")
+        yield Label(
+            "Restricted recovery passphrase (store)",
+            classes="field-label",
+            id="restricted-passphrase-label",
+        )
         yield Input(password=True, id="restricted-passphrase")
         yield Static(
             "Object cue capture and recovery use the local camera feed. "
@@ -91,14 +105,44 @@ class OpenVesselScreen(OperatorScreen):
         yield Button("Run Operation", id="open-btn", variant="primary")
         yield Footer()
 
+    def on_mount(self) -> None:
+        self._sync_field_visibility()
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id == "operation-select":
+            self._sync_field_visibility()
+
+    def _sync_field_visibility(self) -> None:
+        operation = self.query_one("#operation-select", Select).value
+        face_needed = operation in self._FACE_SELECTOR_OPERATIONS
+        output_needed = operation in self._OUTPUT_FILE_OPERATIONS
+        # Input file is only meaningful alongside the face selector: it names
+        # what to store (Add) or what to remove (Remove), both of which
+        # already require naming the face explicitly.
+        input_needed = face_needed
+
+        self.query_one("#face-select-label", Label).display = face_needed
+        self.query_one("#face-select", Select).display = face_needed
+        self.query_one("#input-file-label", Label).display = input_needed
+        self.query_one("#input-file", Input).display = input_needed
+        self.query_one("#output-file-label", Label).display = output_needed
+        self.query_one("#output-file", Input).display = output_needed
+        self.query_one("#restricted-passphrase-label", Label).display = face_needed
+        self.query_one("#restricted-passphrase", Input).display = face_needed
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "open-btn":
             self._attempt_open()
 
     def _attempt_open(self) -> None:
         path = self.query_one("#vessel-path", Input).value.strip()
-        face = self.query_one("#face-select", Select).value
         operation = self.query_one("#operation-select", Select).value
+        face_selector_visible = operation in self._FACE_SELECTOR_OPERATIONS
+        face = (
+            self.query_one("#face-select", Select).value
+            if face_selector_visible
+            else None
+        )
         input_file = self.query_one("#input-file", Input).value.strip()
         output_file = self.query_one("#output-file", Input).value.strip()
         passphrase = self.query_one("#passphrase", Input).value
@@ -109,7 +153,13 @@ class OpenVesselScreen(OperatorScreen):
             return
 
         try:
-            self._workflow.open_vessel(path, face_id=str(face))
+            # Add/Remove already named their face above; the operator marked
+            # it before entering a passphrase. List/Recover haven't - which
+            # face was actually reached is only known once the passphrase (and
+            # object cue) resolve it below, so bookkeeping for those runs
+            # after, not before.
+            if face_selector_visible:
+                self._workflow.open_vessel(path, face_id=str(face))
             access_cue_service.start()
             if operation == "add":
                 if not input_file:
@@ -145,9 +195,10 @@ class OpenVesselScreen(OperatorScreen):
                 listing = self._workflow.list_files(
                     path,
                     passphrase,
-                    selector=str(face),
+                    selector=None,
                     use_attempt_limiter=True,
                 )
+                self._workflow.open_vessel(path, face_id=listing.face.face_id)
                 names = (
                     ", ".join(file.name for file in listing.files) or "No files stored."
                 )
@@ -174,8 +225,12 @@ class OpenVesselScreen(OperatorScreen):
                         path,
                         passphrase,
                         output_path=output_file,
-                        selector=str(face),
+                        selector=None,
                         use_attempt_limiter=True,
+                    )
+                    self._workflow.open_vessel(
+                        path,
+                        face_id=self._workflow.resolve_face_id(retrieve_result.mode),
                     )
                     self.app.notify(
                         f"Recovered {retrieve_result.bytes_retrieved:,} bytes to "
