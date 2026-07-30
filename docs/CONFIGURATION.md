@@ -8,7 +8,7 @@ All `PHASMID_*` reads are centralized in `src/phasmid/config.py`.
 | Variable | Type | Default | Scope | Behavior | Equivalent Setting |
 |---|---|---|---|---|---|
 | `PHASMID_STATE_DIR` | path | `.state` | CLI/WebUI/TUI | Base local state directory when tmpfs override is not set | `config.state_dir()` |
-| `PHASMID_TMPFS_STATE` | path | unset | CLI/WebUI/TUI | Overrides state directory with volatile path (intended tmpfs) | `config.tmpfs_state_dir()` |
+| `PHASMID_TMPFS_STATE` | path | unset | CLI/WebUI/TUI | Overrides state directory with volatile path (intended tmpfs). The Vessel registry's sealed Face detail (`vessel_registry.bin`) lives here, so it becomes volatile too — consistent with the object-cue references, which already do | `config.tmpfs_state_dir()` |
 | `PHASMID_FIELD_MODE` | bool | `false` | WebUI/TUI/CLI messaging | Reduces capture-visible detail in standard surfaces, including collapsing the TUI's cross-Face file total to `-` | `config.field_mode_enabled()` |
 | `PHASMID_EXPERIMENTAL_OBJECT_MODEL` | bool | `false` | Object cue gate | Enables experimental local object-model support layer | `config.experimental_object_model_enabled()` |
 | `PHASMID_OBJECT_MODEL_PATH` | path | unset | Object cue gate | Path to explicitly provisioned local model file | `config.object_model_path()` |

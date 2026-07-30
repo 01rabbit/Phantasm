@@ -2051,27 +2051,30 @@ def test_simple_home_file_count_is_a_cross_face_total_outside_field_mode():
     assert cell(no_faces, True) == "0"
 
 
-def test_vessel_registry_is_documented_as_unencrypted():
+def test_vessel_registry_storage_is_documented_accurately():
     """The registry's contents must not be understated in the docs again.
 
-    `TUI_OPERATOR_CONSOLE.md` claimed the registry held "only non-secret
-    metadata (file paths)" while `_normalize_face_record` was persisting
-    per-Face file counts, the dummy profile that identifies the filled Face, the
-    access object's perceptual fingerprints, and a scrypt verifier for the
-    destroy passphrase - in plaintext. The claim, not the storage, was the
-    thing that made this hard to notice, so both docs are pinned here.
+    `TUI_OPERATOR_CONSOLE.md` once claimed the registry held "only non-secret
+    metadata (file paths)" while `_normalize_face_record` was persisting, in
+    cleartext, per-Face file counts, the dummy profile that identifies the
+    filled Face, the access object's perceptual fingerprints, and a scrypt
+    verifier for the destroy passphrase. The claim, not the storage, was what
+    made that hard to notice - so the docs are pinned to name both halves of
+    the split that replaced it, and the retracted wording cannot come back.
     """
     console = Path("docs/TUI_OPERATOR_CONSOLE.md").read_text(encoding="utf-8")
-    # The assertive form only - the correction quotes the retracted wording on
-    # purpose, so matching the bare phrase would flag the fix itself.
+    # The assertive form only - the history is described on purpose, so
+    # matching the bare phrase would flag the correction itself.
     assert (
         "The registry stores only non-secret metadata" not in console
     ), "the retracted registry claim is back in TUI_OPERATOR_CONSOLE.md"
     assert "emergency_auth" in console and "object_binding" in console
+    assert "vessel_registry.bin" in console, "the sealed sidecar is undocumented"
 
     threat = Path("docs/THREAT_MODEL.md").read_text(encoding="utf-8")
     assert "Configuration Directory Surface" in threat
     assert "vessel_registry.json" in threat
+    assert "vessel_registry.bin" in threat
 
 
 def test_plausibility_generation_runs_off_the_event_loop():
