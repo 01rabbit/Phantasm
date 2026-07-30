@@ -36,8 +36,6 @@ ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 sys.path.insert(0, os.path.dirname(__file__))
 
-from phasmid.ai_gate import AIGate
-from phasmid.object_cue_matcher import ObjectCueMatcher
 from test_object_cue_background import (
     _fixed_scene,
     _held_up,
@@ -45,6 +43,9 @@ from test_object_cue_background import (
     _with_dark_object,
     _with_light_object,
 )
+
+from phasmid.ai_gate import AIGate
+from phasmid.object_cue_matcher import ObjectCueMatcher
 
 
 def _present_again(
