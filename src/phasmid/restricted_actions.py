@@ -44,6 +44,9 @@ INITIALIZE_CONTAINER_PHRASE = "INITIALIZE LOCAL CONTAINER"
 EMERGENCY_BRICK_PHRASE = "CLEAR LOCAL ACCESS PATH"
 RESTRICTED_CONFIRMATION_PHRASE = "CONFIRM LOCAL CONTROL"
 OVERWRITE_CONFIRMATION_PHRASE = "REPLACE LOCAL ENTRY"
+# Shared verbatim with `phasmid emergency destroy-face --confirm`, so the two
+# interfaces ask for the same words rather than each inventing their own.
+DESTROY_FACE_PHRASE = "DESTROY FACE"
 
 RESTRICTED_ACTION_POLICIES = {
     "clear_unmatched_entry": RestrictedActionPolicy(
@@ -60,6 +63,20 @@ RESTRICTED_ACTION_POLICIES = {
         action_id="initialize_container",
         capability=Capability.RESTRICTED_ACTION,
         confirmation_phrase=INITIALIZE_CONTAINER_PHRASE,
+    ),
+    "destroy_face": RestrictedActionPolicy(
+        action_id="destroy_face",
+        capability=Capability.RESTRICTED_ACTION,
+        confirmation_phrase=DESTROY_FACE_PHRASE,
+        # The only action here that is gated by a *credential* rather than by a
+        # public phrase alone: the caller must know the Face's destroy password
+        # and hold its bound object. A separate restricted-confirmation session
+        # on top of that would add no authorization, only a step - and this is
+        # the one action reached under duress, where every extra step is a step
+        # taken in front of the person applying it.
+        require_restricted_confirmation=False,
+        require_password_reentry=True,
+        require_object_cue=True,
     ),
     "rapid_local_clear": RestrictedActionPolicy(
         action_id="rapid_local_clear",

@@ -7,6 +7,25 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Added
+
+- `POST /destroy_face` — clearing a protected entry from the WebUI. The destroy
+  credential existed only in `phasmid emergency destroy-face`, so the one
+  scenario the tool exists for, refusing to disclose under duress, was the one
+  that dropped out of the browser and onto a terminal. It reuses the service
+  call the CLI already uses and asks for the same `DESTROY FACE` phrase, so the
+  two interfaces agree rather than each inventing a dialect. Which entry is
+  cleared is decided by the object in front of the camera and never by a request
+  parameter: naming an entry on screen would say there is more than one. The
+  destroy password stays a distinct credential from the access password —
+  neither can do the other's job — so a coerced operator who hands over the
+  access password has not handed over this. Every refusal reads the same, and
+  failures count against the same attempt limiter as `/retrieve`. This is the
+  only restricted action gated by a credential rather than by a public phrase
+  alone, and it deliberately does **not** additionally require a restricted
+  confirmation session: that would add a step without adding authorization, in
+  the one flow reached in front of the person applying the pressure. (#189)
+
 ### Fixed
 
 - A bound object was refused at retrieval when it was plainly in front of the

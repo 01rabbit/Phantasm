@@ -2,7 +2,8 @@
 
 **Deck:** Phasmid_DEFCON_DemoLabs.pptx（全26枚 / 各スライドに同内容のスピーカーノート埋め込み済み）
 **Presenter:** Makoto Sugita (Mr.Rabbit / 01rabbit)
-**改訂 v5（0.4.0）:** Slide 24 のデモ構成を、実機で検証済みの WebUI 中心の Bind/Operate に更新。**Step 2「Bind」と Step 3「Operate（正しい物体での復元）」は WebUI**（役割別トークン: store / recover）で行い、**Step 4「物体なしでの失敗」だけを TUI に残す**（この否定証明はWebUI側で今回のセッションでは未再検証のため）。プロジェクタ切替は Step 1→2 と Step 3→4 の**1往復のみ**に抑制。Issue #169（TUI の Add File・Doctor・Inspect を非活性化、WebUIと重複するため）を反映し、Slide 24 の手順表と Q&A の一部を更新。
+**改訂 v6（0.5.0・実機検証済み）:** 物体キューの登録を**2段階撮影**（空シーン→物体）に変更 — 従来は視野全体を鍵にしており、**物体を隠しても開いてしまっていた**（#184/#187）。**Step 4「物体なしでの失敗」を WebUI に移した** — 実機で WebUI 経路の拒否を確認したため。Step 3（成功）と Step 4（失敗）が**同じタブで連続**し、物体の有無だけが変わる。プロジェクタ切替は Step 1→2 と Step 4→5 の**1往復のみ**。**Step 4b（強要下でデータを守る／破壊）を任意ステップとして追加**（#189、WebUI から実行可能に）。
+> 旧 v5（0.4.0）: Slide 24 のデモ構成を、実機で検証済みの WebUI 中心の Bind/Operate に更新。**Step 2「Bind」と Step 3「Operate（正しい物体での復元）」は WebUI**（役割別トークン: store / recover）で行い、**Step 4「物体なしでの失敗」だけを TUI に残す**（この否定証明はWebUI側で今回のセッションでは未再検証のため）。プロジェクタ切替は Step 1→2 と Step 3→4 の**1往復のみ**に抑制。Issue #169（TUI の Add File・Doctor・Inspect を非活性化、WebUIと重複するため）を反映し、Slide 24 の手順表と Q&A の一部を更新。
 **改訂 v4:** 製品モデルの確定を反映。**囮ファイルはツールが作らない — 利用者が用意する。** 生成機能は「空き領域の填充」へ降格し、Slide 14・21・22 の記述を差し替え。**強要下では開示しない**（制限パスフレーズは破壊資格であり取出資格ではない）ことを Slide 21 で明言。**パスフレーズは3つ**（真の復号／真の破壊／偽の復号）を Slide 12 に明示。Slide 24 のデモ手順を実機ランブック（8ステップ）と一致させ、**Step 3b（物体なしでの失敗）** を山場として新設。**ステッカーは未作成のため Slide 25・26 の言及を削除**し、卓上デモへの導線に差し替え。
 > 旧 v3: 実装（silent_brick／purge／emergency_daemon）と整合させ、Slide 6・21 の「破壊しない」記述を撤回。核心を「**Phasmid destroys, but never fabricates**（破壊はする／偽造・隠蔽はしない）」へ変更し、owner-triggered destruction の存在と §2232 リスクを開示。
 > 旧 v2: 軍歴＝着想源＋inverse framing（Slide 2）、REAL CASE(2026)（Slide 4）、国境事案 Q&A を追加。
@@ -140,6 +141,7 @@
 | 2 | Bind — Face 1・Face 2 登録 | 1:30 | **WebUI**（store） | **プロジェクタ切替①。** **空シーン→物体の2枚撮り。** 物体は Face ごとに差し替え、**撮影から保存まで下ろさない** |
 | 3 | Operate — 復元成功／役割の境界 | 0:50 | **WebUI**（store・recover） | recover トークンには Store/Maintenance への導線が無いことを見せる |
 | 4 | **復元 失敗（物体なし）** | 0:50 | **WebUI**（Step 3 と同じタブ） | **★本デモ唯一の証明。画面を切り替えないこと自体が論証。** 間を取り、**必ず物体を戻して成功まで往復させる** |
+| 4b | （任意）**強要下でデータを守る** | 0:40 | **WebUI**（同じタブ） | **不可逆。** 破壊パスワード＋`DESTROY FACE`。枠が押していれば省略 |
 | 5 | `e` → `a` Audit | 0:50 | TUI Expert | **プロジェクタ切替②。** `Free Space Filler` を指す。**判定しないことを誇る** |
 | 6 | `Ctrl+S` Silent Standby | 1:20 | TUI | **山場。** WebUI も同時に落ちる。ゆっくり |
 | 7 | `Esc` で復帰・ラップ | 0:10 | TUI | Prepare→Bind→Operate→Disclose を一言で |
@@ -151,6 +153,7 @@
 - **`Fill Free Space` は壇上で実行しない**（実測約4分）。事前に埋めておき `Inspect` のみ。
 - **囮ファイルは事前に自分で用意しておく。** 壇上でツールに生成させない。保存自体は Step 2 の WebUI で行う（#169 で TUI の `Add File` は非活性化済み）。
 - **成功例だけを見せない。** Step 4 の対比が無ければ cue≠key は何も証明していない。
+- **Step 4b は不可逆。** やるなら Step 5 の Audit の数字が「消した後」になることを承知の上で。省略しても本筋は通る。
 - **7分半で切り上げ、Q&Aに15分以上を残す。** 26:00 を超えたら Step 2〜3 を口頭要約。失敗時は録画へ切替し設計点を口頭補強。
 
 ## [26:20] Slide 25 — Quick start

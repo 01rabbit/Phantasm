@@ -35,6 +35,12 @@ PROTECTED_ENTRY_SAVED = "Protected entry saved."
 AMBIGUOUS_OBJECT_MATCH = "Ambiguous object match."
 NO_VALID_ENTRY_FOUND = "No valid entry found."
 
+DESTROY_FACE_NO_OBJECT = (
+    "Hold the access object of the entry you are clearing in front of the "
+    "camera until it matches, then confirm again."
+)
+DESTROY_FACE_DONE = "Local entry cleared. Its contents cannot be recovered."
+
 UNMATCHED_ENTRY_CLEARED = "Unmatched local entry cleared."
 LOCAL_ACCESS_PATH_CLEARED = "Local access path cleared. Close this session."
 CONTAINER_INITIALIZED = "Local container initialized. Protected entries are empty."
