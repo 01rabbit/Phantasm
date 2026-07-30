@@ -13,6 +13,8 @@ from .camera_frame_source import CameraFrameSource
 from .config import (
     STATE_BLOB_NAME,
     STATE_KEY_NAME,
+    cue_good_match_ratio,
+    cue_inlier_ratio,
     debug_enabled,
     dummy_fallback_threshold,
     experimental_object_model_enabled,
@@ -108,6 +110,8 @@ class AIGate:
             min_frame_descriptors=self.MIN_FRAME_DESCRIPTORS,
             min_good_matches=self.MIN_GOOD_MATCHES,
             min_inliers=self.MIN_INLIERS,
+            min_good_match_ratio=cue_good_match_ratio(),
+            min_inlier_ratio=cue_inlier_ratio(),
         )
         self.experimental_object_model_enabled = experimental_object_model_enabled()
         self.object_gate = ObjectGate()

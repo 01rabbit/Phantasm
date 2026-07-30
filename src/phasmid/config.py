@@ -269,6 +269,36 @@ def dummy_fallback_threshold() -> float:
     return value
 
 
+def _cue_ratio(name: str, default: float) -> float:
+    raw = env_text(name, str(default))
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    if value < 0.0:
+        return 0.0
+    if value > 1.0:
+        return 1.0
+    return value
+
+
+def cue_good_match_ratio() -> float:
+    """Share of the reference template that has to be re-found to match.
+
+    Tuning knob for the camera and lighting actually in front of the device:
+    the counts these produce are capped by the absolute `min_good_matches`, so
+    raising this can only ever make the cue stricter, and lowering it stops at
+    `GOOD_MATCH_FLOOR`. Lower it if a bound object is refused when plainly
+    present; raise it if something other than the object opens the cue.
+    """
+    return _cue_ratio("PHASMID_CUE_GOOD_MATCH_RATIO", 0.25)
+
+
+def cue_inlier_ratio() -> float:
+    """Share of the template whose geometry has to agree. See above."""
+    return _cue_ratio("PHASMID_CUE_INLIER_RATIO", 0.15)
+
+
 def display_enabled() -> bool:
     return env_flag("PHASMID_ENABLE_DISPLAY", default=False)
 

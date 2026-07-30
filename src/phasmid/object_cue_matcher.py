@@ -22,6 +22,27 @@ class ObjectCueMatcher:
     MIN_OBJECT_AREA_RATIO = 0.01
     MAX_OBJECT_AREA_RATIO = 0.60
 
+    # `min_good_matches` / `min_inliers` are absolute counts calibrated when a
+    # reference template covered the whole frame and carried 400-900 keypoints.
+    # Masking the template to the object leaves far fewer - 72 on a plain wall -
+    # and the same absolute counts then demand that most of the template be
+    # re-found exactly. Measured on a 72-keypoint template: the identical frame
+    # scores 62 good matches against a floor of 50, and adding +-6 of grayscale
+    # noise - less than a real sensor produces - drops it to 42 and the cue
+    # refuses an object that is plainly there.
+    #
+    # So ask for a *proportion* of the template instead, and let the absolute
+    # counts stand as a ceiling so nothing ever becomes stricter than before.
+    # Discrimination does not depend on the counts being high: it comes from the
+    # template describing the object and nothing else. Measured on the same
+    # scene, the empty view and a different object each score **zero** good
+    # matches, so the separation is 42-vs-0, not 42-vs-49.
+    MIN_GOOD_MATCH_RATIO = 0.25
+    MIN_INLIER_RATIO = 0.15
+    # Floors for a template so small that a proportion means almost nothing.
+    GOOD_MATCH_FLOOR = 12
+    INLIER_FLOOR = 8
+
     # How much of the changed area the single largest region has to account for.
     # Something placed in the scene changes one connected region; a scene that
     # moved changes many scattered ones, and its largest region can still be
@@ -42,6 +63,8 @@ class ObjectCueMatcher:
         min_object_area_ratio: float | None = None,
         max_object_area_ratio: float | None = None,
         min_object_dominance: float | None = None,
+        min_good_match_ratio: float | None = None,
+        min_inlier_ratio: float | None = None,
     ) -> None:
         self.min_reference_keypoints = min_reference_keypoints
         self.min_frame_descriptors = min_frame_descriptors
@@ -66,6 +89,14 @@ class ObjectCueMatcher:
             self.MIN_OBJECT_DOMINANCE
             if min_object_dominance is None
             else min_object_dominance
+        )
+        self.min_good_match_ratio = (
+            self.MIN_GOOD_MATCH_RATIO
+            if min_good_match_ratio is None
+            else min_good_match_ratio
+        )
+        self.min_inlier_ratio = (
+            self.MIN_INLIER_RATIO if min_inlier_ratio is None else min_inlier_ratio
         )
         self.orb = cast(Any, cv2).ORB_create(nfeatures=1000)
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING)
@@ -251,6 +282,25 @@ class ObjectCueMatcher:
             "path": None,
         }
 
+    def effective_thresholds(self, ref_state) -> tuple[int, int]:
+        """(good matches, inliers) required of *ref_state*, given its size.
+
+        Scaled to the template's own keypoint count, floored so a tiny template
+        still has to agree on something, and capped at the absolute counts so
+        this can only ever relax the check, never tighten it.
+        """
+        kp = None if ref_state is None else ref_state.get("kp")
+        count = 0 if kp is None else len(kp)
+        good = min(
+            self.min_good_matches,
+            max(self.GOOD_MATCH_FLOOR, round(self.min_good_match_ratio * count)),
+        )
+        inliers = min(
+            self.min_inliers,
+            max(self.INLIER_FLOOR, round(self.min_inlier_ratio * count)),
+        )
+        return int(good), int(inliers)
+
     def explains_frame(self, ref_state, frame_gray) -> bool:
         """Whether *ref_state* still matches a frame it must not match.
 
@@ -305,6 +355,8 @@ class ObjectCueMatcher:
         if ref_des is None or ref_kp is None or des is None or kp is None:
             return None
 
+        required_good, required_inliers = self.effective_thresholds(ref_state)
+
         matches = self.bf.knnMatch(ref_des, des, k=2)
         good_matches = []
         for pair in matches:
@@ -314,7 +366,7 @@ class ObjectCueMatcher:
             if m.distance < 0.75 * n.distance:
                 good_matches.append(m)
 
-        if len(good_matches) <= self.min_good_matches:
+        if len(good_matches) <= required_good:
             return None
 
         src_points: Any = [ref_kp[m.queryIdx].pt for m in good_matches]
@@ -326,10 +378,13 @@ class ObjectCueMatcher:
             return None
 
         inliers = int(mask.ravel().tolist().count(1))
-        if inliers <= self.min_inliers:
+        if inliers <= required_inliers:
             return None
 
         return {
             "homography": homography,
             "inliers": inliers,
+            "good_matches": len(good_matches),
+            "required_inliers": required_inliers,
+            "required_good_matches": required_good,
         }
