@@ -2,6 +2,7 @@ import asyncio
 import inspect
 import os
 import sys
+import tempfile
 import time
 import unittest
 import urllib.parse
@@ -26,6 +27,29 @@ GADGET_BIND = "10.55.0.1"
 
 
 class WebServerBoundaryTests(unittest.TestCase):
+    def setUp(self):
+        # Point the config and state directories at a temporary location for
+        # the duration of each test. Several cases here go through
+        # active_vault() -> resolve_web_container() -> resolve_web_vessel(),
+        # which reads the Vessel registry, so without this they depend on
+        # whatever Vessels happen to be registered on the machine running
+        # them - a developer who actually uses Phasmid would see this class
+        # fail against their own data, with an assertion about a purge call
+        # that says nothing about the real cause. resolve_web_vessel's own
+        # docstring names that dependency; this removes it.
+        self._isolated_dirs = tempfile.TemporaryDirectory()
+        root = self._isolated_dirs.name
+        self._isolated_env = mock.patch.dict(
+            os.environ,
+            {
+                "PHASMID_CONFIG_DIR": os.path.join(root, "config"),
+                "PHASMID_STATE_DIR": os.path.join(root, "state"),
+            },
+        )
+        self._isolated_env.start()
+        self.addCleanup(self._isolated_dirs.cleanup)
+        self.addCleanup(self._isolated_env.stop)
+
     def tearDown(self):
         web_server._rate_limit.clear()
         web_server._restricted_sessions.clear()

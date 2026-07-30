@@ -741,9 +741,17 @@ def test_frontend_clears_unavailable_on_camera_feed_load():
 # ---------------------------------------------------------------------------
 
 
-def test_profile_config_path_uses_platformdirs():
+def test_profile_config_path_uses_platformdirs(monkeypatch):
+    """The unoverridden default, so this one opts out of the isolation.
+
+    Every other test runs with `PHASMID_CONFIG_DIR` pointed at a temporary
+    directory (see the root conftest) to keep the operator's real registry out
+    of the suite. This test exists to check the fallback that applies when no
+    override is set, so it has to remove it first.
+    """
     from phasmid.services.profile_service import config_dir
 
+    monkeypatch.delenv("PHASMID_CONFIG_DIR", raising=False)
     p = config_dir()
     assert isinstance(p, Path)
     assert "phasmid" in str(p).lower()
