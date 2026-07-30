@@ -346,6 +346,19 @@ class VesselWorkflowService:
             },
         )
 
+    @staticmethod
+    def _recorded_kdf_value(record: dict[str, object], key: str, fallback: int) -> int:
+        """One recorded scrypt parameter, or the legacy value.
+
+        Records written before the parameters travelled with the hash carry
+        none, and a zero or non-numeric entry is treated the same way: the
+        fallback is what those passphrases were actually derived under.
+        """
+        value = record.get(key)
+        if isinstance(value, bool) or not isinstance(value, int):
+            return fallback
+        return value if value > 0 else fallback
+
     def _verify_face_emergency_password(
         self,
         path: str | Path,
@@ -362,9 +375,15 @@ class VesselWorkflowService:
         # Verify under the parameters the record was written with. A record
         # from before they were stored names none, and falls back to the legacy
         # values so an existing destroy passphrase still works.
-        n = int(record.get("kdf_n") or 0) or crypto_params.SCRYPT_DESTROY_LEGACY_N
-        r = int(record.get("kdf_r") or 0) or crypto_params.SCRYPT_DESTROY_LEGACY_R
-        p = int(record.get("kdf_p") or 0) or crypto_params.SCRYPT_DESTROY_LEGACY_P
+        n = self._recorded_kdf_value(
+            record, "kdf_n", crypto_params.SCRYPT_DESTROY_LEGACY_N
+        )
+        r = self._recorded_kdf_value(
+            record, "kdf_r", crypto_params.SCRYPT_DESTROY_LEGACY_R
+        )
+        p = self._recorded_kdf_value(
+            record, "kdf_p", crypto_params.SCRYPT_DESTROY_LEGACY_P
+        )
         try:
             actual = hashlib.scrypt(
                 emergency_password.encode("utf-8"),
