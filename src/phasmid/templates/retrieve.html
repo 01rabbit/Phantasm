@@ -60,6 +60,24 @@
                 </section>
 
                 <details style="margin-top:14px;">
+                    <summary>Clear this entry instead of opening it</summary>
+                    <div class="detail-body">
+                        <section class="panel panel--caution" style="margin-top:4px;">
+                            <div class="panel-head"><h2>Clear a protected entry</h2><span class="badge warn">Cannot be undone</span></div>
+                            <p class="copy">Clears the entry belonging to <strong>the object currently in front of the camera</strong>. Its contents cannot be recovered afterwards, and no copy is kept.</p>
+                            <p class="copy">This needs that entry's <strong>clearing password</strong> — the second password set when it was protected. Its access password will not do this, and this password will not open the file.</p>
+                            <form id="destroyForm">
+                                {{ ui.password_field("password", "Clearing password", "Required") }}
+                                <label class="field"><span>Type <code>{{ destroy_face_phrase }}</code> to confirm</span><input type="text" name="confirmation" autocomplete="off" placeholder="{{ destroy_face_phrase }}"></label>
+                                <div class="actions">
+                                    <button type="submit" class="secondary">Clear this entry</button>
+                                </div>
+                            </form>
+                        </section>
+                    </div>
+                </details>
+
+                <details style="margin-top:14px;">
                     <summary>Why might access fail?</summary>
                     <div class="detail-body">
                         <p class="copy">Check that the camera can clearly see the same physical object and that the password is correct. Phasmid intentionally provides limited detail on failed access attempts.</p>
@@ -98,6 +116,24 @@
         const a = document.createElement('a');
         a.href = url; a.download = pendingFilename; document.body.appendChild(a); a.click(); a.remove();
         window.URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('destroyForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const res = await apiFetch('/destroy_face', { method: 'POST', body: new FormData(form) });
+        const data = await res.json();
+        if (data.status) {
+            // Clear the pending download too: it may have come from the entry
+            // that no longer exists, and leaving it offerable would hand back
+            // what the operator just chose to destroy.
+            pendingDownload = null;
+            document.getElementById('downloadPanel').classList.remove('is-visible');
+            form.reset();
+            toast(data.status);
+            return;
+        }
+        toast(data.error || 'Operation rejected.', 'error');
     });
 
     document.getElementById('clearSession').addEventListener('click', () => {

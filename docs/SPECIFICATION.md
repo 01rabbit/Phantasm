@@ -234,6 +234,7 @@ WebUI responses include conservative browser hardening headers such as no-store 
 | `POST` | `/metadata/check` | Local metadata risk check |
 | `POST` | `/metadata/scrub` | Best-effort local metadata reduction |
 | `POST` | `/retrieve` | Retrieve and download the matching entry |
+| `POST` | `/destroy_face` | Clear the entry whose object is presented, using that entry's destroy password |
 | `POST` | `/purge_other` | Hidden restricted clear action |
 | `POST` | `/emergency/initialize` | Hidden container initialization |
 | `POST` | `/emergency/brick` | Hidden local access-path clear action |
@@ -285,6 +286,21 @@ stressful conditions.
 ## 10. Metadata and Data Minimization
 
 Store provides a local-only metadata risk check. It does not call cloud services and does not send telemetry.
+
+`/destroy_face` is the only restricted action gated by a credential rather than
+by a public confirmation phrase alone. It requires the bound object of the entry
+being cleared to be matching at the moment of the call, that entry's destroy
+password (a different credential from its access password, which cannot perform
+this action and which this password cannot use to read), and the phrase
+`DESTROY FACE` — the same phrase `phasmid emergency destroy-face --confirm`
+takes. It does **not** additionally require a restricted confirmation session:
+that would add a step without adding authorization, and this is the one action
+reached under duress, where each extra step is taken in front of the person
+applying it. The entry cleared is determined by the live object match and never
+by a request parameter, so the surface never has to name one of two entries.
+Failures are indistinguishable — a wrong destroy password, an uninitialized
+entry, and an object that stopped matching all return the same rejection — and
+they count against the same attempt limiter as `/retrieve`.
 
 `/metadata/check` and `/metadata/scrub` enforce the normal Web mutation token, rate limiting, and upload size limit. Uploaded data is processed in memory; these routes do not require writing the uploaded file to disk, and the intended implementation property is no disk write for uploaded metadata inspection.
 

@@ -51,6 +51,7 @@ from .metadata import metadata_risk_report, scrub_metadata
 from .passphrase_policy import check_store_passphrases
 from .process_hardening import apply_process_hardening
 from .restricted_actions import (
+    DESTROY_FACE_PHRASE,
     DESTRUCTIVE_CLEAR_PHRASE,
     EMERGENCY_BRICK_PHRASE,
     INITIALIZE_CONTAINER_PHRASE,
@@ -520,6 +521,7 @@ def _template_context(request: Request, active="home", **extra):
         "emergency_brick_phrase": EMERGENCY_BRICK_PHRASE,
         "restricted_confirmation_phrase": RESTRICTED_CONFIRMATION_PHRASE,
         "overwrite_confirmation_phrase": OVERWRITE_CONFIRMATION_PHRASE,
+        "destroy_face_phrase": DESTROY_FACE_PHRASE,
         "entries": [
             {"id": entry_id, "label": label} for entry_id, label in ENTRY_LABELS.items()
         ],
@@ -1272,6 +1274,78 @@ async def retrieve(request: Request, password: str = Form(...)):
     audit_event("retrieve_failed", source="web")
     _access_attempts.record_failure(attempt_scope)
     return {"error": text.NO_VALID_ENTRY_FOUND}
+
+
+@app.post(
+    "/destroy_face",
+    dependencies=[Depends(require_web_token), Depends(require_ui_unlock)],
+)
+async def destroy_face(
+    request: Request,
+    password: str = Form(...),
+    confirmation: str = Form(...),
+):
+    """Clear the entry whose object is presented, using its destroy password.
+
+    Deliberately not role-gated to `store`: a recover-scoped session can
+    decrypt and destroy but can never reach Face setup, and destroying under
+    duress is exactly what the narrower session is for.
+
+    Which entry is cleared is decided by the object in front of the camera, not
+    by a selector - naming the entry in a form field would put "there are two of
+    them" on screen at the moment someone is watching. The caller must hold the
+    object of the entry they are clearing and know that entry's destroy
+    password, which is a different credential from its access password.
+    """
+    enforce_rate_limit(request)
+    attempt_scope = f"web:{_client_id(request)}"
+    if not _access_attempts.check(attempt_scope).allowed:
+        return {"error": text.ACCESS_TEMPORARILY_UNAVAILABLE}
+
+    auth_sequence = access_cue_service.auth_sequence(length=1)
+    matched_mode = _raw_gate_status().get("matched_mode")
+    if (
+        auth_sequence[0] == access_cue_service.match_none()
+        or matched_mode not in access_cue_service.auth_tokens()
+    ):
+        # Actionable and safe to say: it describes the frame the operator is
+        # holding up right now, not anything about what is stored.
+        _access_attempts.record_failure(attempt_scope)
+        return {"error": text.DESTROY_FACE_NO_OBJECT}
+
+    require_restricted_action("destroy_face", request, confirmation)
+
+    vessel_path = resolve_web_vessel()
+    if vessel_path is None:
+        return {"error": text.OPERATION_REJECTED}
+
+    try:
+        VesselWorkflowService().destroy_face(
+            vessel_path,
+            password,
+            selector=face_for_mode(str(matched_mode)),
+            camera_object=True,
+            confirmation=DESTROY_FACE_PHRASE,
+        )
+    except (ValueError, FileNotFoundError, PermissionError, RuntimeError):
+        # A wrong destroy password, an entry that was never set up, and an
+        # object that stopped matching between the two checks all land here and
+        # all read the same. Telling them apart would say which of the two
+        # entries the caller just proved they can reach.
+        _access_attempts.record_failure(attempt_scope)
+        return {"error": text.OPERATION_REJECTED}
+    except Exception:
+        LOG.exception("Face destruction failed unexpectedly")
+        return {"error": text.OPERATION_REJECTED}
+
+    _access_attempts.record_success(attempt_scope)
+    audit_event(
+        "restricted_local_update",
+        accessed_entry="local_entry",
+        source="web",
+        reason="explicit_destroy",
+    )
+    return {"status": text.DESTROY_FACE_DONE}
 
 
 @app.post(
