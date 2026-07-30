@@ -195,7 +195,14 @@
     });
 
     captureButton.addEventListener('click', async () => {
-        const body = new URLSearchParams({ replace: 'false' });
+        // Bind to the entry the operator chose in step 1. Without this the
+        // server falls back to whichever entry is currently matched or first
+        // unbound, while /store below honours the selector - so picking Entry 2
+        // first would put the object on Entry 1 and the file on Entry 2.
+        const body = new URLSearchParams({
+            replace: 'false',
+            entry_hint: document.getElementById('entryHint').value || '',
+        });
         const res = await apiFetch('/register_key', { method: 'POST', body });
         const data = await res.json();
         if (data.overwrite_required) document.getElementById('overwritePanel').classList.remove('hidden');

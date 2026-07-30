@@ -21,6 +21,34 @@ class DocsAndTemplateTests(unittest.TestCase):
         self.assertIn("Metadata detection and reduction are best-effort.", store)
         self.assertNotIn("complete metadata removal", store.lower())
 
+    def test_store_template_captures_the_empty_scene_before_the_object(self):
+        """Binding an object needs the view without it.
+
+        ORB describes whatever texture is in the frame, so a reference taken
+        straight from a tripod is mostly the wall behind the object and matches
+        that wall once the object is taken away - the cue opened with the object
+        hidden. The two-shot flow is what makes the template describe the
+        object, so the page has to offer the scene shot and gate the object shot
+        behind it.
+        """
+        store = read_text("src/phasmid/templates/store.html")
+        self.assertIn("/register_scene", store)
+        self.assertIn("Capture empty scene", store)
+        self.assertIn('id="captureButton" disabled', store)
+
+    def test_store_template_binds_the_object_to_the_chosen_entry(self):
+        """The capture has to name the entry the operator picked.
+
+        `/register_key` falls back to whichever entry is currently matched or
+        first unbound, while `/store` honours the selector. With the hint
+        missing, choosing Entry 2 first put the object on Entry 1 and the file
+        on Entry 2 - two faces, each holding half of a pair.
+        """
+        store = read_text("src/phasmid/templates/store.html")
+        capture_call = store.split("captureButton.addEventListener")[1]
+        register_key_body = capture_call.split("/register_key")[0]
+        self.assertIn("entry_hint", register_key_body)
+
     def test_readme_links_field_operational_docs(self):
         readme = read_text("README.md")
         self.assertIn("Quick Start in 60 seconds", readme)
