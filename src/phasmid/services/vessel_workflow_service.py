@@ -1434,6 +1434,15 @@ class VesselWorkflowService:
         vault.silent_brick()
         vessel.unlink()
         self._vessels.unregister(vessel)
+        # The object-cue store is a device-wide singleton, not scoped to a
+        # Vessel, so deleting the last Vessel used to leave its bound-object
+        # templates behind. The next Store attempt then found an entry that was
+        # already bound to an object belonging to data that no longer exists,
+        # and pushed the operator into the Replace confirmation flow instead of
+        # letting them bind. Only cleared when nothing is left to own them: with
+        # another Vessel still registered, those templates are still in use.
+        if not self._vessels.list_all():
+            access_cue_service.clear_references()
         return DeleteVesselResult(vessel_path=vessel, vessel_name=vessel_name)
 
     def store_file(

@@ -14,6 +14,7 @@ ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from phasmid.services import vessel_service as vessel_service_mod
+from phasmid.services import vessel_workflow_service as workflow_mod
 from phasmid.services.inspection_service import InspectionService
 from phasmid.services.vessel_workflow_service import VesselWorkflowService
 
@@ -1015,6 +1016,64 @@ class VesselWorkflowServiceTests(IsolatedPhasmidDirs, unittest.TestCase):
                 self.assertEqual(result.vessel_path, vessel_path.resolve())
                 self.assertFalse(vessel_path.exists())
                 self.assertIsNone(vessel_service_mod.get_vessel_record(vessel_path))
+
+    def test_deleting_the_last_vessel_releases_the_bound_object_cues(self):
+        """Otherwise the next Store finds an entry bound to deleted data.
+
+        The object-cue store is device-wide, not scoped to a Vessel. Deleting
+        the Vessel used to leave its templates behind, so binding an object to
+        a fresh Vessel hit "entry already has a bound object" and pushed the
+        operator into the Replace confirmation flow for data that no longer
+        existed - reported from hardware as capture refusing to work after a
+        delete.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            vessel_path = Path(tmpdir) / "travel.vessel"
+
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
+                svc = VesselWorkflowService()
+                svc.create_vessel(vessel_path, "8M")
+
+                with mock.patch.object(
+                    workflow_mod.access_cue_service, "clear_references"
+                ) as clear:
+                    svc.delete_vessel(vessel_path, confirmation="DELETE VESSEL")
+
+                clear.assert_called_once()
+
+    def test_deleting_one_of_two_vessels_keeps_the_cues_the_other_uses(self):
+        """A device-wide clear would take the surviving Vessel's bindings too."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir) / "state"
+            going = Path(tmpdir) / "going.vessel"
+            staying = Path(tmpdir) / "staying.vessel"
+
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PHASMID_STATE_DIR": str(state_dir)},
+                    clear=False,
+                ),
+                self._patch_registry_dir(tmpdir),
+            ):
+                svc = VesselWorkflowService()
+                svc.create_vessel(going, "8M")
+                svc.create_vessel(staying, "8M")
+
+                with mock.patch.object(
+                    workflow_mod.access_cue_service, "clear_references"
+                ) as clear:
+                    svc.delete_vessel(going, confirmation="DELETE VESSEL")
+
+                clear.assert_not_called()
 
     def test_delete_vessel_rejects_wrong_confirmation(self):
         with tempfile.TemporaryDirectory() as tmpdir:
