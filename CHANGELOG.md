@@ -7,6 +7,114 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-30
+
+> Closes a disclosure gap in local state and narrows the TUI to the operations
+> the role-gated WebUI does not already cover. The **Vessel registry no longer
+> stores Face credential material in cleartext**: per-Face volume, the profile
+> identifying which Face holds generated filler, the bound object's perceptual
+> fingerprints, and the destroy-passphrase verifier move into an encrypted
+> sidecar under the local state key. A side effect worth having — a purged Face
+> is now indistinguishable from a never-used one in what stays readable.
+>
+> This is a MINOR bump: no `vault.bin` format changed and no claim was removed
+> from `docs/CLAIMS.md`, per [docs/VERSIONING.md](docs/VERSIONING.md). Note
+> that the registry migration is **one-way** — see Migration below.
+
+### Security
+
+- `vessel_registry.json` held, in cleartext at mode `0600` in the config
+  directory, each Face's `file_count` and `occupancy`, the `dummy_profile` that
+  identifies which Face carries generated filler, the `object_binding`
+  perceptual fingerprints of the bound access object, and `emergency_auth` — a
+  scrypt verifier for that Face's destroy passphrase. The last two are
+  credential material. All of it was readable by anyone holding the device as
+  the logged-in user, with no passphrase and without launching Phasmid, which
+  lands against the in-scope physical-captor and coercing-authority
+  adversaries and needs no compromised host. The file is now split: a cleartext
+  discovery index (paths, Vessel label, open bookkeeping, each Face's fixed
+  `face_id`/`created_at`/`selector`) plus `vessel_registry.bin` in the state
+  directory, AES-GCM under the local state key through the same
+  `LocalStateCipher` the ORB blob and access-token store use. (#178, #180)
+- A purge no longer leaves a signature in cleartext. `forget_face_contents()`
+  still preserves `object_binding` and `emergency_auth` as credentials, but
+  since those are now sealed, a purged Face (bound, credentialed, zero files)
+  and a never-used one (unbound, uncredentialed, zero files) read identically
+  without the state key. Previously the difference disclosed that data had been
+  destroyed — the duress path's legal exposure without the deniability it
+  exists for. (#180)
+- Raised the destroy-passphrase verifier's KDF cost from the interactive tier
+  (`scrypt n=2**14`, 16 MiB) to `n=2**15`, so `128*r*n` matches
+  `ARGON2_MEMORY_COST` at 32 MiB, and recorded the KDF parameters alongside the
+  hash so the cost can be raised again without invalidating passphrases already
+  set. The verifier is kept rather than replaced by a check against the
+  container: `destroy_face` and `destroy_vessel` overwrite raw bytes via
+  `purge_mode`/`silent_brick` and must work on a container that cannot be
+  decrypted. (#180)
+
+### Added
+
+- Doctor reports **Automatic Destruction**: a warning when an ordinary
+  retrieval will destroy the Face it did not open, naming the specific setting
+  — `PHASMID_DURESS_MODE` on, or `PHASMID_PURGE_CONFIRMATION` off. Both make
+  the destruction silent and irreversible, and neither is visible while
+  operating, so an operator who armed one weeks ago had no other reminder. A
+  warning rather than an error, because the owner may have armed it
+  deliberately. (#182)
+- `scripts/pi_zero2w/run_demo_console.sh` forces both of those settings to
+  their safe values and warns when it overrides an inherited one. Forced rather
+  than defaulted: `${VAR:-0}` would preserve an inherited `1` and leave the
+  trap armed. (#182)
+
+### Changed
+
+- TUI operations fully covered by the role-gated WebUI are **deactivated, not
+  removed**: `Add File` is gone from the Open Vessel operation selector, and
+  `Doctor` and `Inspect` from the Expert footer. The underlying service calls
+  and screens are untouched and both remain reachable from the command palette.
+  `Recover File` and `Audit` deliberately stay: they are still the verified way
+  to demonstrate the object-absent refusal and to reach the audit view in one
+  keypress. (#169 Phase 1, #177)
+- The Expert footer's minimum safe terminal width drops from **145 to 124
+  columns**, now that two bindings no longer occupy it. Below it, `w WebUI`
+  leaves the footer silently — with no ellipsis — taking the key that retracts
+  an exposed WebUI with it. (#177)
+- Under `PHASMID_FIELD_MODE`, the Simple screen's `Files` column collapses to
+  `-` instead of showing a cross-Face total. Outside Field Mode the total is
+  deliberate: this console is the declared inspection surface, where the
+  two-Face model is meant to be legible. (#179)
+
+### Fixed
+
+- `docs/TUI_OPERATOR_CONSOLE.md` claimed the Vessel registry stored "only
+  non-secret metadata (file paths)" and never object keys or recovery secrets.
+  Both were false. Replaced with the actual field inventory, and
+  `THREAT_MODEL.md` gained a **Configuration Directory Surface** section, which
+  had never mentioned the file at all. (#179)
+- The test suite no longer reads or rewrites the operator's real
+  `~/.config/phasmid/vessel_registry.json`. A stale registry from an earlier
+  session made five cases fail with an assertion about a purge call that said
+  nothing about the cause, and seven module-level tests rewrote that registry
+  as a side effect. Not reproducible in CI, which starts from a clean runner.
+  (#181)
+
+### Migration
+
+- The registry migrates on first load: the pre-split cleartext values are read
+  as the source of truth, the sealed sidecar is written, the old bytes are
+  overwritten, and the reduced index replaces them. No operator action needed.
+- **The migration is one-way.** A build older than 0.5.0 reading the migrated
+  registry finds no Face detail in the cleartext index and does not know about
+  the sidecar, so Face bookkeeping, object bindings and destroy-passphrase
+  verifiers would read as absent. Keep a copy of `vessel_registry.json` before
+  upgrading if a downgrade path matters.
+- On flash media, the pre-migration cleartext may persist in unlinked blocks.
+  This project does not claim secure deletion there.
+- Losing the local state key costs Face detail, never Vessel access: a missing,
+  truncated, or wrong-key sidecar degrades to "no Face detail known". Under
+  `PHASMID_TMPFS_STATE` that detail is volatile, consistent with the object-cue
+  references that already live in a volatile state directory.
+
 ## [0.4.0] - 2026-07-29
 
 > Adds role-scoped WebUI access: a **store** token reaches Face setup and
