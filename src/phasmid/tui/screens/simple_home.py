@@ -7,6 +7,7 @@ from textual.binding import Binding
 from textual.css.query import NoMatches
 from textual.widgets import DataTable, Footer, Static
 
+from ...config import field_mode_enabled
 from ...models.vessel import VesselMeta
 from ...services.profile_service import load_profile
 from ...services.vessel_service import VesselService
@@ -154,21 +155,43 @@ class SimpleHomeScreen(OperatorScreen):
         )
         warning.display = is_running
 
+    @staticmethod
+    def _file_count_cell(vessel: VesselMeta, field_mode: bool) -> str:
+        """The Files cell, which is a cross-Face total outside Field Mode.
+
+        Summing every Face is a deliberate research and functional-check
+        affordance: this console is the declared inspection surface, and an
+        operator verifying the two-Face model wants the whole picture on one
+        screen. It is also a disclosure. Someone who compels the disclosure Face
+        open sees three files after a total of fifteen was already on the home
+        screen, and the difference is the size of what is still hidden - a
+        quantitative tell that needs no passphrase.
+
+        Field Mode is the posture where that trade stops being acceptable, so
+        the total collapses to a dash. The per-Face figures live unencrypted in
+        `vessel_registry.json` regardless of this setting, so this narrows the
+        on-screen surface only; see THREAT_MODEL.md, Configuration Directory
+        Surface.
+        """
+        if not vessel.faces:
+            return "0"
+        if field_mode:
+            return "-"
+        return str(sum(face.file_count for face in vessel.faces))
+
     def _refresh_table(self) -> None:
         default_dir = self._profile.default_vessel_dir if self._profile else None
         self._vessels = self._svc.list_all(default_dir or None)
         table = self.query_one("#storage-table", DataTable)
         table.clear()
         initial_row = None
+        field_mode = field_mode_enabled()
         for index, vessel in enumerate(self._vessels):
-            file_count = (
-                sum(face.file_count for face in vessel.faces) if vessel.faces else 0
-            )
             table.add_row(
                 vessel.name,
                 "Open" if vessel.is_open else "Closed",
                 vessel.size_human,
-                str(file_count),
+                self._file_count_cell(vessel, field_mode),
             )
             if (
                 self._initial_vessel_path

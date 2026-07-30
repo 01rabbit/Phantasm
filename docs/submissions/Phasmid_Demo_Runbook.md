@@ -325,6 +325,16 @@ CLI の Vessel 既定名と同一であるため、パス存在で判定する�
   すること（`travel` / `backup`）。**片方を "real" や "secret" と名付けると、
   壇上で設計思想を自ら否定することになる。**
 - 監査ログ（opt-in）を使う場合、秘匿情報が記録されない設定であることを確認。
+- **実地では TUI を強要下で開かない。** 本書 Step 5 で Audit を見せるのは、壇上で
+  二面構造を*説明している*からこそ成立する。TUI は意図的に構造が見える研究・検査面で
+  あり（`Tracked Faces 2`、Simple 画面の Files 列は全Face合計）、強要者の前で開けば
+  隠している側の存在と分量を自分から渡すことになる。実運用では
+  `PHASMID_FIELD_MODE=1` を設定し、開示は recover ロールの WebUI 経由に限る
+  （Face セレクタも Face 数も出ない）。
+- **`vessel_registry.json`（config dir）は平文である。** 押収時にパスフレーズ無しで
+  読まれ、どちらの Face が囮か・物体の知覚ハッシュ・破壊用パスフレーズの検証子まで
+  露出する。デモ機は本番用の物体・パスフレーズを使わないこと。詳細と対策状況は
+  `docs/THREAT_MODEL.md` の Configuration Directory Surface を参照。
 
 ---
 

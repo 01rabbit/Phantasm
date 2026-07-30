@@ -9,7 +9,7 @@ All `PHASMID_*` reads are centralized in `src/phasmid/config.py`.
 |---|---|---|---|---|---|
 | `PHASMID_STATE_DIR` | path | `.state` | CLI/WebUI/TUI | Base local state directory when tmpfs override is not set | `config.state_dir()` |
 | `PHASMID_TMPFS_STATE` | path | unset | CLI/WebUI/TUI | Overrides state directory with volatile path (intended tmpfs) | `config.tmpfs_state_dir()` |
-| `PHASMID_FIELD_MODE` | bool | `false` | WebUI/TUI/CLI messaging | Reduces capture-visible detail in standard surfaces | `config.field_mode_enabled()` |
+| `PHASMID_FIELD_MODE` | bool | `false` | WebUI/TUI/CLI messaging | Reduces capture-visible detail in standard surfaces, including collapsing the TUI's cross-Face file total to `-` | `config.field_mode_enabled()` |
 | `PHASMID_EXPERIMENTAL_OBJECT_MODEL` | bool | `false` | Object cue gate | Enables experimental local object-model support layer | `config.experimental_object_model_enabled()` |
 | `PHASMID_OBJECT_MODEL_PATH` | path | unset | Object cue gate | Path to explicitly provisioned local model file | `config.object_model_path()` |
 | `PHASMID_PURGE_CONFIRMATION` | bool | `true` | Restricted actions | Requires explicit typed confirmation for destructive flow | `config.purge_confirmation_required()` |
