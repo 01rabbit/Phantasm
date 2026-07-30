@@ -48,6 +48,24 @@ def read_repo_text(path):
 
 
 class RestrictedFlowScenarioTests(unittest.TestCase):
+    def setUp(self):
+        # Same reason as WebServerBoundaryTests: the restricted-route
+        # scenarios reach active_vault(), which resolves through the Vessel
+        # registry, so an unisolated run depends on the Vessels registered on
+        # the machine rather than on the scenario definitions.
+        self._isolated_dirs = tempfile.TemporaryDirectory()
+        root = self._isolated_dirs.name
+        self._isolated_env = mock.patch.dict(
+            os.environ,
+            {
+                "PHASMID_CONFIG_DIR": os.path.join(root, "config"),
+                "PHASMID_STATE_DIR": os.path.join(root, "state"),
+            },
+        )
+        self._isolated_env.start()
+        self.addCleanup(self._isolated_dirs.cleanup)
+        self.addCleanup(self._isolated_env.stop)
+
     def tearDown(self):
         web_server._rate_limit.clear()
         web_server._restricted_sessions.clear()

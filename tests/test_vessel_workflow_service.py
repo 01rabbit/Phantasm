@@ -18,7 +18,37 @@ from phasmid.services.inspection_service import InspectionService
 from phasmid.services.vessel_workflow_service import VesselWorkflowService
 
 
-class VesselWorkflowServiceTests(unittest.TestCase):
+class IsolatedPhasmidDirs:
+    """Keeps a test run out of the developer's real Phasmid directories.
+
+    Tests here set `PHASMID_STATE_DIR` per case but the Vessel registry lives
+    in the *config* directory, so without this they read and rewrite the real
+    `vessel_registry.json`. On a machine where Phasmid is actually used that
+    means a test run mutates the operator's own registry - and, in the other
+    direction, Vessels registered there leak into unrelated assertions
+    elsewhere in the suite.
+
+    Env-level rather than patching `config_dir`: the override is the first
+    thing that function consults, so this covers every code path into the
+    registry, including ones that never see the `_patch_registry_dir` helper.
+    """
+
+    def setUp(self):
+        super().setUp()
+        isolated = tempfile.TemporaryDirectory()
+        self.addCleanup(isolated.cleanup)
+        env = mock.patch.dict(
+            os.environ,
+            {
+                "PHASMID_CONFIG_DIR": os.path.join(isolated.name, "config"),
+                "PHASMID_STATE_DIR": os.path.join(isolated.name, "state"),
+            },
+        )
+        env.start()
+        self.addCleanup(env.stop)
+
+
+class VesselWorkflowServiceTests(IsolatedPhasmidDirs, unittest.TestCase):
     def _patch_registry_dir(self, tmpdir: str):
         return mock.patch.object(vessel_service_mod, "config_dir", lambda: Path(tmpdir))
 
@@ -1027,7 +1057,7 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class WebAndConsoleShareStorageTests(unittest.TestCase):
+class WebAndConsoleShareStorageTests(IsolatedPhasmidDirs, unittest.TestCase):
     """The WebUI and the operator console must act on the same container.
 
     They did not: the console worked on Vessels while `web_server` held a
@@ -1146,7 +1176,7 @@ class WebAndConsoleShareStorageTests(unittest.TestCase):
                 )
 
 
-class RetrievalSelectionTests(unittest.TestCase):
+class RetrievalSelectionTests(IsolatedPhasmidDirs, unittest.TestCase):
     """Which file an unnamed retrieval returns.
 
     The WebUI never names a file, so whatever this picks is what the operator

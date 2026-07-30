@@ -21,6 +21,7 @@ if _repo_root_str not in sys.path:
 # treats as "nothing registered". Tests that want a real target set the
 # variable themselves; tests that want the registry branch pop it.
 import os  # noqa: E402
+import tempfile  # noqa: E402
 
 import pytest  # noqa: E402
 
@@ -38,3 +39,30 @@ def _isolate_web_vessel_target():
             os.environ.pop("PHASMID_WEB_VESSEL", None)
         else:
             os.environ["PHASMID_WEB_VESSEL"] = previous
+
+
+# The same problem one level up: the Vessel registry itself lives in the
+# config directory, so a test that builds a VesselService without an override
+# reads and rewrites the operator's real `vessel_registry.json`. On a machine
+# where Phasmid is actually used, a test run mutates their registry, and
+# Vessels registered there leak into unrelated assertions - which is exactly
+# how a stale registry from a previous session turned into five failures in
+# test_web_server and test_scenarios that pointed at a purge call rather than
+# at the real cause.
+#
+# TestCase-based suites isolate this in setUp, but module-level test functions
+# have no setUp to hang it on, so it is done here for every test. A test that
+# wants a specific config directory still sets the variable itself; the
+# per-test patches nest on top of this one.
+@pytest.fixture(autouse=True)
+def _isolate_config_dir():
+    previous = os.environ.get("PHASMID_CONFIG_DIR")
+    with tempfile.TemporaryDirectory() as isolated:
+        os.environ["PHASMID_CONFIG_DIR"] = os.path.join(isolated, "config")
+        try:
+            yield
+        finally:
+            if previous is None:
+                os.environ.pop("PHASMID_CONFIG_DIR", None)
+            else:
+                os.environ["PHASMID_CONFIG_DIR"] = previous
