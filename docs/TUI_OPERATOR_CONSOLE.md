@@ -480,6 +480,20 @@ Checks performed:
 | Swap status | Best effort; Linux only |
 | Terminal scrollback | Info notice only |
 | Debug logging | Warns if `PHASMID_DEBUG` is set |
+| Automatic destruction | Warns if a retrieval will destroy the Face it did not open — `PHASMID_DURESS_MODE` on, or `PHASMID_PURGE_CONFIRMATION` off |
+
+**Automatic destruction is worth calling out.** Both settings make an ordinary
+retrieval overwrite the other Face's bytes, silently and irreversibly: with
+`PHASMID_DURESS_MODE` on, opening the first Face purges the other, and with
+`PHASMID_PURGE_CONFIRMATION` off, *any* successful retrieval does. Neither is
+visible while operating, so an operator who armed one weeks ago has no other
+reminder. It is reported as a warning rather than an error because the owner may
+have armed it deliberately (see
+[THREAT_MODEL.md](THREAT_MODEL.md), Coercion-Safe Delaying) — the point is that
+it should never be a surprise. `scripts/pi_zero2w/run_demo_console.sh` forces
+both to their safe values and prints a warning when it overrides an inherited
+one, because a demo that opens both Faces in sequence would otherwise delete the
+protected Face while showing the disclosure one.
 
 Required disclaimer shown at the end of every Doctor run:
 

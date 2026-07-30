@@ -68,6 +68,10 @@
       `PHASMID_RECOGNITION_MODE=demo` と `stty -ixon` を設定する。**素の起動では
       デモが成立しない**（→ §0）。役割トークンが1つでも発行されると
       `PHASMID_WEB_TOKEN` は `/unlock` に受理されなくなる点に注意。
+      **`PHASMID_DURESS_MODE=0` / `PHASMID_PURGE_CONFIRMATION=1` も強制的に設定される**
+      — どちらも「読んだだけ」の復元で開いていない側の Face を破壊するため、
+      両面を順に開く本デモでは継承された値が致命的になる。継承値を上書きした場合は
+      起動時に警告が出る。TUI の Doctor でも `Automatic Destruction` として確認できる。
 - [ ] **【重要】囮ファイルと真のファイルを自分で用意しておく。** 真のファイルによく似た、
       公開して差し支えない偽ファイルを1つ作る（例: 同種の書式・同程度の分量の下書き）。
       **どちらも Step 2 で WebUI から保存する** — TUI の `Add File` は #169 で

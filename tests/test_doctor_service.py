@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+import unittest
 from contextlib import contextmanager
 from unittest import mock
 
@@ -156,3 +157,41 @@ def test_a_fresh_host_warns_only_about_genuine_host_facts():
         c.name in {"Temporary Directory", "Swap", "Compressed Swap", "Shell History"}
         for c in warns
     ), [c.name for c in warns]
+
+
+class AutoDestructionCheckTests(unittest.TestCase):
+    """Doctor must surface the settings that destroy a Face during a read.
+
+    A TestCase rather than the module-level functions above, because CI runs
+    `python -m unittest discover`, which does not collect bare test functions -
+    a safety check nobody verifies on the way in is not much of a safety check.
+    """
+
+    def _check(self, **env: str):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with _isolated_host(tmpdir, **env):
+                result = run_doctor_checks()
+        return next(c for c in result.checks if c.name == "Automatic Destruction")
+
+    def test_reported_as_off_by_default(self):
+        check = self._check()
+        self.assertEqual(check.level, DoctorLevel.OK, check.message)
+
+    def test_duress_mode_is_surfaced_as_a_destruction_warning(self):
+        """With this on, opening the disclosure Face destroys the other one."""
+        check = self._check(PHASMID_DURESS_MODE="1")
+        self.assertEqual(check.level, DoctorLevel.WARN)
+        self.assertIn("PHASMID_DURESS_MODE", check.message)
+        self.assertIn("destroys the other", check.message)
+
+    def test_disabling_purge_confirmation_is_surfaced_too(self):
+        check = self._check(PHASMID_PURGE_CONFIRMATION="0")
+        self.assertEqual(check.level, DoctorLevel.WARN)
+        self.assertIn("PHASMID_PURGE_CONFIRMATION", check.message)
+
+    def test_both_settings_are_reported_together(self):
+        """Reporting only the first would leave the second armed after a fix."""
+        check = self._check(PHASMID_DURESS_MODE="1", PHASMID_PURGE_CONFIRMATION="0")
+        self.assertEqual(check.level, DoctorLevel.WARN)
+        self.assertIn("PHASMID_DURESS_MODE", check.message)
+        self.assertIn("PHASMID_PURGE_CONFIRMATION", check.message)

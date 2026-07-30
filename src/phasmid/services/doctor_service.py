@@ -18,6 +18,8 @@ from ..config import (
     dummy_min_size_mb,
     dummy_occupancy_warn,
     dummy_profile_dir,
+    duress_mode_enabled,
+    purge_confirmation_required,
     state_dir,
 )
 from ..dummy_profile_eval import evaluate_dummy_profile, human_bytes
@@ -264,6 +266,48 @@ def _check_debug_logging() -> DoctorCheck:
         name="Debug Logging",
         level=DoctorLevel.OK,
         message="Debug logging is not enabled",
+    )
+
+
+def _check_auto_purge_configuration() -> DoctorCheck:
+    """Whether an ordinary retrieval will destroy the Face it did not open.
+
+    Two settings arm that, and neither is visible while operating: with
+    `PHASMID_DURESS_MODE` on, opening the first Face purges the other one, and
+    with `PHASMID_PURGE_CONFIRMATION` off, *any* successful retrieval does. In
+    both cases the destruction is silent and irreversible - a retrieval that
+    looks like it only read something has actually overwritten the other Face's
+    bytes. An operator who set either weeks ago has no way to be reminded of it
+    except here.
+
+    Reported as WARN rather than an error: this is a capability the owner may
+    have armed deliberately (docs/THREAT_MODEL.md, Coercion-Safe Delaying), and
+    the point is that it should never be a surprise.
+    """
+    armed = []
+    if duress_mode_enabled():
+        armed.append(
+            "PHASMID_DURESS_MODE is on, so opening the first Face destroys the other"
+        )
+    if not purge_confirmation_required():
+        armed.append(
+            "PHASMID_PURGE_CONFIRMATION is off, so any successful retrieval "
+            "destroys the Face it did not open"
+        )
+    if armed:
+        return DoctorCheck(
+            name="Automatic Destruction",
+            level=DoctorLevel.WARN,
+            message=(
+                "Retrieval will destroy data without asking: "
+                + "; ".join(armed)
+                + ". Irreversible."
+            ),
+        )
+    return DoctorCheck(
+        name="Automatic Destruction",
+        level=DoctorLevel.OK,
+        message="Retrieval will not destroy the other Face without explicit confirmation",
     )
 
 
@@ -807,6 +851,7 @@ def run_doctor_checks(output_dir: str | None = None) -> DoctorResult:
         _check_swap(),
         _check_scrollback(),
         _check_debug_logging(),
+        _check_auto_purge_configuration(),
     ]
 
     return DoctorResult(checks=checks)
