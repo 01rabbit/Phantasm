@@ -602,6 +602,25 @@ def _matched_entry():
     return None
 
 
+def _entry_needs_its_object_presented(entry_hint) -> bool:
+    """Whether the chosen entry was refused only because its object is not in view.
+
+    `_select_entry_for_store` returns nothing for two very different reasons,
+    and conflating them sent an operator toward the replacement panel - a
+    destructive path - when all they had to do was hold their object up again.
+    With a valid hint there is only one way to reach None: the entry exists and
+    is bound, and the camera is not currently matching it.
+
+    This surfaced the moment the cue started requiring the object. While the
+    reference template was the whole frame, the background satisfied the live
+    match on its own, so this branch was effectively unreachable.
+    """
+    if entry_hint not in ENTRY_TO_MODE:
+        return False
+    mode = ENTRY_TO_MODE[entry_hint]
+    return bool(_raw_gate_status().get("registered_modes", {}).get(mode))
+
+
 def _select_entry_for_store(entry_hint=None, overwrite=False):
     """Resolve which entry a store operation targets.
 
@@ -1063,6 +1082,11 @@ async def store(
             entry_hint=entry_hint, overwrite=overwrite
         )
         if entry_id is None:
+            if _entry_needs_its_object_presented(entry_hint):
+                # Deliberately no `overwrite_required`: nothing is in the way,
+                # so offering to replace an entry here would invite an operator
+                # to destroy the very thing they are trying to add to.
+                return {"error": text.ENTRY_OBJECT_NOT_PRESENT}
             return {
                 "error": text.NO_OPEN_LOCAL_ENTRY_WITH_REPLACEMENT,
                 "overwrite_required": True,
