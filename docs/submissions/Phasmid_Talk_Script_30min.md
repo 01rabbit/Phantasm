@@ -129,7 +129,7 @@
 **JA:** 呼吸を整え実機へ。プロジェクタ入力をTUIへ切替。**バックアップ録画の頭出しを確認。**
 
 ## [19:20] Slide 24 — Live demo（TUI + WebUI）　★中心 / 約7分半
-**EN（最小限・手を動かしながら）:** "This is the real system — the **TUI** handles prepare, refuse, and disclose; the local **WebUI**, reached over USB, handles bind and operate. I'll **create a vessel** here. Then I switch to the browser, log in with a store-scoped token, and **register two Faces** — each one bound to an everyday object in front of the camera. I'll open one back with the correct object — it comes back, and I'll show you a second, narrower session that can never reach Face setup at all. Then I switch back here and do the important part: **same file, same password, same everything — only the object is gone.** Ten seconds, and it refuses. That is what 'the cue gates the operation' means. Then **Audit** — and notice what it *doesn't* claim. Then **Silent Standby**. Watch the bottom bar."
+**EN（最小限・手を動かしながら）:** "This is the real system — the **TUI** handles prepare, refuse, and disclose; the local **WebUI**, reached over USB, handles bind and operate. I'll **create a vessel** here. Then I switch to the browser, log in with a store-scoped token, and **register two Faces**. Each one takes two shots: first the empty view, then the object — the difference between them is what the device keeps, so it describes the object and not my wall. I'll open one back with the correct object — it comes back — and show you a second, narrower session that can never reach Face setup at all. Then, **without switching anything**, the important part: **same tab, same file, same password — I only take the object away.** It refuses. That is what 'the cue gates the operation' means. Then I come back here for **Audit** — notice what it *doesn't* claim — and **Silent Standby**. Watch the bottom bar."
 
 **JA デモ手順:** 詳細は別紙 **`docs/submissions/Phasmid_Demo_Runbook.md`（8ステップ、合計 ~7:30）** に従う。要点のみ：
 
@@ -137,10 +137,10 @@
 |---|---|---|---|---|
 | 0 | オリエンテーション | 0:20 | TUI | Simple 画面の6キーを指す。最小面も coercion-aware 設計の一部 |
 | 1 | `n` Create Vessel | 0:50 | TUI | ヘッダなし・マジックバイトなし |
-| 2 | Bind — Face 1・Face 2 登録 | 1:30 | **WebUI**（store） | **プロジェクタ切替①。** カメラを使うのはここだけ。物体は Face ごとに差し替える |
+| 2 | Bind — Face 1・Face 2 登録 | 1:30 | **WebUI**（store） | **プロジェクタ切替①。** **空シーン→物体の2枚撮り。** 物体は Face ごとに差し替え、**撮影から保存まで下ろさない** |
 | 3 | Operate — 復元成功／役割の境界 | 0:50 | **WebUI**（store・recover） | recover トークンには Store/Maintenance への導線が無いことを見せる |
-| 4 | **復元 失敗（物体なし）** | 0:50 | TUI | **プロジェクタ切替②。★本デモ唯一の証明。** ここで必ず間を取る。可能なら物体を戻して往復させる |
-| 5 | `e` → `a` Audit | 0:50 | TUI Expert | `Free Space Filler` を指す。**判定しないことを誇る** |
+| 4 | **復元 失敗（物体なし）** | 0:50 | **WebUI**（Step 3 と同じタブ） | **★本デモ唯一の証明。画面を切り替えないこと自体が論証。** 間を取り、**必ず物体を戻して成功まで往復させる** |
+| 5 | `e` → `a` Audit | 0:50 | TUI Expert | **プロジェクタ切替②。** `Free Space Filler` を指す。**判定しないことを誇る** |
 | 6 | `Ctrl+S` Silent Standby | 1:20 | TUI | **山場。** WebUI も同時に落ちる。ゆっくり |
 | 7 | `Esc` で復帰・ラップ | 0:10 | TUI | Prepare→Bind→Operate→Disclose を一言で |
 

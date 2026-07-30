@@ -9,6 +9,22 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Fixed
 
+- A bound object was refused at retrieval when it was plainly in front of the
+  camera. `MIN_GOOD_MATCHES=50` / `MIN_INLIERS=30` are absolute counts
+  calibrated when a reference template covered the whole frame and carried
+  400-900 keypoints; masking the template to the object (#184) leaves 72 on a
+  plain wall, and the same counts then demand that most of the template be
+  re-found almost exactly. Measured on a 72-keypoint template: the identical
+  frame scores 62 good matches, but ±6 of grayscale noise — less than a real
+  sensor produces — drops it to 42, and only one of six presentations matched.
+  The thresholds are now a proportion of the template's own keypoint count
+  (25% good matches, 15% inliers), floored at 12/8 and **capped by the absolute
+  counts, so nothing is ever stricter than before**. Safe because discrimination
+  never came from the counts being high: on the same scene the empty view and a
+  different object each score zero good matches, so the separation is 42-vs-0,
+  not 42-vs-49. After the change all six presentations match and all four
+  negative cases are still refused. Tunable per device via
+  `PHASMID_CUE_GOOD_MATCH_RATIO` and `PHASMID_CUE_INLIER_RATIO`. (#188)
 - Binding an access object failed on real hardware, and the failure was in the
   two-shot capture added for #184, not in how the object was presented. The
   scene and object frames were differenced after `cv2.equalizeHist`, which is a
@@ -35,6 +51,17 @@ and this project follows SemVer-style release intent for documented interfaces.
   flow instead of letting them bind. `create_vessel` already cleared them for
   this reason; `delete_vessel` now does too, but only when no Vessel is left to
   own them. (#186)
+
+### Documentation
+
+- Demo Runbook and Talk Script updated for the hardware-verified 0.5.0 flow:
+  two-shot capture in Step 2, the object held up through the save, and
+  **Step 4 (object absent, retrieval refused) moved to the WebUI** now that the
+  negative case is verified there. Step 3 and Step 4 run in the same tab, so the
+  contrast changes only the object — not the screen. `Recover File` stays in the
+  TUI as the fallback when the WebUI is unavailable, and the WebUI's five-failure
+  lockout is called out, because rehearsing Step 4 there can consume it before
+  the talk.
 
 ## [0.5.0] - 2026-07-30
 

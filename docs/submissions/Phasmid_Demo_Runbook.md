@@ -1,12 +1,13 @@
 # Phasmid — Live Demo 実施細部要領 / Demo Runbook
 
 **対象:** DEF CON Demo Labs 本番の実機デモ（Deck Slide 24）。プレゼン30分のうち**約7分半**を割り当て、**Q&A/交流15分を必ず確保**する。
-**画面:** TUI（Local Disclosure Control）で Prepare・Refuse・Disclose を、**ローカルWebUI で Bind・Operate（登録・復元）** を行う。プロジェクタ切替は **Step 2→3 と Step 4 の手前の1往復のみ**。
+**画面:** TUI（Local Disclosure Control）で Prepare・Refuse・Disclose を、**ローカルWebUI で Bind・Operate（登録・復元・否定証明）** を行う。プロジェクタ切替は **Step 1→2 と Step 4→5 の1往復のみ**。
 
 > **情報の確度について**
-> - **本書は 0.4.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果に基づく。** 〔要確認〕は原則として解消済み。実機で確認していない項目のみ §9 末尾に明示する。
-> - **前版からの重要な変更（Issue #169・Phase 1 実装済み）:** TUI の **Add File** と Expert 画面の **Doctor・Inspect を非活性化**した — いずれも役割別トークンで保護された WebUI（`/store`、`/operator/doctor`、`/operator/inspect`）と完全に重複するため。**Recover File と Audit はあえて非活性化していない** — Recover File は cue≠key の否定証明（Step 4）を実証できる唯一の検証済み経路であり、Audit は本デモ Step 5 でキー1つで直接使う。どちらも WebUI 側の同等機能が今回のセッションでは十分に検証・統合されていないため、対応する WebUI 移行が済むまで TUI に残した。**削除ではなく非活性化** — 内部のサービス呼び出し・画面コードはそのまま残しており、リハーサルで問題が出れば1行で復元できる。
-> - **デモ構成もこれに合わせて改訂した。** Step 2「Bind」と Step 3「Operate（正しい物体での復元）」を **WebUI の Store/Retrieve 画面**に移した — 登録・復元の統合経路は実機で検証済み。**Step 4「物体を完全に外して失敗させる」は引き続き TUI の Recover File で行う**（この否定証明は今回のセッションでは WebUI 側で再検証していない。本番前に一度試すことを推奨。§9 末尾参照）。
+> - **本書は 0.5.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果に基づく。** 〔要確認〕は原則として解消済み。実機で確認していない項目のみ §9 末尾に明示する。
+> - **物体の登録が2段階撮影になった（0.5.0・#184/#187）。** `1 · Capture empty scene`（物体をフレーム外にして空の視野を撮る）→ `2 · Capture access object`（物体をかざして撮る）の順。**この2枚の差分が物体の領域を決め、その領域だけが特徴として登録される。** 従来は視野全体を登録していたため、三脚固定の背景そのものが鍵になり、**物体を隠しても開いてしまっていた**。加えて **保存の瞬間にも物体の一致が再確認される** — 撮影後に物体を下ろして `Protect file` を押すと拒否される（→ §0・Step 2）。
+> - **Step 4（物体なし→拒否）を WebUI Retrieve に移した。** 0.5.0 実機で WebUI 経路でも拒否されることを確認済み。**これで Step 3（成功）と Step 4（失敗）が同じ画面で連続する** — 物体の有無だけを変えた対比を画面切替なしで見せられるため、cue≠key の実証としては従来より強い。TUI の `Recover File` は**フォールバックとして残す**（→ §5）。
+> - **Issue #169・Phase 1:** TUI の **Add File** と Expert 画面の **Doctor・Inspect を非活性化**した — いずれも役割別トークンで保護された WebUI（`/store`、`/operator/doctor`、`/operator/inspect`）と完全に重複するため。**Recover File と Audit はあえて非活性化していない** — Audit は本デモ Step 5 でキー1つで直接使う。Recover File は Step 4 の WebUI 移行で本編からは外れたが、**壇上で WebUI が使えなくなった場合に否定証明を成立させる唯一の代替経路**なので残す。**削除ではなく非活性化** — 内部のサービス呼び出し・画面コードはそのまま残しており、リハーサルで問題が出れば1行で復元できる。
 > - **Expert フッタの安全端末幅が 145→124 桁に下がった**（Doctor/Inspect の非活性化でフッタの項目数が減ったため。Audit は残っているので115桁までは下がらない）。
 > - **囮ファイルは運用者が用意する**ものとし、生成機能は空き領域の填充に位置づけ直している（v4 からの変更点、引き続き有効）。
 
@@ -23,7 +24,9 @@
 | **囮ファイルをツールに作らせる** | 生成される填充物は汎用ファイルであり、開示材料としての真実味がない | **囮は運用者が用意する。** 真のファイルによく似た偽ファイルを自分で保存する |
 | **素の `phasmid` で起動** | libcamera のログがTUIを破壊する／WebUIがラップトップから見えない／トークンが毎回変わる／`Ctrl+S` が効かないことがある | **`scripts/pi_zero2w/run_demo_console.sh`** を使う |
 | **成功例だけを見せる** | 物体キューが効いていることの証明にならない。観客にはただのパスワード復号に見える | **物体なしの失敗を必ず見せる**（Step 4） |
-| **TUI で Add File を探す** | #169 で非活性化済み。Operation セレクタには Recover File・List Files・Remove File しか出ない | **Bind（Face登録）は WebUI** で行う。復元は Step 3 が WebUI、Step 4 は TUI の Recover File のまま |
+| **TUI で Add File を探す** | #169 で非活性化済み。Operation セレクタには Recover File・List Files・Remove File しか出ない | **Bind も復元も否定証明も WebUI**（Step 2〜4）。TUI の `Recover File` は WebUI が使えない時の代替 |
+| **物体を撮ってから下ろして `Protect file`** | 0.5.0 から**保存の瞬間にも一致を再確認する**（#186）。下ろすと `That entry is already set up...` で拒否される | **撮影から保存まで物体をかざし続ける。** 押す前にオーバーレイが `MATCH` になっていることを確認 |
+| **物体をかざしたまま `Capture empty scene`** | 空の視野に物体が写り込むと、差分が物体を切り出せない | **1枚目は必ず物体をフレーム外に。** 順序は空シーン→物体（#184） |
 
 ---
 
@@ -35,14 +38,14 @@
 | 1 | Vessel 作成（Create） | 0:50 | TUI Simple | Prepare |
 | 2 | Bind — Face 1・Face 2 登録 | 1:30 | **WebUI**（store トークン） | Bind（cue≠key の準備） |
 | 3 | Operate — 復元 成功／役割の境界 | 0:50 | **WebUI**（store・recover トークン） | Operate |
-| 4 | **復元 失敗（物体なし）** | 0:50 | TUI | **★★cue≠key の証明** |
+| 4 | **復元 失敗（物体なし）** | 0:50 | **WebUI**（Step 3 と同じタブ） | **★★cue≠key の証明** |
 | 5 | Audit（空き領域と境界） | 0:50 | TUI Expert | 誠実性の可視化 |
 | 6 | Silent Standby | 1:20 | TUI | Disclose / 山場 |
 | 7 | ラップ | 0:10 | TUI Simple | 締め |
 
 > **時計運用:** 開始 ~19:20。**26:00 を超えたら Step 2〜3 を口頭要約**して締めへ。
-> **プロジェクタ切替は1往復だけ。** Step 1 の終わりに TUI→ブラウザへ、Step 3 の終わりにブラウザ→TUI へ。以降 Step 4〜7 は切替なし。
-> **Step 4 は cue≠key の唯一の実証。** 物体の有無だけを変えた対比がなければ実証にならない。
+> **プロジェクタ切替は1往復だけ。** Step 1 の終わりに TUI→ブラウザへ、Step 4 の終わりにブラウザ→TUI へ。Step 2〜4 は同じブラウザ画面で連続する。
+> **Step 4 は cue≠key の唯一の実証。** 物体の有無だけを変えた対比がなければ実証にならない。**Step 3 と同じ画面・同じファイル・同じパスワードで、物体だけを外す** — 画面が切り替わらないことが「他は何も変えていない」ことの担保になる。
 
 ---
 
@@ -51,14 +54,19 @@
 ### T-30分（設営時）
 
 - [ ] 実機（Pi Zero 2 W + カメラ + 三脚）を卓上に設置、電源・給電確認。
-- [ ] 表示系: TUIを映す経路と、**ラップトップのブラウザを映す経路**の両方を確保。**入力切替キーを把握**（切り替えるのは Step 1→2 でTUIからブラウザへ、Step 3→4 でTUIに戻す1箇所のみ）。
+- [ ] 表示系: TUIを映す経路と、**ラップトップのブラウザを映す経路**の両方を確保。**入力切替キーを把握**（切り替えるのは Step 1→2 でTUIからブラウザへ、Step 4→5 でTUIに戻す1箇所のみ）。
 - [ ] **端末幅を124桁以上にする**（`tput cols` で確認）。これを下回ると Expert フッタから
       `w WebUI` が**無言で消える** — 露出したWebUIを引っ込めるキーが画面から失われる。
       省略記号は出ないので、狭いことに気付けない（→ §9）。
 - [ ] カメラのピント・画角・照明を確認（物体が安定認識される距離に三脚固定）。
+      **2段階撮影は三脚が動かないことが前提** — 1枚目と2枚目の差分で物体を切り出すため、
+      間にカメラが動くと `Too much of the view changed.` で拒否される。
+      **卓上の背景は無地に近い方が確実**（0.5.0 実機では無地の壁で1回目に成功）。
 - [ ] **デモ用プロファイルで初期化**（実運用の秘匿データは載せない）。
 - [ ] **前回デモの Vessel が残っていれば `delete`（Delete Vessel）で完全に削除**してから
-      新規作成する。物体キューの残留は Vessel 新規作成時に自動でクリアされる（0.4.0）。
+      新規作成する。物体キューは **Vessel 新規作成時**に加え、**最後の Vessel を削除した
+      時点**でも自動でクリアされる（0.5.0・#187）。0.4.x では削除では消えず、次の登録が
+      「このエントリには既に物体が紐づいている」で止まった。
 - [ ] **起動は必ず次のスクリプトで:**
       ```bash
       cd ~/Phasmid && bash scripts/pi_zero2w/run_demo_console.sh
@@ -75,7 +83,7 @@
 - [ ] **【重要】囮ファイルと真のファイルを自分で用意しておく。** 真のファイルによく似た、
       公開して差し支えない偽ファイルを1つ作る（例: 同種の書式・同程度の分量の下書き）。
       **どちらも Step 2 で WebUI から保存する** — TUI の `Add File` は #169 で
-      非活性化済みなので使わない（`Recover File` は Step 4 のために引き続き有効）。
+      非活性化済みなので使わない（`Recover File` は §5 のフォールバック用に残してある）。
 - [ ] 用意するパスフレーズは3つ: 真の復号用・真の破壊用・偽の復号用。
 - [ ] （任意）**Fill Free Space を事前実行**（約4分）。空き領域を埋め、
       容器が不自然に空でないようにする。経過時間が表示され画面は固まらない。
@@ -86,10 +94,15 @@
       ※ `phasmid-pi.local` は使わない。**IPアドレス直指定**。
 - [ ] **バックアップ録画**（全手順を通した2〜3分クリップ）を再生機に用意し**頭出し**。
 - [ ] 予備電源／ケーブル。会場ネットワークは不要（WebUIはUSBガジェット面のみ）。
-- [ ] **本番前に確認すること（推奨・時間があれば）:** Step 4「物体を完全に外して
-      失敗させる」を WebUI Retrieve でも一度試しておく。成功すれば Step 4 も WebUI
-      側に統合でき、TUI への切り戻しが不要になり切替が0往復になる。今回のセッションでは
-      時間の都合でこの1点だけ未検証のまま残した。
+- [ ] **物体キューのリハーサルを1回通す**（所要 約2分）。本番と同じ三脚位置・照明で:
+      1. `1 · Capture empty scene` → `2 · Capture access object` が**1回で通ること**
+      2. 物体を下ろして `Protect file` → **拒否されること**（`That entry is already set up...`）
+      3. 物体をかざし直して `Protect file` → 保存できること
+      4. Retrieve で**物体を隠して**正しいパスワード → **拒否されること**
+      5. 物体を戻して同じパスワード → 復元できること
+
+      **4 と 5 は必ず対で確認する。** 4 だけでは「何をやっても拒否する状態」と区別がつかない。
+      詳細な検証手順と観測すべき値は §9 冒頭を参照。
 
 ### T-5分（登壇直前）
 
@@ -160,17 +173,34 @@
 
 - **操作:** TUI で **`w`** → プロジェクタをラップトップのブラウザへ切替 → 事前ブックマークの
   `/unlock` タブに **`store` トークン**を入力 → **Store** 画面。Step 1「Choose the entry」で
-  **Entry 1** を選択 → ファイル選択 → パスワード入力 → **物体Aをカメラの前に配置** →
-  `Capture access object` → `Protect file`。続けて Step 1 を **Entry 2** に切り替え →
-  別ファイル → 別パスワード → **物体Bに差し替えて** `Capture access object` → `Protect file`。
-- **画面期待:** カメラプレビューに `Object cue matched` / `STABLE MATCH` の一致表示。
-  Entry を切り替えるたびに `Access object: Not captured` にリセットされる。
+  **Entry 1** を選択 → ファイル選択 → パスワード入力 → **物体を手元に置いたまま
+  `1 · Capture empty scene`** → **物体Aをかざして `2 · Capture access object`** →
+  **物体Aをかざしたまま `Protect file`**。続けて Step 1 を **Entry 2** に切り替え →
+  別ファイル → 別パスワード → **物体を外して `1 · Capture empty scene`** →
+  **物体Bをかざして `2 · Capture access object`** → **かざしたまま `Protect file`**。
+- **画面期待:** 1枚目で `Empty scene captured. Now hold the object in front of it.`、
+  2枚目で `Object cue matched`。`Access object: Captured` に変わり、
+  カメラプレビューのオーバーレイが `No object cue match` から一致表示に変わる。
+  Entry を切り替えるたびに `Access object: Not captured` にリセットされ、
+  **空シーンの撮り直しからやり直しになる**（前の空シーンは使い回されない）。
   `Protect file` 成功で緑のトースト。
-- **発話（EN）:** "Now I switch to the browser — this device also serves a local WebUI, and I'm logged in with a token scoped to the store role. I register two Faces here. For each one, I hold an everyday object in front of the camera. Remember: this is a **cue, not a key**. It gates the operation; it is not the encryption key. A photograph of it unlocks nothing."
+- **発話（EN）:** "Now I switch to the browser — this device also serves a local WebUI, and I'm logged in with a token scoped to the store role. I register two Faces here. Notice it takes two shots: first the empty view, then the object. The difference between them is what the device keeps — otherwise it would be describing my wall, and my wall would open the file. Remember: this is a **cue, not a key**. It gates the operation; it is not the encryption key. A photograph of it unlocks nothing."
 - **注意:** **Entry を切り替えたら必ず物体も差し替える**こと — 同じ物体を両方の Face に
   使おうとすると `Object binding failed` で拒否される（cue≠key を壊さないための安全装置。
   実機で確認済み）。
-- **失敗時:** 認識が不安定なら距離/照明を微調整。起動スクリプトの既定
+- **注意:** **撮影から保存まで物体を下ろさない。** 0.5.0 から保存の瞬間にも一致を
+  再確認するため、下ろすと `That entry is already set up. Hold its access object in
+  front of the camera until it matches, then save again.` で拒否される（#186）。
+  **これは正常な挙動** — 慌てず物体をかざし直して押し直せばよい。
+  ここで「Advanced: replace an existing protected space」パネルは**開かない**（開いたら 0.4.x）。
+- **失敗時（メッセージ別）:**
+  - `Object does not stand out from the scene behind it.` → 物体をカメラに近づけ、
+    フレームに大きく写す。または背景を無地にする。
+  - `Too much of the view changed.` → **三脚が動いた／照明が変わった。** カメラを
+    固定し直して空シーンから撮り直す。
+  - `Rejected: the cue still matches the empty scene` → **安全装置が働いた証拠。**
+    その物体では背景と区別できていない。別の物体に替える。
+  認識が不安定なら距離/照明を微調整。起動スクリプトの既定
   `PHASMID_RECOGNITION_MODE=demo` で確定的に見せられる。
 
 ### Step 3 — Operate: 復元 成功、そして役割の境界（0:50｜WebUI）
@@ -182,44 +212,49 @@
 - **画面期待:** 緑のトーストで復元成功。`recover` タブのナビは `Home` / `Retrieve` /
   `Lock` だけ。
 - **発話（EN）:** "Same object, correct password — the file comes back. And here's a second, narrower session, logged in with a different, role-scoped token. It can decrypt and destroy. It can never reach Face setup at all."
-- **注意:** 本編で WebUI の Store/Retrieve を実際に使うのはここまで。**次はプロジェクタを
-  TUI に戻して**、最も強い対比（物体を完全に外す）を見せる — これが往復の折り返し。
+- **注意:** **画面はこのまま。** 次の Step 4 は同じタブ・同じファイル・同じパスワードで、
+  物体だけを外す。切り替えないことが「他は何も変えていない」ことの担保になる。
 
-### Step 4 — 復元 失敗（0:50｜★★cue≠key の証明｜TUI）
+### Step 4 — 復元 失敗（0:50｜★★cue≠key の証明｜WebUI・Step 3 と同じ画面）
 
 > **本書で最も重要なステップ。**
 > 成功例だけでは物体キューが効いていることを**何も証明していない**。観客には
 > 「パスワードを打ったらファイルが出た」としか見えない。**対比だけが証明になる。**
-> この仕組みは **TUI 経由でのみ実機再検証済み**（WebUI Retrieve での「物体なし→拒否」は
-> 今回のセッションでは未再検証 — 本番前に一度試すと Step 3 と地続きにでき、切替を
-> 0往復にできる。§2 の T-30 チェックリスト参照）。
+> **画面を切り替えないこと自体が論証の一部。** Step 3 と同じタブ、同じファイル、
+> 同じパスワードで、**物体だけ**を外す。切り替えれば「他にも何か変えたのでは」が残る。
+> 0.5.0 実機で WebUI 経路の拒否を確認済み（#184/#187 の修正前は、背景が鍵に
+> なっていたため**物体を隠しても開いてしまっていた** — 今はこれが直っている）。
 
-- **操作:** プロジェクタを TUI に戻す。**`o`（Open）** → `Y` → Operation は
-  **`Recover File`**（既定。#169 で `Add File` は選択肢から消えたが、`Recover File`
-  はこの Step 4 のために引き続き有効） → **Output file** にパス →
-  Face 1 と同じ **Passphrase** → **物体はカメラに見せない**（最初から視野の外、
-  または手で覆う）→ `Run Operation`。
-- **画面期待:** 約10秒後、赤で **`Open Vessel / no bound object matched`**。
-  出力ファイルは作られない。
-- **将来的な改善案（未実施）:** WebUI Retrieve でも同じ「物体なし→拒否」を
-  一度確認できれば、Step 4 も Step 3 と同じ WebUI タブで完結させ、TUI への
-  切り戻しを不要にできる（切替を0往復にできる。§2 の「本番前に確認すること」参照）。
-  それまでは TUI の `Recover File` を非活性化しない。
-- **発話（EN）:** "Same file. Same password. Same everything — only the object is gone. The device waits ten seconds for a match, does not get one, and refuses. That is what 'the cue gates the operation' means — and notice it tells you almost nothing about *why* it failed. That is deliberate."
+- **操作:** Step 3 と同じ Retrieve 画面のまま。**物体をカメラの視野から完全に外す**
+  （手で覆うのではなく、卓の下に下ろす）→ **オーバーレイが `No object cue match` に
+  変わるのを待つ** → Face 1 と同じ **Passphrase** → `Open protected file`。
+- **画面期待:** **`No valid entry found.`** のエラートースト。ファイルは出てこない。
+  オーバーレイは `No object cue match` / `Present a bound object to continue`。
+  **`/status` の `object_state` は `none`。**
+- **発話（EN）:** "Same tab. Same file. Same password. Same everything — I have only taken the object away. And notice what it says: 'no valid entry found.' Not 'wrong object', not 'object missing' — it will not even tell you what it is waiting for. That is deliberate. That is what 'the cue gates the operation' means."
 - **注意:** **ここで間を取る。** これが cue≠key の唯一の実証である。
-  可能なら**この直後に物体を戻して再実行し、成功させる**。
-  失敗→成功の往復まで見せると「壊れたのではない」ことまで示せる。
-- **注意（ロックアウト）:** TUI 経路は失敗を記録しない（`retrieve_file` は
-  `limiter.check()` のみで `record_failure` を呼ばない）ので、**何度失敗させても
-  ロックしない。** WebUI 経路は5回失敗で60秒ロックするため、リハーサルは TUI で行うこと。
+  **この直後に物体を戻して同じパスワードで再実行し、成功させる**（0:15 ほど）。
+  失敗→成功の往復まで見せないと「壊れたのではない」ことが示せない。
+  **この往復は省略しない** — 省くと「何を入れても拒否する状態」と区別がつかない。
+- **注意（ロックアウト｜WebUI に移したことで新たに効いてくる）:** WebUI の
+  `/retrieve` は**物体なしの拒否も失敗として記録する**（`_access_attempts.record_failure`）。
+  既定は **5回で60秒ロック**（`PHASMID_ACCESS_MAX_FAILURES=5` /
+  `PHASMID_ACCESS_LOCKOUT_SECONDS=60`）。壇上では失敗は1回なので問題ないが、
+  **直前のリハーサルで使い切ると本番の Step 4 が `Access temporarily unavailable.` で
+  止まる。** リハーサルは TUI の `Recover File` で行うこと（TUI 経路は
+  `limiter.check()` のみで失敗を記録しないため、何度失敗させてもロックしない）。
+  ロックに入ってしまった場合は **60秒待つ**（→ §5）。
 - **技術的裏付け（質問された場合）:** `collect_auth_sequence()` が
   `wait_for_reference_match(timeout=10.0)` を呼び、不一致なら `match_none` を返す。
   この値は復号の入力そのもの（`_read_face_namespace` に渡る）なので、
-  **照合を迂回して復元することはできない。**
+  **照合を迂回して復元することはできない。** 0.5.0 では加えて、参照テンプレート
+  自体が**空シーンとの差分領域からのみ**作られ、作成直後に「空シーンに一致しないこと」を
+  検証してから保存される（#184）— 背景が鍵になる経路を実装として塞いである。
 
 ### Step 5 — Audit: 空き領域と、ツールが判定しないこと（0:50｜誠実性の可視化｜TUI Expert）
 
-- **操作:** **`e`（Expert）→ `a`（Audit）**。`a` は #169 の非活性化対象から
+- **操作:** **ここでプロジェクタを TUI に戻す**（往復の折り返し。以降 Step 5〜7 は切替なし）。
+  **`e`（Expert）→ `a`（Audit）**。`a` は #169 の非活性化対象から
   意図的に外している — 本 Step でキー1つで直接使うため。**`Free Space Filler`
   セクション**を指す。
 - **画面期待:**
@@ -290,8 +325,18 @@
   `coercion_safe` の低信頼→ダミー経路を**設計意図として逆手に説明**。
 - **WebUI がラップトップから見えない、または不安定:** `PHASMID_WEBUI_EXPOSE_GADGET=1` が
   効いているか、URLが **`10.12.194.1:8000`（IP直指定）** かを確認。`127.0.0.1` と
-  `phasmid-pi.local` はラップトップからは**到達しない**。**Step 2〜3（Bind・WebUI 部分）を
-  口頭要約に切り替え、Step 0・1・4・5・6・7 は実機で続行**（これらは WebUI に依存しない）。
+  `phasmid-pi.local` はラップトップからは**到達しない**。
+  **Step 2〜3（Bind・復元成功）を口頭要約に切り替え、Step 4 は TUI の `Recover File` で
+  実施する** — Step 4 だけは省略してはならない（→ 下の項）。Step 0・1・5・6・7 は
+  WebUI に依存しないのでそのまま実機で続行。
+- **Step 4 の代替経路（WebUI が使えない場合）:** TUI で **`o`（Open）** → `Y` →
+  Operation **`Recover File`**（#169 で非活性化していないのはこのため） →
+  **Output file** にパス → Face 1 と同じ **Passphrase** → **物体は視野の外** →
+  `Run Operation`。約10秒後、赤で **`Open Vessel / no bound object matched`**。
+  WebUI 版と違い**失敗を記録しないのでロックしない**。0.4.0 実機で検証済み。
+- **`Access temporarily unavailable.` が出た（WebUI ロックアウト）:** 直前の
+  リハーサルで失敗を5回使い切っている。**60秒待てば解除される。** 待てない場合は
+  上の TUI 代替経路に切り替える。
 - **時間超過:** 26:00 到達で Step 2〜3 を口頭要約に切り替え、**Step 4 と Step 6 だけは必ず見せる**。
 
 ---
@@ -361,7 +406,74 @@ CLI の Vessel 既定名と同一であるため、パス存在で判定する�
 
 ## 9. 実機で確認済みの挙動 / Verified on device
 
-以下は 0.4.0 実機で実際に確認した。設計からの推測ではない。
+以下は実機で実際に確認した。設計からの推測ではない。物体キュー関連は **0.5.0**
+（2026-07-30、Pi Zero 2 W / picamera2 / 320×240 @ 4fps）、それ以外は 0.4.0。
+
+### 9.0 物体キュー — 0.5.0 実機検証結果（2026-07-30）
+
+**背景:** 0.4.x では参照テンプレートが視野全体から作られており、三脚固定の背景
+そのものが一致条件を満たしていた。実機で **物体を隠したまま正しいパスワードで
+復号できてしまう**ことが報告され、これはデモの中心的主張の否定にあたる。
+2段階撮影（#184）とその実装不具合の修正（#187）を経て、以下を実機で確認した。
+
+| 検証項目 | 結果 |
+|---|---|
+| `1 · Capture empty scene`（物体をフレーム外） | 成功 |
+| `2 · Capture access object`（無地の壁を背景に） | **1回で成功**（撮り直し不要） |
+| 物体を下ろして `Protect file` | **拒否** — `That entry is already set up...`。**置換パネルは開かない** |
+| 物体をかざし直して `Protect file` | 成功 |
+| **WebUI Retrieve・物体を隠して正しいパスワード** | **拒否**（★中心的主張） |
+| WebUI Retrieve・物体を戻して同じパスワード | 復元成功 |
+| 登録していない別の物体 | 拒否 |
+| Vessel 削除 → 新規作成 → 再登録 | 成功（0.4.x では「既に紐づいている」で止まった） |
+
+**この結果から確定したこと:**
+
+- **Step 4 を WebUI に移せる。** 否定証明が WebUI 経路で成立する。プロジェクタ切替は
+  Step 4→5 の1回だけになり、Step 3（成功）と Step 4（失敗）が同じ画面で連続する。
+- **Step 2 は 1:30 に収まる。** 撮影が2回に増えたが、1回で通れば所要は従来と同等。
+- **TUI `Recover File` は本編から外れる**が、WebUI 不調時の唯一の代替経路として残す（→ §5）。
+
+**観測に使う値:** `GET /status` の **`object_state`**（`none` / `detected` /
+`matched` / `ambiguous`）。画面表示ではなくこの値で判定する。物体を隠したとき
+`none` であることが、拒否の根拠が物体の不在であることの確認になる。
+
+### 9.0.1 復元時の照合が厳しすぎた件（0.5.0 で調整）
+
+実機で「登録はできるが Retrieve でなかなか一致しない」という症状が出た。原因は
+**閾値がマスク導入前の値のまま**だったこと。`MIN_GOOD_MATCHES=50` /
+`MIN_INLIERS=30` は参照テンプレートが視野全体（400〜900キーポイント）だった
+時代の絶対値で、マスク後は**無地の壁で72キーポイント**しかない。
+
+72キーポイントのテンプレートでの実測:
+
+| 提示のしかた | good | inliers | 旧閾値 50/30 |
+|---|---|---|---|
+| 撮影と同一のフレーム | 62 | 62 | 一致 |
+| ±6 の階調ノイズのみ | 42 | 41 | **拒否** |
+| 5px ずれ＋ノイズ | 32 | 32 | **拒否** |
+| 10% 近づく＋ノイズ | 35 | 34 | **拒否** |
+
+**6通りの提示のうち一致したのは1つだけ**で、しかも壊した要因（±6のノイズ）は
+実機のセンサーノイズより小さい。inliers が good にほぼ一致しているので幾何は
+合っており、落としていたのは絶対数だけだった。
+
+**0.5.0 では閾値をテンプレートのキーポイント数に対する割合にした**
+（既定 good 25% / inliers 15%、絶対値を上限、下限は 12/8）。**上限があるので
+従来より厳しくなることはない。** 割合化しても識別性は落ちない — 同じ場面で
+**空シーンも別の物体も good=0** であり、余裕は「42 対 49」ではなく「42 対 0」だから。
+調整後は6通りすべてが一致し、負例4通りはすべて拒否のまま。
+
+**現地で更に調整が必要な場合**（照明が極端、物体が小さいなど）:
+
+```bash
+# 一致しにくい → 割合を下げる（0 にすると下限 12/8 まで緩む）
+PHASMID_CUE_GOOD_MATCH_RATIO=0.15 PHASMID_CUE_INLIER_RATIO=0.10 \
+  bash scripts/pi_zero2w/run_demo_console.sh
+```
+
+**下げたら必ず否定証明を再確認すること**（物体を隠して拒否されるか／別の物体で
+開かないか）。**緩めた状態で Step 4 が成立しなければ、デモの主張そのものが崩れる。**
 
 **画面構成**
 
@@ -391,8 +503,9 @@ Standby ホットキーの既定は `config.py` の `PHASMID_STANDBY_HOTKEY`（�
   `inspect-` / `generate-` / `clear-plausibility-btn`
 - `OpenVesselScreen`（`o`）: `vessel-path` → `operation-select`
   （**`Recover File` / `List Files` / `Remove File`、既定 `Recover File`** — #169 で
-  `Add File` だけを Select の選択肢から外した。`Recover File` は Step 4 の cue≠key
-  証明のために残している。内部の `add` コードパスはそのまま残しており、選択肢に
+  `Add File` だけを Select の選択肢から外した。`Recover File` は 0.5.0 で Step 4 が
+  WebUI に移った後も、**WebUI 不調時に否定証明を成立させる唯一の代替経路**として
+  残している。内部の `add` コードパスはそのまま残しており、選択肢に
   戻すだけで復元できる）→
   `passphrase` → `open-btn`。**`face-select` / `input-file` / `restricted-passphrase` は
   `Remove File` の時だけ表示される**（`List Files` では非表示。どちらの面が開いたかは
@@ -428,23 +541,29 @@ TUI が使うのと同じ Vessel に対して動作する（Vessel が1つも登
 従来どおり `vault.bin` を使う）。`operator_inspect` はアップロードされたファイルを
 読むだけで、デバイス上の Vessel には触れない点は変わらない。
 
-**Bind/Operate は実機で WebUI 経由の統合経路を検証済み（0.4.0）**
+**Bind/Operate/否定証明とも実機で WebUI 経由を検証済み（0.5.0）**
 
-Face 1・Face 2 の登録から復元まで、WebUI の Store/Retrieve 画面だけで完結する流れを
-実機で確認した（本ドキュメントの Step 2〜3 はこの結果を反映している）。ただし
-「物体を完全に外して失敗させる」という Step 4 の否定証明は、今回のセッションでは
-**TUI 経由でのみ再検証済み**で、WebUI 経由では未検証のまま残っている。
+Face 1・Face 2 の登録から復元、そして**物体を隠したときの拒否**まで、WebUI の
+Store/Retrieve 画面だけで完結する流れを実機で確認した（→ §9.0）。Step 2〜4 は
+この結果を反映している。
 
 **物体キューが実際に効いていることの根拠**
 
-WebUI の `Capture access object`（Store画面）で参照画像を登録し、Retrieve は
+WebUI の2段階撮影（Store画面）で参照テンプレートを登録し、Retrieve は
 `collect_auth_sequence()` → `wait_for_reference_match(timeout=10.0)` で照合する。
 不一致なら `match_none` が返り復元が拒否される。
 一致トークンは `_read_face_namespace` の入力そのものなので、**照合を迂回した復元は
-成立しない。** TUI 経由の Recover File（#169 では非活性化せず残した）も同じ照合
-ロジックを使うが、**この過程を一切表示しない**（→ #158。WebUI は `STABLE MATCH`
-バッジとライブ映像でこれを表示できるが、Step 4 の「物体なし→拒否」自体は WebUI 側で
-まだ再検証していないため、この否定証明そのものは引き続き TUI で行う）。
+成立しない。**
+
+**ただし 0.4.x では、この論証は実装によって空洞化していた。** 参照テンプレートが
+視野全体から作られていたため背景そのものが一致条件を満たし、`wait_for_reference_match`
+は物体が無くても一致を返していた。0.5.0 では (a) テンプレートを空シーンとの差分領域
+からのみ作り、(b) 作成直後に「空シーンに一致しないこと」を検証してから保存する
+（#184/#187）。**上の論証が成り立つのはこの2点があってのこと** — 照合ロジックの
+存在だけでは足りない、というのがこの不具合の教訓である。
+
+TUI 経由の Recover File も同じ照合ロジックを使うが、**この過程を一切表示しない**
+（→ #158。WebUI は `STABLE MATCH` バッジとライブ映像でこれを表示できる）。
 
 **性能実測（Pi Zero 2 W）**
 
@@ -496,8 +615,17 @@ Delete Vessel（`delete`キー）バインディング追加で145桁へ上が�
 
 **未検証項目**
 
-- Step 4「物体を完全に外して失敗させる」を WebUI Retrieve 経由で行った場合の挙動。
-  ロジックは TUI と共通（`wait_for_reference_match` を経由）だが、今回のセッションでは
-  WebUI 経由でのこの特定のケースを直接は再確認していない。本番前に一度試すことを推奨。
-  #157（Doctor の Dummy Profile 助言が既定パス判定のため未設定端末で永久に警告していた
+- **物体キューの否定証明（Step 4）は WebUI・TUI 双方で検証済みになった**（0.5.0・→ §9.0）。
+  0.4.x 版で残していた「WebUI 経由未検証」はこれで解消。
+- **画像ファイルからの参照登録は 2段階撮影を経ていない。** `/register_key` に画像を
+  アップロードする経路は空シーンを持たないため、**視野全体からテンプレートを作る
+  0.4.x と同じ方式のまま**である。部屋が写り込んだ写真を使うと背景が一致条件を
+  満たしうる。デモでは使わないが、質問された場合は**この差を隠さず答えること**
+  （物体だけを切り抜いた写真なら問題ない）。
+- **CLI と TUI の登録経路も 2段階撮影に未移行。** 本デモは WebUI で登録するため
+  影響しないが、これらの経路で登録した参照は同じ弱点を持つ。
+- **閾値は実測に基づく調整をしていない。** `MIN_GOOD_MATCHES=50` / `MIN_INLIERS=30` は
+  視野全体テンプレート時代の値で、マスク後のキーポイント数に対して妥当かを実測して
+  いない。0.5.0 実機では問題なく一致したが、照明・距離が変われば余裕が不明。
+- #157（Doctor の Dummy Profile 助言が既定パス判定のため未設定端末で永久に警告していた
   問題）は解決済み。残る既知の未解決事項は #158（TUI の照合表示）のみ。
