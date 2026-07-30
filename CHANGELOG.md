@@ -28,6 +28,13 @@ and this project follows SemVer-style release intent for documented interfaces.
   the change — measured at 0.96–1.00 for an object held up against 0.47 for a
   replaced view. The operator is told which of the two failures occurred, since
   "hold it closer" and "stop moving the camera" ask for opposite things. (#186)
+- Deleting the last Vessel left its bound-object templates behind. The
+  object-cue store is device-wide rather than scoped to a Vessel, so the next
+  Store attempt found an entry already bound to an object belonging to data
+  that no longer existed, and pushed the operator into the Replace confirmation
+  flow instead of letting them bind. `create_vessel` already cleared them for
+  this reason; `delete_vessel` now does too, but only when no Vessel is left to
+  own them. (#186)
 
 ## [0.5.0] - 2026-07-30
 
