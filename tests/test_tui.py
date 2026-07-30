@@ -2026,6 +2026,54 @@ def test_simple_home_clears_empty_state_once_a_vessel_exists(monkeypatch):
     assert "Choose an action" in updates[-1]
 
 
+def test_simple_home_file_count_is_a_cross_face_total_outside_field_mode():
+    """The Files column deliberately totals every Face, except in Field Mode.
+
+    The total is a research and functional-check affordance on the declared
+    inspection surface, but it is also a tell: compelling the disclosure Face open
+    shows fewer files than the home screen already advertised, and the
+    difference measures what is still hidden. Field Mode is the posture where
+    that stops being acceptable, so the cell collapses to a dash.
+    """
+    from phasmid.tui.screens.simple_home import SimpleHomeScreen
+
+    cell = SimpleHomeScreen._file_count_cell
+    two_faces = SimpleNamespace(
+        faces=[SimpleNamespace(file_count=3), SimpleNamespace(file_count=12)]
+    )
+
+    assert cell(two_faces, False) == "15"
+    assert cell(two_faces, True) == "-"
+
+    # A Vessel with no Faces has nothing to disclose either way.
+    no_faces = SimpleNamespace(faces=[])
+    assert cell(no_faces, False) == "0"
+    assert cell(no_faces, True) == "0"
+
+
+def test_vessel_registry_is_documented_as_unencrypted():
+    """The registry's contents must not be understated in the docs again.
+
+    `TUI_OPERATOR_CONSOLE.md` claimed the registry held "only non-secret
+    metadata (file paths)" while `_normalize_face_record` was persisting
+    per-Face file counts, the dummy profile that identifies the filled Face, the
+    access object's perceptual fingerprints, and a scrypt verifier for the
+    destroy passphrase - in plaintext. The claim, not the storage, was the
+    thing that made this hard to notice, so both docs are pinned here.
+    """
+    console = Path("docs/TUI_OPERATOR_CONSOLE.md").read_text(encoding="utf-8")
+    # The assertive form only - the correction quotes the retracted wording on
+    # purpose, so matching the bare phrase would flag the fix itself.
+    assert (
+        "The registry stores only non-secret metadata" not in console
+    ), "the retracted registry claim is back in TUI_OPERATOR_CONSOLE.md"
+    assert "emergency_auth" in console and "object_binding" in console
+
+    threat = Path("docs/THREAT_MODEL.md").read_text(encoding="utf-8")
+    assert "Configuration Directory Surface" in threat
+    assert "vessel_registry.json" in threat
+
+
 def test_plausibility_generation_runs_off_the_event_loop():
     """Generation must not be called inline from the button handler.
 

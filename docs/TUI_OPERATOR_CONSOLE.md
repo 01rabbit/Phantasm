@@ -34,6 +34,36 @@ Phasmid does not claim to be production-grade, military-grade, forensic-proof,
 coercion-proof, undetectable, or unbreakable. These claims are explicitly
 excluded from all UI text, help output, and documentation.
 
+### This Console Is the Declared Inspection Surface
+
+The TUI is deliberately the surface where the two-Face model is *visible*, not
+hidden. An operator verifying that the model works, and a researcher presenting
+it, both need the whole structure legible on one screen. So this console shows
+things a disclosure-facing surface would not:
+
+- the Files column on the Simple screen totals **every** Face of a Vessel
+- Audit reports `Tracked Faces`, per-Face fill state, and the free-space figures
+- the Face manager enumerates both Faces and their labels
+
+That is a design choice, stated rather than disguised, and it is the reason the
+role-gated WebUI — not this console — is what the [Demo
+Runbook](submissions/Phasmid_Demo_Runbook.md) puts in front of an audience for
+Bind and Operate. The recover-role WebUI shows no Face selector, no Face count,
+and no navigation into setup or maintenance; this console shows all three.
+
+**`PHASMID_FIELD_MODE=1` is the posture that narrows it.** Field Mode is for
+carrying the device rather than studying it, and under it the cross-Face file
+total collapses to `-` instead of advertising how much more exists than a
+compelled Face discloses. It narrows the *screen* only: the per-Face figures
+themselves sit unencrypted in `vessel_registry.json` either way (see
+[Vessel Discovery and Registration](#vessel-discovery-and-registration) and
+[THREAT_MODEL.md](THREAT_MODEL.md#configuration-directory-surface)), which is a
+gap being tracked separately, not something this setting fixes.
+
+Nothing here is a claim that a research posture makes local state safe. Showing
+the structure honestly and storing credential material in cleartext are
+different problems; only the first is a choice.
+
 ## Core Terminology
 
 ### Vessel
@@ -347,9 +377,31 @@ Known Vessels are sourced from:
 - the default Vessel directory configured in settings
 - manually selected files
 
-The registry stores only non-secret metadata (file paths). It never stores
-passphrases, derived keys, raw keys, object keys, recovery secrets, or file
-contents.
+The registry never stores passphrases, derived keys, raw keys, or file
+contents. It does, however, store more than file paths, and the earlier
+claim here that it held "only non-secret metadata (file paths)" was wrong.
+**`vessel_registry.json` is plaintext JSON at mode `0600`**, and per Face it
+records:
+
+| Field | Contents |
+|---|---|
+| `label`, `created_at`, `last_accessed`, `status`, `selector` | Local Face bookkeeping |
+| `file_count`, `occupancy` | How many files and how many bytes that Face holds |
+| `credentials_initialized`, `object_binding_initialized` | Whether that Face has been set up |
+| `dummy_profile` | `dummy_file_count`, `dummy_total_size`, `occupancy_ratio`, `file_type_distribution`, `plausibility_score`, `plausibility_level` — which identifies the Face carrying generated filler |
+| `object_binding` | `average_hash`, `edge_hash`, `brightness_histogram`, `color_histogram`, `threshold`, `fingerprint_id` — perceptual fingerprints of the bound access object |
+| `emergency_auth` | `salt_b64` and `hash_b64`: a scrypt verifier for that Face's destroy passphrase |
+
+Two of those are credential material, not bookkeeping: `object_binding` is a
+verifier for the physical access object, and `emergency_auth` is an
+offline-checkable verifier for the destroy passphrase. A party holding the
+device can read all of it without any passphrase and without launching
+Phasmid.
+
+This is a known, unresolved gap, not an accepted design property — see
+[THREAT_MODEL.md](THREAT_MODEL.md#configuration-directory-surface) and the
+tracking issue for encrypting these fields. Treat the config directory as
+sensitive local state, on the same footing as the state directory.
 
 Paths in the UI may be redacted. A long path such as:
 
