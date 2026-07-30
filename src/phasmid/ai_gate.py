@@ -68,7 +68,6 @@ class AIGate:
         # capture_reference() that consumes it. Never persisted: it describes
         # where the operator happened to be standing, not a credential.
         self.scene_frame: Any | None = None
-        self.scene_gray: Any | None = None
         # generate_frames() is called by two independent, concurrent
         # consumers: the always-on background thread that keeps object-cue
         # matching live for the TUI, and a fresh call per WebUI /video_feed
@@ -364,21 +363,18 @@ class AIGate:
         if frame is None:
             return False, text.AI_GATE_NO_FRAME
 
-        gray = self.matcher.to_gray(frame)
         with self.lock:
             self.scene_frame = frame
-            self.scene_gray = gray
         return True, text.AI_GATE_SCENE_CAPTURED
 
     @property
     def scene_captured(self) -> bool:
         with self.lock:
-            return self.scene_gray is not None
+            return self.scene_frame is not None
 
     def discard_scene(self) -> None:
         with self.lock:
             self.scene_frame = None
-            self.scene_gray = None
 
     def capture_reference(self, mode: str) -> tuple[bool, str]:
         self._validate_mode(mode)
@@ -387,8 +383,7 @@ class AIGate:
 
         with self.lock:
             scene_frame = None if self.scene_frame is None else self.scene_frame.copy()
-            scene_gray = None if self.scene_gray is None else self.scene_gray.copy()
-        if scene_frame is None or scene_gray is None:
+        if scene_frame is None:
             return False, text.AI_GATE_SCENE_NOT_CAPTURED
 
         with self.lock:
@@ -396,15 +391,20 @@ class AIGate:
         if frame is None:
             return False, text.AI_GATE_NO_FRAME
 
-        mask = self.matcher.object_mask(scene_gray, self.matcher.to_gray(frame))
+        # Raw grayscale for asking what changed, equalised grayscale for asking
+        # what ORB would match. Using the equalised image for the difference
+        # remaps the background along with the object and reports a third of the
+        # view as changed for an object covering an eighth of it.
+        scene_diff_gray = self.matcher.to_diff_gray(scene_frame)
+        mask = self.matcher.object_mask(
+            scene_diff_gray, self.matcher.to_diff_gray(frame)
+        )
         if mask is None:
-            # Either nothing changed enough to be an object, or so much did that
-            # the camera or the lighting moved instead. Both are the operator's
-            # to fix, and both are reported rather than silently bound.
-            covered = self._changed_area_ratio(scene_gray, frame)
-            if covered > self.matcher.max_object_area_ratio:
-                return False, text.AI_GATE_SCENE_CHANGED
-            return False, text.AI_GATE_OBJECT_NOT_DISTINCT
+            # Either nothing changed enough to be an object, or the change is
+            # spread across the view rather than concentrated in one thing held
+            # up - the camera or the lighting moved. Both are the operator's to
+            # fix, and both are reported rather than silently bound.
+            return False, self._why_no_object(scene_diff_gray, frame)
 
         candidate_state = self._best_object_reference_state(scene_frame)
         if candidate_state is None:
@@ -413,7 +413,8 @@ class AIGate:
         # The negative test. Restricting where the template comes from is the
         # fix; proving it no longer answers to the empty scene is what stops the
         # same defect shipping again unnoticed.
-        if self.matcher.explains_frame(candidate_state, scene_gray):
+        scene_match_gray = self.matcher.to_gray(scene_frame)
+        if self.matcher.explains_frame(candidate_state, scene_match_gray):
             return False, text.AI_GATE_OBJECT_IS_THE_SCENE
 
         committed = self._commit_reference(mode, candidate_state)
@@ -421,18 +422,24 @@ class AIGate:
             self.discard_scene()
         return committed
 
-    def _changed_area_ratio(self, scene_gray: Any, frame: Any) -> float:
+    def _why_no_object(self, scene_diff_gray: Any, frame: Any) -> str:
+        """Which of the two capture failures to show the operator.
+
+        Worth telling apart: "hold it closer" and "stop moving the camera" ask
+        for opposite things, and an operator given the wrong one will keep
+        making the capture worse.
+        """
         try:
-            difference = cv2.absdiff(scene_gray, self.matcher.to_gray(frame))
-            _, binary = cv2.threshold(
-                difference, self.matcher.object_mask_threshold, 255, cv2.THRESH_BINARY
+            covered, dominance = self.matcher.change_profile(
+                scene_diff_gray, self.matcher.to_diff_gray(frame)
             )
-            total = float(binary.shape[0] * binary.shape[1])
-            if total <= 0:
-                return 0.0
-            return float(np.count_nonzero(binary)) / total
         except cv2.error:
-            return 0.0
+            return text.AI_GATE_OBJECT_NOT_DISTINCT
+        if covered > self.matcher.max_object_area_ratio:
+            return text.AI_GATE_SCENE_CHANGED
+        if covered > 0.0 and dominance < self.matcher.min_object_dominance:
+            return text.AI_GATE_SCENE_CHANGED
+        return text.AI_GATE_OBJECT_NOT_DISTINCT
 
     def register_reference_from_image_bytes(
         self, mode: str, payload: bytes

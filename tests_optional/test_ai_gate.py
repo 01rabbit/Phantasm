@@ -201,7 +201,6 @@ class AIGateTemplateTests(unittest.TestCase):
             # Binding needs the empty view first, so the scene shot has to be in
             # place before capture_reference gets as far as the similarity check.
             gate.scene_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-            gate.scene_gray = np.zeros((480, 640), dtype=np.uint8)
             with (
                 mock.patch.object(
                     gate.matcher,
