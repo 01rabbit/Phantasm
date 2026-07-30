@@ -80,6 +80,9 @@ class CLITests(unittest.TestCase):
         with (
             unittest.mock.patch("builtins.input", return_value=""),
             unittest.mock.patch.object(
+                cli.gate, "capture_scene", return_value=(True, "scene")
+            ) as capture_scene,
+            unittest.mock.patch.object(
                 cli.gate, "capture_reference", return_value=(True, "ok")
             ),
             unittest.mock.patch.object(
@@ -89,6 +92,9 @@ class CLITests(unittest.TestCase):
         ):
             success, message = cli._register_reference_key(cli.gate.MODES[0])
 
+        # The empty view has to be taken first, or the template is built from
+        # the background and answers to it with the object gone.
+        capture_scene.assert_called_once_with()
         self.assertTrue(success)
         self.assertEqual(message, "Object access cue registered.")
         self.assertNotRegex(

@@ -198,12 +198,22 @@ class AIGateTemplateTests(unittest.TestCase):
                 "pts": np.zeros((4, 1, 2), dtype=np.float32),
                 "path": None,
             }
+            # Binding needs the empty view first, so the scene shot has to be in
+            # place before capture_reference gets as far as the similarity check.
+            gate.scene_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+            gate.scene_gray = np.zeros((480, 640), dtype=np.uint8)
             with (
                 mock.patch.object(
+                    gate.matcher,
+                    "object_mask",
+                    return_value=np.ones((480, 640), np.uint8),
+                ),
+                mock.patch.object(
                     gate,
-                    "_best_reference_state_from_recent_frames",
+                    "_best_object_reference_state",
                     return_value=candidate,
                 ),
+                mock.patch.object(gate.matcher, "explains_frame", return_value=False),
                 mock.patch.object(gate, "_references_too_similar", return_value=True),
             ):
                 success, message = gate.capture_reference(gate.MODES[0])
