@@ -17,6 +17,10 @@ RESTRICTED_CONFIRMATION_RETRY = (
 )
 
 NO_OPEN_LOCAL_ENTRY = "No open local entry is available."
+ENTRY_OBJECT_NOT_PRESENT = (
+    "That entry is already set up. Hold its access object in front of the "
+    "camera until it matches, then save again."
+)
 NO_OPEN_LOCAL_ENTRY_WITH_REPLACEMENT = (
     "No open local entry is available. Confirm replacement to continue."
 )

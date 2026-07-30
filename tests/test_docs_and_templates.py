@@ -49,6 +49,17 @@ class DocsAndTemplateTests(unittest.TestCase):
         register_key_body = capture_call.split("/register_key")[0]
         self.assertIn("entry_hint", register_key_body)
 
+    def test_store_template_says_the_object_is_rechecked_on_save(self):
+        """The cue is verified again when the file is written, not only at capture.
+
+        With the reference template covering the whole frame the background
+        satisfied that live check by itself, so nobody had to know. Now that the
+        object is actually required, putting it down after capturing and then
+        pressing save fails - and the page has to say so before it happens.
+        """
+        store = read_text("src/phasmid/templates/store.html")
+        self.assertIn("Keep the object in front of the camera while you save", store)
+
     def test_readme_links_field_operational_docs(self):
         readme = read_text("README.md")
         self.assertIn("Quick Start in 60 seconds", readme)
