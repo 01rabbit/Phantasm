@@ -48,6 +48,17 @@ class AccessCueService:
     def sequence_for_mode(self, mode, length=1):
         return self.gate.sequence_for_mode(mode, length=length)
 
+    def capture_scene(self):
+        """Record the empty scene that the next capture_reference subtracts."""
+        return self.gate.capture_scene()
+
+    @property
+    def scene_captured(self):
+        return self.gate.scene_captured
+
+    def discard_scene(self):
+        self.gate.discard_scene()
+
     def capture_reference(self, mode):
         return self.gate.capture_reference(mode)
 

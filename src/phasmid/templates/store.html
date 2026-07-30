@@ -65,12 +65,14 @@
             <section class="step-card camera-step">
                 <div class="step-head">
                     <span class="step-number">4</span>
-                    <div><h3>Set the physical access object</h3><p class="step-help">Place the object clearly in view, then capture it. Use an object you can reliably present again.</p></div>
+                    <div><h3>Set the physical access object</h3><p class="step-help">Two shots, in this order. First the empty view with the object <em>out</em> of frame, so the camera knows what the scene looks like without it. Then the object held in front of that same scene. Keep the camera still between the two.</p></div>
                 </div>
                 {{ ui.camera_preview() }}
                 <div class="actions" style="margin-top:14px;">
-                    <button type="button" class="secondary" id="captureButton">Capture access object</button>
+                    <button type="button" class="secondary" id="sceneButton">1 · Capture empty scene</button>
+                    <button type="button" class="secondary" id="captureButton" disabled>2 · Capture access object</button>
                 </div>
+                <p class="step-help" id="sceneHelp" style="margin-top:10px;">Without the empty scene the object cannot be told apart from the background, and the background would open the file on its own.</p>
             </section>
 
             <section class="step-card">
@@ -156,11 +158,26 @@
 
     protectFile.addEventListener('change', updateReadiness);
     passwordInput.addEventListener('input', updateReadiness);
+    const sceneButton = document.getElementById('sceneButton');
+    const captureButton = document.getElementById('captureButton');
+    const sceneHelp = document.getElementById('sceneHelp');
+    let sceneCaptured = false;
+
+    function updateSceneState() {
+        captureButton.disabled = !sceneCaptured;
+        sceneHelp.textContent = sceneCaptured
+            ? 'Empty scene recorded. Now hold the object in front of that same view and capture it.'
+            : 'Without the empty scene the object cannot be told apart from the background, and the background would open the file on its own.';
+    }
+
     document.getElementById('entryHint').addEventListener('change', () => {
         // Switching entries mid-setup must not carry over a capture done for
         // the previous one - each entry needs its own object presented and
-        // captured before it can be protected.
+        // captured before it can be protected. The scene shot goes with it: the
+        // server consumes it on a successful bind, so a new entry starts over.
         accessObjectCaptured = false;
+        sceneCaptured = false;
+        updateSceneState();
         updateReadiness();
     });
 
@@ -169,14 +186,30 @@
         updateReadiness();
     }
 
-    document.getElementById('captureButton').addEventListener('click', async () => {
+    sceneButton.addEventListener('click', async () => {
+        const res = await apiFetch('/register_scene', { method: 'POST' });
+        const data = await res.json();
+        sceneCaptured = !data.error;
+        updateSceneState();
+        toast(data.status || data.error || 'Empty scene capture finished.', data.error ? 'error' : '');
+    });
+
+    captureButton.addEventListener('click', async () => {
         const body = new URLSearchParams({ replace: 'false' });
         const res = await apiFetch('/register_key', { method: 'POST', body });
         const data = await res.json();
         if (data.overwrite_required) document.getElementById('overwritePanel').classList.remove('hidden');
-        if (!data.error) activateSaveButton();
+        if (!data.error) {
+            activateSaveButton();
+            // The server consumed the scene shot on a successful bind, so the
+            // next entry has to start from its own empty view.
+            sceneCaptured = false;
+            updateSceneState();
+        }
         toast(data.status || data.error || 'Access object capture finished.', data.error ? 'error' : '');
     });
+
+    updateSceneState();
 
     async function selectedFileFormData() {
         const file = protectFile.files[0];

@@ -9,6 +9,19 @@ import numpy as np
 class ObjectCueMatcher:
     """ORB-based object-cue matching isolated from camera and UI concerns."""
 
+    # Per-pixel intensity change, after histogram equalisation, that counts as
+    # "this part of the frame is not the scene any more". Low enough to catch a
+    # matte object against a similar-toned background, high enough to ignore
+    # sensor noise and the small exposure drift between two consecutive frames.
+    OBJECT_MASK_THRESHOLD = 30
+
+    # The masked region has to look like something placed in the scene. Below
+    # the floor there is nothing to describe; above the ceiling the whole view
+    # changed, which means the camera moved or the lighting did, and the diff no
+    # longer isolates an object.
+    MIN_OBJECT_AREA_RATIO = 0.01
+    MAX_OBJECT_AREA_RATIO = 0.60
+
     def __init__(
         self,
         *,
@@ -16,11 +29,29 @@ class ObjectCueMatcher:
         min_frame_descriptors: int,
         min_good_matches: int,
         min_inliers: int,
+        object_mask_threshold: int | None = None,
+        min_object_area_ratio: float | None = None,
+        max_object_area_ratio: float | None = None,
     ) -> None:
         self.min_reference_keypoints = min_reference_keypoints
         self.min_frame_descriptors = min_frame_descriptors
         self.min_good_matches = min_good_matches
         self.min_inliers = min_inliers
+        self.object_mask_threshold = (
+            self.OBJECT_MASK_THRESHOLD
+            if object_mask_threshold is None
+            else object_mask_threshold
+        )
+        self.min_object_area_ratio = (
+            self.MIN_OBJECT_AREA_RATIO
+            if min_object_area_ratio is None
+            else min_object_area_ratio
+        )
+        self.max_object_area_ratio = (
+            self.MAX_OBJECT_AREA_RATIO
+            if max_object_area_ratio is None
+            else max_object_area_ratio
+        )
         self.orb = cast(Any, cv2).ORB_create(nfeatures=1000)
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING)
 
@@ -57,6 +88,96 @@ class ObjectCueMatcher:
             "pts": self._reference_corners(h, w),
             "path": None,
         }
+
+    def object_mask(self, background_gray, object_gray):
+        """Where the object frame differs from the scene behind it.
+
+        Descriptor-level subtraction was the obvious approach and is not good
+        enough: introducing the object shifts the global histogram, so
+        `equalizeHist` remaps the background too and hundreds of background
+        keypoints survive with descriptors just different enough to look novel.
+        Masking by pixel difference asks the question directly instead — which
+        part of the frame changed when the object was held up — and hands that
+        region to ORB, which takes a mask natively.
+
+        Assumes the camera does not move between the two frames. That is the
+        tripod setup the demo uses, and the setup whose fixed background caused
+        the original defect.
+
+        Returns None when the change is too small to be an object, or so large
+        that the whole scene moved rather than something being placed in it.
+        """
+        if background_gray is None or object_gray is None:
+            return None
+        if background_gray.shape != object_gray.shape:
+            return None
+
+        difference = cv2.absdiff(background_gray, object_gray)
+        _, binary = cv2.threshold(
+            difference, self.object_mask_threshold, 255, cv2.THRESH_BINARY
+        )
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+
+        # connectivity is keyword-only in practice: passing 8 positionally lands
+        # it in the `labels` output slot, not connectivity.
+        count, labels, stats, _ = cv2.connectedComponentsWithStats(
+            binary, connectivity=8
+        )
+        if count <= 1:
+            return None
+        # Largest component excluding the background label at index 0.
+        largest = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+        mask = np.where(labels == largest, 255, 0).astype(np.uint8)
+
+        frame_area = float(binary.shape[0] * binary.shape[1])
+        covered = float(np.count_nonzero(mask)) / frame_area
+        if covered < self.min_object_area_ratio:
+            return None
+        if covered > self.max_object_area_ratio:
+            return None
+        return mask
+
+    def object_reference_state(self, background_image, object_image):
+        """Reference template built only from the region the object occupies.
+
+        Returns None when no usable object region is found, or when too few
+        keypoints fall inside it — the honest outcome for an object that does
+        not stand out from what is behind it. Callers must still run the
+        capture-time negative test in :meth:`explains_frame`; this restricts
+        *where* the template comes from, and that check proves it worked.
+        """
+        if background_image is None or object_image is None:
+            return None
+
+        background_gray = self.to_gray(background_image)
+        object_gray = self.to_gray(object_image)
+        mask = self.object_mask(background_gray, object_gray)
+        if mask is None:
+            return None
+
+        kp, des = self.orb.detectAndCompute(object_gray, mask)
+        if not kp or len(kp) < self.min_reference_keypoints or des is None:
+            return None
+
+        h, w = object_gray.shape
+        return {
+            "kp": kp,
+            "des": des,
+            "shape": (h, w),
+            "pts": self._reference_corners(h, w),
+            "path": None,
+        }
+
+    def explains_frame(self, ref_state, frame_gray) -> bool:
+        """Whether *ref_state* still matches a frame it must not match.
+
+        Used as the capture-time negative test: a template that answers to the
+        background is refused rather than stored, so the defect cannot ship
+        silently the way it did before.
+        """
+        return self.match_reference_state(ref_state, frame_gray) is not None
 
     def reference_state_from_arrays(self, des, kp_data, shape):
         kp = [

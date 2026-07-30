@@ -114,9 +114,23 @@ def _wait_for_reference_match(timeout=REFERENCE_MATCH_TIMEOUT, expected_mode=Non
 
 
 def _register_reference_key(mode):
+    # The empty view first. ORB describes whatever texture is in the frame, so a
+    # reference taken straight from a fixed camera is mostly the scene behind
+    # the object and answers to that scene with the object taken away. Knowing
+    # what the view looks like without the object is what makes the template
+    # describe the object.
     info(
-        f"Position the bound object for [bold]{display_mode_label(mode)}[/bold], "
-        "then press [bold]Enter[/bold] to capture."
+        "First, clear the frame: take the object [bold]out[/bold] of view and "
+        "leave the camera still, then press [bold]Enter[/bold]."
+    )
+    input()
+    scene_ok, scene_msg = gate.capture_scene()
+    if not scene_ok:
+        return False, scene_msg
+
+    info(
+        f"Now position the bound object for [bold]{display_mode_label(mode)}[/bold] "
+        "in front of that same view, then press [bold]Enter[/bold] to capture."
     )
     input()
 
@@ -1279,12 +1293,17 @@ def _run_store_command(args) -> int:
             "The captured object will be stored as the local access cue for this entry."
         )
         if getattr(args, "passphrase_file", None):
-            info("Position the bound object in view. Capture will begin automatically.")
-            try:
-                svc.capture_reference_for_mode(selected_mode)
-            except RuntimeError as exc:
-                error(str(exc))
-                return 1
+            # Binding an object needs a shot of the view without it, and this
+            # path assumes the object is already in frame - there is no moment
+            # at which the scene is empty. Refusing is the honest outcome: the
+            # alternative is a template built from the background, which is the
+            # defect this flow exists to avoid.
+            error(
+                "Object binding needs the empty view first, so it cannot run "
+                "unattended. Re-run without --passphrase-file to bind "
+                "interactively, or bind from the WebUI Store page."
+            )
+            return 1
         else:
             reg_success, msg = _register_reference_key(selected_mode)
             if not reg_success:

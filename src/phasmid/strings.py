@@ -72,6 +72,21 @@ AI_GATE_CUES_TOO_SIMILAR = "Access cues are too similar"
 AI_GATE_NO_MATCH = "No object cue match"
 AI_GATE_PRESENT_OBJECT = "Present a bound object to continue"
 AI_GATE_IMAGE_TOO_SIMPLE = "Image too simple. Use a textured object."
+AI_GATE_SCENE_NOT_CAPTURED = (
+    "Capture the empty scene first, with the object out of frame."
+)
+AI_GATE_SCENE_CAPTURED = "Empty scene captured. Now hold the object in front of it."
+AI_GATE_OBJECT_NOT_DISTINCT = (
+    "Object does not stand out from the scene behind it. "
+    "Fill more of the frame, or use a plainer background."
+)
+AI_GATE_SCENE_CHANGED = (
+    "Too much of the view changed. Keep the camera still and only add the object."
+)
+AI_GATE_OBJECT_IS_THE_SCENE = (
+    "Rejected: the cue still matches the empty scene, so the background "
+    "would open it without the object. Re-capture."
+)
 AI_GATE_IMAGE_UNREADABLE = "Image file could not be read. Use a standard image format."
 AI_GATE_NO_FRAME = "No frame."
 AI_GATE_SAVE_FAILED = "Failed to save reference template."

@@ -636,9 +636,28 @@ def _select_entry_for_store(entry_hint=None, overwrite=False):
     return None, False
 
 
+# Capture failures an operator has to act on, rather than gate internals to
+# mask. The generic message below is the right answer for anything that could
+# describe a stored reference; these describe the frame the operator is holding
+# up right now, and withholding them just leaves someone pressing a button that
+# will never succeed. Reachable on the store page only, which the threat model
+# already treats as a safe environment.
+_ACTIONABLE_CAPTURE_MESSAGES = frozenset(
+    {
+        text.AI_GATE_SCENE_NOT_CAPTURED,
+        text.AI_GATE_SCENE_CHANGED,
+        text.AI_GATE_OBJECT_NOT_DISTINCT,
+        text.AI_GATE_OBJECT_IS_THE_SCENE,
+        text.AI_GATE_NO_FRAME,
+    }
+)
+
+
 def _capture_entry_binding(mode):
     success, message = access_cue_service.capture_reference(mode)
     if not success:
+        if message in _ACTIONABLE_CAPTURE_MESSAGES:
+            return False, message
         return False, "Object binding failed. Retry capture."
     return True, message
 
@@ -912,6 +931,34 @@ async def restricted_confirm(request: Request, confirmation: str = Form(...)):
     )
     audit_event("restricted_confirmation_accepted", source="web")
     return response
+
+
+@app.post(
+    "/register_scene",
+    dependencies=[
+        Depends(require_web_token),
+        Depends(require_ui_unlock),
+        Depends(require_store_role),
+    ],
+)
+async def register_scene(request: Request):
+    """Record the empty scene, with the object out of frame.
+
+    Binding an object needs to know what the view looks like without it: ORB
+    describes whatever texture is in the frame, so a reference taken straight
+    from a tripod is mostly the wall behind the object and matches that wall
+    with the object taken away. Held in memory and consumed by the next
+    `/register_key`, never persisted.
+    """
+    enforce_rate_limit(request)
+    # No-op when already running; the scene shot is often the first thing an
+    # operator does after opening the page, before any frame has been served.
+    access_cue_service.start()
+    success, message = access_cue_service.capture_scene()
+    if not success:
+        return {"error": message}
+    audit_event("access_scene_captured", entry="local_entry", source="web")
+    return {"status": message}
 
 
 @app.post(
