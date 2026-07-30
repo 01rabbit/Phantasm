@@ -24,6 +24,36 @@ ARGON2_MEMORY_COST: int = 32768  # KiB — 32 MiB
 ARGON2_KEY_LENGTH: int = 32  # bytes
 
 # ---------------------------------------------------------------------------
+# scrypt — destroy-passphrase verifier for a Face
+# ---------------------------------------------------------------------------
+
+# The destroy paths (`destroy_face`, `destroy_vessel`) authenticate against a
+# stored verifier rather than by opening the container, because they overwrite
+# raw bytes: `purge_mode` and `silent_brick` must work on a container that
+# cannot be decrypted, so coupling destruction to a successful decrypt would
+# make a damaged container undestroyable. The verifier therefore has to exist,
+# which makes its cost the thing that matters.
+#
+# 128 * r * n = 32 MiB, matching the Argon2id memory tier above rather than the
+# interactive-login tier this previously used (n=2**14, 16 MiB). Destroy is a
+# rare, deliberate operation already gated behind a typed confirmation and a
+# 10-second object-cue wait, so a KDF in the Argon2 range costs nothing
+# operationally. maxmem is set explicitly because OpenSSL's default cap is
+# itself 32 MiB and would reject these parameters at the boundary.
+SCRYPT_DESTROY_N: int = 2**15
+SCRYPT_DESTROY_R: int = 8
+SCRYPT_DESTROY_P: int = 1
+SCRYPT_DESTROY_MAXMEM: int = 64 * 1024 * 1024  # bytes — headroom over 128*r*n
+SCRYPT_DESTROY_KEY_LENGTH: int = 32  # bytes
+
+# Records written before the parameters were recorded alongside the hash used
+# these. Verification falls back to them when a stored record names no
+# parameters, so existing destroy passphrases keep working.
+SCRYPT_DESTROY_LEGACY_N: int = 2**14
+SCRYPT_DESTROY_LEGACY_R: int = 8
+SCRYPT_DESTROY_LEGACY_P: int = 1
+
+# ---------------------------------------------------------------------------
 # AES-GCM — authenticated encryption
 # ---------------------------------------------------------------------------
 

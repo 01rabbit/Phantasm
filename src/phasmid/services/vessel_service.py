@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
 from ..models.vessel import DummyProfileMeta, FaceMeta, VesselMeta, VesselPosture
+from . import vessel_registry_seal
 from .object_binding_service import ObjectBindingService
 from .profile_service import _ensure_dir, config_dir
+from .vessel_registry_seal import VesselRegistrySeal
 
 _REGISTRY_PATH_KEY = "vessel_registry"
 DEFAULT_FACE_SPECS = (
@@ -191,10 +194,18 @@ def _normalize_face_record(
 def _normalize_emergency_auth_record(item: object) -> dict[str, object]:
     if not isinstance(item, dict):
         item = {}
+    # The KDF parameters travel with the hash so the cost can be raised without
+    # invalidating passphrases already set. Absent means a record written before
+    # they were recorded, and verification falls back to the legacy values -
+    # dropping these keys here would silently strip that and break those
+    # records instead.
     return {
         "salt_b64": str(item.get("salt_b64", "")),
         "hash_b64": str(item.get("hash_b64", "")),
         "updated_at": str(item.get("updated_at", "")),
+        "kdf_n": _int_value(item.get("kdf_n", 0)),
+        "kdf_r": _int_value(item.get("kdf_r", 0)),
+        "kdf_p": _int_value(item.get("kdf_p", 0)),
     }
 
 
@@ -267,6 +278,28 @@ def _normalize_registry_record(item: str | dict[str, object]) -> dict[str, objec
     }
 
 
+def _shred_file_in_place(path: Path) -> None:
+    """Overwrite a file's bytes before it is rewritten without them.
+
+    Migration rewrites the registry without the fields that moved into the
+    seal. Truncating alone can leave the old cleartext in whatever blocks the
+    filesystem had allocated, so the bytes are overwritten first. On flash this
+    is still best-effort - THREAT_MODEL.md already declines to claim secure
+    deletion there - but it is the difference between "requires forensics" and
+    "readable in the next allocation".
+    """
+    try:
+        size = path.stat().st_size
+        if size <= 0:
+            return
+        with open(path, "r+b") as handle:
+            handle.write(os.urandom(size))
+            handle.flush()
+            os.fsync(handle.fileno())
+    except OSError:
+        pass
+
+
 def _load_registry() -> list[dict[str, object]]:
     rp = _registry_path()
     if not rp.exists():
@@ -274,16 +307,70 @@ def _load_registry() -> list[dict[str, object]]:
     try:
         with open(rp, "r", encoding="utf-8") as f:
             data = json.load(f)
-        return [_normalize_registry_record(item) for item in data.get("vessels", [])]
+        raw_records = data.get("vessels", [])
     except Exception:
         return []
+    if not isinstance(raw_records, list):
+        return []
+
+    # A registry written before the split still holds the sealed-class fields
+    # in cleartext. Those values are the only copy, so they are read as the
+    # source of truth once and then re-saved, which seals them and shreds the
+    # plaintext. Migration writes through _save_registry, which never reads,
+    # so there is no recursion here.
+    needs_migration = any(
+        vessel_registry_seal.record_carries_sealed_fields(item) for item in raw_records
+    )
+
+    sealed = VesselRegistrySeal().load()
+    merged = [
+        (
+            vessel_registry_seal.merge_record(
+                item, sealed.get(str(item.get("path", "")))
+            )
+            if isinstance(item, dict)
+            else item
+        )
+        for item in raw_records
+    ]
+    records = [_normalize_registry_record(item) for item in merged]
+
+    if needs_migration:
+        _save_registry(records, shred_existing=True)
+    return records
 
 
-def _save_registry(records: list[dict[str, object]]) -> None:
+def _save_registry(
+    records: list[dict[str, object]], *, shred_existing: bool = False
+) -> None:
     rp = _registry_path()
     _ensure_dir(rp.parent)
+
+    public_records: list[dict[str, object]] = []
+    sealed: dict[str, dict[str, object]] = {}
+    for record in records:
+        public, sealed_part = vessel_registry_seal.split_record(record)
+        public_records.append(public)
+        sealed[str(record.get("path", ""))] = sealed_part
+
+    # Order matters on the migration path. The sealed sidecar is written first
+    # so the Face detail exists somewhere before the only other copy is
+    # overwritten; then the old cleartext is shredded; then the reduced index
+    # replaces it. A crash in the remaining window leaves an unparseable index,
+    # which _load_registry treats as empty - Vessels drop off the list but
+    # their files and sealed detail survive, and re-registering the same path
+    # restores the record. The reverse order could lose the detail outright.
+    seal = VesselRegistrySeal()
+    if sealed:
+        seal.save(sealed)
+    else:
+        seal.discard()
+
+    if shred_existing:
+        _shred_file_in_place(rp)
+
     with open(rp, "w", encoding="utf-8") as f:
-        json.dump({"vessels": records}, f, indent=2)
+        json.dump({"vessels": public_records}, f, indent=2)
     try:
         rp.chmod(0o600)
     except OSError:

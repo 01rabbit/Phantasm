@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -10,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from .. import crypto_params
 from ..attempt_limiter import FileAttemptLimiter
 from ..models.vessel import DummyProfileMeta, FaceMeta, VesselMeta
 from ..vault_core import PhasmidVault
@@ -323,10 +325,11 @@ class VesselWorkflowService:
         digest = hashlib.scrypt(
             emergency_password.encode("utf-8"),
             salt=salt,
-            n=2**14,
-            r=8,
-            p=1,
-            dklen=32,
+            n=crypto_params.SCRYPT_DESTROY_N,
+            r=crypto_params.SCRYPT_DESTROY_R,
+            p=crypto_params.SCRYPT_DESTROY_P,
+            maxmem=crypto_params.SCRYPT_DESTROY_MAXMEM,
+            dklen=crypto_params.SCRYPT_DESTROY_KEY_LENGTH,
         )
         self._vessels.touch_face(
             path,
@@ -335,6 +338,11 @@ class VesselWorkflowService:
                 "salt_b64": base64.b64encode(salt).decode("ascii"),
                 "hash_b64": base64.b64encode(digest).decode("ascii"),
                 "updated_at": self._current_timestamp(),
+                # Recorded so the cost can be raised again later without
+                # invalidating passphrases set under the current parameters.
+                "kdf_n": crypto_params.SCRYPT_DESTROY_N,
+                "kdf_r": crypto_params.SCRYPT_DESTROY_R,
+                "kdf_p": crypto_params.SCRYPT_DESTROY_P,
             },
         )
 
@@ -351,15 +359,26 @@ class VesselWorkflowService:
             return False
         salt = base64.b64decode(salt_b64.encode("ascii"))
         expected = base64.b64decode(hash_b64.encode("ascii"))
-        actual = hashlib.scrypt(
-            emergency_password.encode("utf-8"),
-            salt=salt,
-            n=2**14,
-            r=8,
-            p=1,
-            dklen=len(expected),
-        )
-        return actual == expected
+        # Verify under the parameters the record was written with. A record
+        # from before they were stored names none, and falls back to the legacy
+        # values so an existing destroy passphrase still works.
+        n = int(record.get("kdf_n") or 0) or crypto_params.SCRYPT_DESTROY_LEGACY_N
+        r = int(record.get("kdf_r") or 0) or crypto_params.SCRYPT_DESTROY_LEGACY_R
+        p = int(record.get("kdf_p") or 0) or crypto_params.SCRYPT_DESTROY_LEGACY_P
+        try:
+            actual = hashlib.scrypt(
+                emergency_password.encode("utf-8"),
+                salt=salt,
+                n=n,
+                r=r,
+                p=p,
+                maxmem=crypto_params.SCRYPT_DESTROY_MAXMEM,
+                dklen=len(expected),
+            )
+        except ValueError:
+            # Unusable recorded parameters must not read as a passphrase match.
+            return False
+        return hmac.compare_digest(actual, expected)
 
     def _binding_registered(self, binding_record: dict[str, object]) -> bool:
         return bool(binding_record.get("source_type"))

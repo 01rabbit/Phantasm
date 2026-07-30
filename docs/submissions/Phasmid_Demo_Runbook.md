@@ -331,9 +331,12 @@ CLI の Vessel 既定名と同一であるため、パス存在で判定する�
   隠している側の存在と分量を自分から渡すことになる。実運用では
   `PHASMID_FIELD_MODE=1` を設定し、開示は recover ロールの WebUI 経由に限る
   （Face セレクタも Face 数も出ない）。
-- **`vessel_registry.json`（config dir）は平文である。** 押収時にパスフレーズ無しで
-  読まれ、どちらの Face が囮か・物体の知覚ハッシュ・破壊用パスフレーズの検証子まで
-  露出する。デモ機は本番用の物体・パスフレーズを使わないこと。詳細と対策状況は
+- **Vessel レジストリは2分割済み**（#178 で対応）。`vessel_registry.json`（config dir）は
+  Vessel の発見インデックスだけを平文で持ち、Face の分量・どちらが填充済みか・物体の
+  知覚ハッシュ・破壊用パスフレーズの検証子は `vessel_registry.bin`（state dir）に
+  local state key で封入される。**purge 済みの Face と未使用の Face は平文側では
+  区別できない。** ただし state key を復元された場合は sidecar も復号されるため、
+  デモ機では引き続き本番用の物体・パスフレーズを使わないこと。詳細は
   `docs/THREAT_MODEL.md` の Configuration Directory Surface を参照。
 
 ---

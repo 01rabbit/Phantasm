@@ -378,30 +378,56 @@ Known Vessels are sourced from:
 - manually selected files
 
 The registry never stores passphrases, derived keys, raw keys, or file
-contents. It does, however, store more than file paths, and the earlier
-claim here that it held "only non-secret metadata (file paths)" was wrong.
-**`vessel_registry.json` is plaintext JSON at mode `0600`**, and per Face it
-records:
+contents. It is **split in two**, because it does two jobs at once: it is the
+Vessel discovery index, read at console start before anything is unlocked, and
+it is also the per-Face bookkeeping store. Encrypting the whole thing would tie
+discovery to the local state key and fail closed — an empty Vessel list — on a
+fresh device, a tmpfs state directory, or after a key rotation.
+
+**Cleartext index — `vessel_registry.json` (config dir, `0600`)**
 
 | Field | Contents |
 |---|---|
-| `label`, `created_at`, `last_accessed`, `status`, `selector` | Local Face bookkeeping |
+| `path`, `label` | Vessel path and the operator's non-sensitive Vessel label |
+| `is_open`, `open_count`, `last_opened_at`, `last_closed_at` | Vessel-level access bookkeeping |
+| per Face: `face_id`, `created_at`, `selector` | The fixed structural values every Vessel shares |
+
+A Vessel path is already discoverable by looking at the filesystem, and the
+two-Face model is documented, so nothing here tells a reader something the
+specification does not. Notably, **a Face that has been written to and later
+purged is indistinguishable from one that was never used** in this file.
+
+**Sealed sidecar — `vessel_registry.bin` (state dir, `0600`)**
+
+Encrypted with `LocalStateCipher` (AES-GCM under the local state key, its own
+AAD), the same primitive as the ORB reference blob and the access-token store:
+
+| Field | Contents |
+|---|---|
+| `label`, `last_accessed`, `status` | Which Face was used, when, and whether it is open |
 | `file_count`, `occupancy` | How many files and how many bytes that Face holds |
 | `credentials_initialized`, `object_binding_initialized` | Whether that Face has been set up |
-| `dummy_profile` | `dummy_file_count`, `dummy_total_size`, `occupancy_ratio`, `file_type_distribution`, `plausibility_score`, `plausibility_level` — which identifies the Face carrying generated filler |
-| `object_binding` | `average_hash`, `edge_hash`, `brightness_histogram`, `color_histogram`, `threshold`, `fingerprint_id` — perceptual fingerprints of the bound access object |
-| `emergency_auth` | `salt_b64` and `hash_b64`: a scrypt verifier for that Face's destroy passphrase |
+| `dummy_profile` | Including `plausibility_score`/`plausibility_level` — which identifies the Face carrying generated filler |
+| `object_binding` | Perceptual fingerprints of the bound access object — **credential material** |
+| `emergency_auth` | scrypt verifier for that Face's destroy passphrase, with its KDF parameters — **credential material** |
+| Vessel-level: `active_face_id` | Which Face is in use |
 
-Two of those are credential material, not bookkeeping: `object_binding` is a
-verifier for the physical access object, and `emergency_auth` is an
-offline-checkable verifier for the destroy passphrase. A party holding the
-device can read all of it without any passphrase and without launching
-Phasmid.
+A registry written before the split holds these in cleartext. They are the only
+copy, so the first load reads them, writes the sidecar, overwrites the old
+cleartext bytes, and rewrites the index without them. On flash media prior
+plaintext may still persist in unlinked blocks —
+[THREAT_MODEL.md](THREAT_MODEL.md) already declines to claim secure deletion
+there.
 
-This is a known, unresolved gap, not an accepted design property — see
-[THREAT_MODEL.md](THREAT_MODEL.md#configuration-directory-surface) and the
-tracking issue for encrypting these fields. Treat the config directory as
-sensitive local state, on the same footing as the state directory.
+Losing the state key costs Face detail, never Vessel access: a missing,
+truncated, or wrong-key sidecar reads as "no Face detail known", so Vessels
+stay listed and openable. That also means **under `PHASMID_TMPFS_STATE` the
+Face detail is volatile**, which is consistent with a deliberately volatile
+state directory — the object-cue references already live there and already do
+not survive a reboot.
+
+See [THREAT_MODEL.md](THREAT_MODEL.md#configuration-directory-surface) for the
+adversary analysis. Treat both files as sensitive local state.
 
 Paths in the UI may be redacted. A long path such as:
 
