@@ -7,7 +7,8 @@
 > - **本書は 0.5.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果に基づく。** 〔要確認〕は原則として解消済み。実機で確認していない項目のみ §9 末尾に明示する。
 > - **物体の登録が2段階撮影になった（0.5.0・#184/#187）。** `1 · Capture empty scene`（物体をフレーム外にして空の視野を撮る）→ `2 · Capture access object`（物体をかざして撮る）の順。**この2枚の差分が物体の領域を決め、その領域だけが特徴として登録される。** 従来は視野全体を登録していたため、三脚固定の背景そのものが鍵になり、**物体を隠しても開いてしまっていた**。加えて **保存の瞬間にも物体の一致が再確認される** — 撮影後に物体を下ろして `Protect file` を押すと拒否される（→ §0・Step 2）。
 > - **Step 4（物体なし→拒否）を WebUI Retrieve に移した。** 0.5.0 実機で WebUI 経路でも拒否されることを確認済み。**これで Step 3（成功）と Step 4（失敗）が同じ画面で連続する** — 物体の有無だけを変えた対比を画面切替なしで見せられるため、cue≠key の実証としては従来より強い。TUI の `Recover File` は**フォールバックとして残す**（→ §5）。
-> - **破壊（Face のクリア）を WebUI から行えるようにした（#189）。** 従来この操作は `phasmid emergency destroy-face` だけにあり、**このツールが存在する理由そのものである「強要されてもデータは守る」シナリオだけがブラウザから落ちてターミナルに残っていた**。Retrieve 画面の「Clear this entry instead of opening it」から、**かざした物体のエントリ**を、その**破壊パスワード**と確認語 `DESTROY FACE` で消せる。消す対象を画面で選ばせないのは意図的 — 選択肢を出すこと自体が「2つある」ことを漏らすため。実機検証で3つの不具合が出て修正済み（#190）— 詳細は §9.0.2。
+> - **破壊はパスワードで制御する（#191）。** Step 3・4 と**同じ Retrieve 画面の同じ入力欄**に、アクセスパスワードではなく**破壊パスワード**を入れると、**かざしている物体の Face が消える**。画面は何も変わらず、応答は打ち間違えたときと**完全に同じ** `No valid entry found.`。もう一方の Face は無傷。**「パスワードを強要されても守る」を、追加の操作なしで実演できる。** 確認も成功表示も無いのは設計上の代償で、成否は「その Face がもう開かないこと」でしか分からない（→ Step 4b）。
+> - **明示的な破壊経路も残してある（#189）。** 従来この操作は `phasmid emergency destroy-face` だけにあり、**このツールが存在する理由そのものである「強要されてもデータは守る」シナリオだけがブラウザから落ちてターミナルに残っていた**。Retrieve 画面の「Clear this entry instead of opening it」から、**かざした物体のエントリ**を、その**破壊パスワード**と確認語 `DESTROY FACE` で消せる。消す対象を画面で選ばせないのは意図的 — 選択肢を出すこと自体が「2つある」ことを漏らすため。Retrieve 画面の「Clear this entry instead of opening it」から、破壊パスワードと確認語 `DESTROY FACE` で消す。落ち着いた状況で意図的に片付けるための監査可能な手段で、**壇上では使わない**（画面が変わると対比が弱まる）。実機検証で3つの不具合が出て修正済み（#190）— 詳細は §9.0.2。
 > - **Issue #169・Phase 1:** TUI の **Add File** と Expert 画面の **Doctor・Inspect を非活性化**した — いずれも役割別トークンで保護された WebUI（`/store`、`/operator/doctor`、`/operator/inspect`）と完全に重複するため。**Recover File と Audit はあえて非活性化していない** — Audit は本デモ Step 5 でキー1つで直接使う。Recover File は Step 4 の WebUI 移行で本編からは外れたが、**壇上で WebUI が使えなくなった場合に否定証明を成立させる唯一の代替経路**なので残す。**削除ではなく非活性化** — 内部のサービス呼び出し・画面コードはそのまま残しており、リハーサルで問題が出れば1行で復元できる。
 > - **Expert フッタの安全端末幅が 145→124 桁に下がった**（Doctor/Inspect の非活性化でフッタの項目数が減ったため。Audit は残っているので115桁までは下がらない）。
 > - **囮ファイルは運用者が用意する**ものとし、生成機能は空き領域の填充に位置づけ直している（v4 からの変更点、引き続き有効）。
@@ -40,7 +41,7 @@
 | 2 | Bind — Face 1・Face 2 登録 | 1:30 | **WebUI**（store トークン） | Bind（cue≠key の準備） |
 | 3 | Operate — 復元 成功／役割の境界 | 0:50 | **WebUI**（store・recover トークン） | Operate |
 | 4 | **復元 失敗（物体なし）** | 0:50 | **WebUI**（Step 3 と同じタブ） | **★★cue≠key の証明** |
-| 4b | （任意）強要下でデータを守る | 0:40 | **WebUI**（同じタブ） | 破壊資格の分離。**不可逆** |
+| 4b | （任意）強要下でデータを守る | 0:40 | **WebUI**（同じ画面・同じ入力欄） | **パスワードだけが違う。** 破壊資格の分離。**不可逆** |
 | 5 | Audit（空き領域と境界） | 0:50 | TUI Expert | 誠実性の可視化 |
 | 6 | Silent Standby | 1:20 | TUI | Disclose / 山場 |
 | 7 | ラップ | 0:10 | TUI Simple | 締め |
@@ -105,7 +106,8 @@
       4. Retrieve で**物体を隠して**正しいパスワード → **拒否されること**
       5. 物体を戻して同じパスワード → 復元できること
       6. （Step 4b をやるなら）**別の使い捨て Vessel で**破壊まで通す — 本番用の
-         Vessel でリハーサルすると本番のデータが消える
+         Vessel でリハーサルすると本番のデータが消える。**成功しても画面には何も出ない**
+         ので、「そのあと同じ物体とアクセスパスワードで開かないこと」で確認する
 
       **4 と 5 は必ず対で確認する。** 4 だけでは「何をやっても拒否する状態」と区別がつかない。
       詳細な検証手順と観測すべき値は §9 冒頭を参照。
@@ -260,47 +262,47 @@
 ### Step 4b — 強要下でデータを守る（0:40｜任意・WebUI・Step 4 と同じ画面）
 
 > **本番でやるかは当日判断。枠が押していれば省略**し、Step 6 の Silent Standby に
-> 時間を回す（合計は 7:30 → 8:10 になる）。Step 4 と同じタブで続けるので**追加の
-> 画面切替は無い**。
+> 時間を回す（合計は 7:30 → 8:10 になる）。Step 4 と同じ画面・同じ入力欄で続けるので
+> **追加の画面切替も、追加の操作手順も無い。**
 > **不可逆。** 実施すると片方の Face は戻らない。次の Step 5（Audit）の数字は
 > **消した後の状態**を映すので、`Faces with little or no filler` などが事前の想定と
 > 変わる — これは不都合ではなく、**「今消したものが空として読める」ことを見せる材料**に
 > なる。数字を事前の想定どおりに見せたい場合は 4b を省略すること。
 
 「パスワードを強要されてもデータだけは守る」というこのツールの立ち位置を、
-実演で示すステップ。**開示用の Face は残したまま、真の Face だけを消す。**
+実演で示すステップ。**画面は何ひとつ変わらず、入れるパスワードだけが違う。**
 
-- **操作:** Retrieve 画面の **「Clear this entry instead of opening it」** を開く →
-  **消したい Face の物体をカメラにかざす** → その Face の **Clearing password**
-  （Store の Advanced security options で設定した2つめのパスワード）→
-  確認欄に **`DESTROY FACE`** と入力 → `Clear this entry`。
-- **画面期待:** `Local entry cleared. Its contents cannot be recovered.`
-  その後、同じ物体と**アクセス**パスワードで開こうとしても復元されない。
+- **操作:** Step 3・4 と**まったく同じ** Retrieve 画面。**消したい Face の物体を
+  かざす** → パスワード欄に、そのアクセスパスワードではなく **Clearing password**
+  （Store の Advanced security options で設定した2つめのパスワード）を入力 →
+  `Open protected file`。
+- **画面期待:** **`No valid entry found.`** — パスワードを打ち間違えたときと
+  **完全に同じ表示**。ファイルは出てこない。**これが正しい挙動。**
+  その後、同じ物体と**アクセス**パスワードで開こうとしても、もう復元されない。
   **もう一方の Face は無傷**で、そちらは物体とパスワードで開ける。
-- **発話（EN）:** "One more password. It is not the one that opens this entry — it is the one that ends it. Same object, same camera, different credential, and the contents are gone. Not hidden, not moved: gone. The other entry is untouched, and I can still open it. That is the answer to 'they will just make you type the password': the password they can compel is not the only one there is."
-- **注意（消えるのは「かざした Face」）:** 指定は画面の選択肢ではなく**カメラの物体**で
+- **発話（EN）:** "Now watch this screen, because nothing on it is going to change. Same tab, same object, same field, same button. The only thing I am doing differently is typing a different password. — And it says what it says when you mistype: no valid entry found. Except that entry is not locked. It is gone. The other one is untouched, and I can still open it. That is the answer to 'they will just make you type the password.' **The password they can compel is not the only one there is.**"
+- **注意（消えるのは「かざした Face」）:** 対象は画面の選択肢ではなく**カメラの物体**で
   決まる。**真の Face を消すには真の物体を出す必要がある** — 強要下では「真の物体を
   出すこと自体が情報になる」という設計上の論点があり、質問されたら**隠さずそう答える**。
-  画面にエントリの選択肢を出さないのは意図的で、選ばせること自体が「2つある」ことを
-  漏らすため。
-- **注意（資格の分離）:** アクセスパスワードではこれは実行できず、この破壊パスワードで
-  ファイルが開くこともない（`retrieve_open_only` による分離。
-  `test_emergency_password_does_not_trigger_normal_list_or_retrieve` が固定）。
-  **強要してアクセスパスワードを得た側は、破壊資格を得ていない。**
-- **注意（失敗の見え方）:** 破壊パスワードを間違えた場合も、物体が一致しなくなった
-  場合も、そのエントリが未設定の場合も、**すべて `Operation rejected.`** で同じに見える。
-  失敗は5回で60秒ロック（Retrieve と同じカウンタ）。**60秒待てば解除され、
-  カウンタも0に戻る**（0.5.0 以前はカウンタが残り、待ったあとの1回目の失敗で即再ロック
-  していた。#190）。
+  他方の Face の物体をかざした状態で Face 1 の破壊パスワードを入れても、**何も起きない**
+  （どちらの Face も無事）。
+- **注意（資格の分離）:** アクセスパスワードでは破壊できず、破壊パスワードでは
+  ファイルが開かない。**強要してアクセスパスワードを得た側は、破壊資格を得ていない。**
+- **注意（確認が無い）:** 確認ダイアログも、成功の表示も無い。**それが狙い** — 見ている
+  相手に何も伝えないための設計であり、その代償として**操作者にも成否が伝わらない。**
+  成功したかどうかは「その Face がもう開かないこと」でしか確認できない。
+  **リハーサルで一度通しておくこと。**
 - **前提（Store 時に設定していないと動かない）:** 破壊パスワードは Store 画面の
   **Advanced security options → Restricted recovery password** に入力し、その状態で
   `Protect file` を押した時に設定される。**入力しただけ／押さずに離れた場合は
-  設定されない。** 未設定の Face に対する 4b は `Operation rejected.` になり、
-  「未設定」と「パスワード間違い」は画面上で区別できない。**リハーサルで一度成功
-  させてから本番に臨むこと。**
+  設定されない。** 未設定の Face では 4b は**ただの失敗**になり、画面上は区別できない。
+- **明示的に片付けたい場合:** Retrieve 画面の
+  **「Clear this entry instead of opening it」** から、破壊パスワードと確認語
+  `DESTROY FACE` で消す経路も残してある。落ち着いた状況で意図的に片付けるための、
+  監査可能な手段。**壇上ではこちらは使わない** — 画面が変わると対比が弱まる。
 - **フォールバック:** WebUI が使えない場合は CLI —
   `phasmid emergency destroy-face <vessel> --face face_a --camera-object --confirm "DESTROY FACE"`
-  （破壊パスワードは対話プロンプト）。**確認フレーズは WebUI と同じ文字列**。
+  （破壊パスワードは対話プロンプト）。
 
 ### Step 5 — Audit: 空き領域と、ツールが判定しないこと（0:50｜誠実性の可視化｜TUI Expert）
 

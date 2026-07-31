@@ -7,6 +7,25 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Added
+
+- The destroy password now works from the ordinary retrieval field. Entering an
+  entry's destroy password where its access password goes, with that entry's
+  object in front of the camera, clears the entry — and the response is the one
+  a mistyped password produces, byte for byte. Nothing on the surface separates
+  the two, which is the whole property: **the credential that can be compelled
+  is not the only credential there is**, and using the other one requires no
+  different screen, field, or gesture that a person watching could learn to
+  recognise. Reached only after the ordinary retrieval has failed, so an access
+  password can never be shadowed by it, and scoped by the live object match, so
+  one entry's destroy password cannot reach the other. It does not count against
+  the attempt limiter: the credential was correct, and an operator who has just
+  cleared one entry still needs the attempts to open another. The cost of giving
+  nothing away is that the operator is told nothing either — success is
+  observable only as the entry no longer opening, so it has to be rehearsed.
+  The explicit `/destroy_face` panel stays for clearing an entry deliberately
+  rather than under pressure. (#191)
+
 ### Fixed
 
 - An access lockout never ended. `AttemptLimiter` cleared its failure count
