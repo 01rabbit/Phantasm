@@ -7,6 +7,29 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Fixed
+
+- Anything that asked "is the bound object present?" was answered *no* whenever
+  the matcher had been stopped — not because the object was absent, but because
+  nothing was looking. A successful retrieval calls `access_cue_service.close()`
+  to save power and heat, which stops the background matcher; the retrieve page
+  restarted it on its next `/video_feed` request, so whether the answer was true
+  depended on whether the browser had reconnected its preview yet. Reported from
+  the device as the explicit clear panel refusing an object plainly in front of
+  the camera, right after a successful retrieval. `/retrieve` and
+  `/destroy_face` now resume the matcher and give it a bounded moment to settle,
+  gated on a frame actually arriving so a device with no camera answers at once
+  rather than standing still on every call. Free when the matcher is already
+  running, which is the normal case. (#192)
+- The pre-Vessel container implemented the opposite destruction rule from the
+  one 0.5.0 settled on, inside the same endpoint. `_purge_for_password_role`
+  handed back the payload the destroy password decrypted *and* cleared the
+  **other** entry; the rule is that a destroy password ends the entry it belongs
+  to and never discloses. Both halves were the wrong way round. Replaced by
+  `_clear_accessed_entry`, named for what it does. Only ever ran when no Vessel
+  was registered, so no stored data behaved this way in practice — but a
+  contradiction left in the tree is one somebody eventually builds on. (#192)
+
 ### Added
 
 - The destroy password now works from the ordinary retrieval field. Entering an

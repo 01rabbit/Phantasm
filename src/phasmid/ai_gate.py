@@ -842,6 +842,10 @@ class AIGate:
             self._camera_consumers = 0
         self.camera.close()
 
+    @property
+    def matching_active(self) -> bool:
+        return self._thread is not None
+
     def start(self) -> None:
         if self._thread is None:
             self._stop_event.clear()
