@@ -22,6 +22,7 @@ import os
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -265,6 +266,143 @@ class DestroyFaceTests(unittest.TestCase):
             self.assertEqual(call.kwargs["confirmation"], DESTROY_FACE_PHRASE)
 
         asyncio.run(run())
+
+
+class DestroyFaceAgainstWebStoredDataTests(unittest.TestCase):
+    """The service call has to accept what the WebUI actually writes.
+
+    A Face can be bound two ways. The CLI records a perceptual fingerprint in
+    the registry (`object_binding`); the WebUI binds through the ORB cue store
+    and writes no registry record at all. `destroy_face` asked only the
+    registry, so it raised "object binding not registered" for every Face the
+    WebUI had ever protected - and `/destroy_face` reported that as an ordinary
+    rejection, indistinguishable from a wrong destroy password. Measured on a
+    WebUI-stored Face: the destroy password verified, and the call still failed.
+    """
+
+    def setUp(self):
+        self._dirs = tempfile.TemporaryDirectory()
+        self._env = mock.patch.dict(
+            os.environ,
+            {
+                "PHASMID_CONFIG_DIR": os.path.join(self._dirs.name, "config"),
+                "PHASMID_STATE_DIR": os.path.join(self._dirs.name, "state"),
+            },
+        )
+        self._env.start()
+        self.addCleanup(self._dirs.cleanup)
+        self.addCleanup(self._env.stop)
+
+        self.service = VesselWorkflowService()
+        self.vessel = Path(self._dirs.name) / "demo.vessel"
+        self.service.create_vessel(self.vessel, "8M")
+        self.modes = web_server.access_cue_service.modes()
+        # Exactly the call the /store handler makes: no object arguments, so no
+        # registry binding record is ever written.
+        self.service.add_payload(
+            self.vessel,
+            "real.txt",
+            b"the real thing",
+            "access-pw",
+            restricted_passphrase="destroy-pw",
+            selector="face_a",
+            cue_sequence=web_server.access_cue_service.sequence_for_mode(self.modes[0]),
+        )
+        self.service.add_payload(
+            self.vessel,
+            "decoy.txt",
+            b"the decoy",
+            "other-pw",
+            selector="face_b",
+            cue_sequence=web_server.access_cue_service.sequence_for_mode(self.modes[1]),
+        )
+
+    def _showing(self, mode):
+        return mock.patch.object(
+            web_server.access_cue_service,
+            "auth_sequence",
+            return_value=list(
+                web_server.access_cue_service.sequence_for_mode(mode, length=1)
+            ),
+        )
+
+    def _opens(self, selector, password, mode) -> bool:
+        try:
+            self.service.retrieve_payload(
+                self.vessel,
+                password,
+                selector=selector,
+                cue_sequence=list(
+                    web_server.access_cue_service.sequence_for_mode(mode, length=1)
+                ),
+            )
+        except (ValueError, FileNotFoundError, PermissionError, RuntimeError):
+            return False
+        return True
+
+    def test_the_web_stored_face_writes_no_registry_binding(self):
+        """States the premise the rest of this class depends on."""
+        record = self.service._get_face_binding_record(self.vessel, "face_a")
+        self.assertFalse(self.service._binding_registered(record))
+
+    def test_the_right_object_and_destroy_password_clear_it(self):
+        with self._showing(self.modes[0]):
+            result = self.service.destroy_face(
+                self.vessel,
+                "destroy-pw",
+                selector="face_a",
+                camera_object=True,
+                confirmation=DESTROY_FACE_PHRASE,
+            )
+        self.assertEqual(result.face_id, "face_a")
+
+    def test_the_other_face_survives_and_still_opens(self):
+        """The whole point: show one, protect the other."""
+        with self._showing(self.modes[0]):
+            self.service.destroy_face(
+                self.vessel,
+                "destroy-pw",
+                selector="face_a",
+                camera_object=True,
+                confirmation=DESTROY_FACE_PHRASE,
+            )
+        self.assertTrue(self._opens("face_b", "other-pw", self.modes[1]))
+        self.assertFalse(self._opens("face_a", "access-pw", self.modes[0]))
+
+    def test_it_still_refuses_without_the_right_object_or_password(self):
+        cases = (
+            (
+                "no object at all",
+                [web_server.access_cue_service.match_none()],
+                "destroy-pw",
+            ),
+            (
+                "the other Face's object",
+                list(web_server.access_cue_service.sequence_for_mode(self.modes[1])),
+                "destroy-pw",
+            ),
+            (
+                "right object, wrong destroy password",
+                list(web_server.access_cue_service.sequence_for_mode(self.modes[0])),
+                "not-the-password",
+            ),
+        )
+        for label, sequence, password in cases:
+            with self.subTest(case=label):
+                with mock.patch.object(
+                    web_server.access_cue_service,
+                    "auth_sequence",
+                    return_value=sequence,
+                ):
+                    with self.assertRaises(ValueError):
+                        self.service.destroy_face(
+                            self.vessel,
+                            password,
+                            selector="face_a",
+                            camera_object=True,
+                            confirmation=DESTROY_FACE_PHRASE,
+                        )
+                self.assertTrue(self._opens("face_a", "access-pw", self.modes[0]))
 
 
 class DestroyFaceSurfaceTests(unittest.TestCase):

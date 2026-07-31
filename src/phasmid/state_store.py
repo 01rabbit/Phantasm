@@ -176,7 +176,16 @@ class LocalStateStore:
 
     def write_record(self, record: StateRecord, name: str = STATE_INDEX_NAME):
         current = self.read_record(name)
-        if record.phase not in ALLOWED_TRANSITIONS[current.phase]:
+        # Rewriting a record in the phase it is already in is an update in
+        # place, not a transition, and the table has nothing to say about it.
+        # Requiring a phase change made every record write-once per phase:
+        # `FileAttemptLimiter` could record a first failure and then threw
+        # `state transition rejected` on the second, so the CLI's lockout
+        # counter never got past one.
+        if (
+            record.phase != current.phase
+            and record.phase not in ALLOWED_TRANSITIONS[current.phase]
+        ):
             raise StateStoreError("state transition rejected")
         updated = StateRecord(
             category=record.category,

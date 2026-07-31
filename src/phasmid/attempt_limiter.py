@@ -36,7 +36,18 @@ class AttemptLimiter:
         now = int(self.clock())
         if state.locked_until > now:
             return AttemptDecision(False, state.locked_until - now)
+        if state.locked_until:
+            # The lockout was served, so the failures that earned it are spent.
+            # Without this the count survives its own penalty: after waiting the
+            # full minute the caller still stands at max_failures, so the next
+            # single mistake locks them out again, and again, with no way back
+            # short of a success they may not be able to produce. Reported from
+            # the device as the lockout "dragging on" long past its 60 seconds.
+            self._forget(scope)
         return AttemptDecision(True, 0)
+
+    def _forget(self, scope: str):
+        self._state.pop(scope, None)
 
     def record_failure(self, scope: str):
         state = self._state.get(scope, AttemptState())
@@ -62,6 +73,10 @@ class FileAttemptLimiter(AttemptLimiter):
 
     def record_success(self, scope: str):
         super().record_success(scope)
+        self._save()
+
+    def _forget(self, scope: str):
+        super()._forget(scope)
         self._save()
 
     def _load(self):
