@@ -15,12 +15,6 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from phasmid import strings, web_server
 from phasmid.capabilities import Capability
-from phasmid.context_profile import (
-    BUILT_IN_PROFILES,
-    get_profile,
-    validate_against_profile,
-)
-from phasmid.dummy_generator import DummyGeneratorConfig, generate_dummy_dataset
 from phasmid.restricted_actions import (
     RestrictedActionPolicy,
     RestrictedActionRejected,
@@ -237,54 +231,6 @@ class RestrictedFlowScenarioTests(unittest.TestCase):
         self.assertEqual(ctx.exception.detail, strings.RESTRICTED_CONFIRMATION_REQUIRED)
 
 
-class TestContextProfileToDatasetPipeline(unittest.TestCase):
-    def test_all_built_in_profiles_produce_valid_dataset(self):
-        for name in BUILT_IN_PROFILES:
-            with self.subTest(profile=name):
-                profile = get_profile(name)
-                self.assertIsNotNone(profile)
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    config = DummyGeneratorConfig(
-                        target_size_bytes=1024 * 512,
-                        occupancy_ratio=0.5,
-                        profile=profile,
-                        output_dir=tmpdir,
-                    )
-                    report = generate_dummy_dataset(config)
-                    self.assertGreater(report.files_created, 0)
-                    self.assertGreater(report.total_bytes_written, 0)
-
-    def test_dataset_plausibility_validates_against_source_profile(self):
-        profile = get_profile("travel")
-        self.assertIsNotNone(profile)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config = DummyGeneratorConfig(
-                target_size_bytes=1024 * 256,
-                occupancy_ratio=0.8,
-                profile=profile,
-                output_dir=tmpdir,
-            )
-            report = generate_dummy_dataset(config)
-            result = validate_against_profile(
-                profile=profile,
-                container_size_bytes=config.target_size_bytes,
-                dummy_size_bytes=report.total_bytes_written,
-                file_count=report.files_created,
-                extension_distribution=report.extension_distribution,
-            )
-            self.assertIsNotNone(result)
-
-    def test_dataset_uses_no_weak_randomness(self):
-        import inspect
-
-        import phasmid.dummy_generator as mod
-
-        source = inspect.getsource(mod)
-        self.assertNotIn("import random", source)
-        self.assertNotIn("random.random(", source)
-        self.assertNotIn("random.randint(", source)
-
-
 class TestStandbyStateMachineIntegration(unittest.TestCase):
     def test_full_lifecycle_active_to_sealed_to_active(self):
         sm = StandbyStateMachine()
@@ -413,19 +359,6 @@ class TestPiZero2WCoercionSafeHardware(unittest.TestCase):
         )
         self.assertEqual(rc, 0, f"standby_state failed: {err}")
         self.assertIn("sealed", out)
-
-    def test_pi_dummy_generator_runs(self):
-        rc, out, err = self._ssh(
-            "python3 -c '"
-            "import tempfile; "
-            "from phasmid.context_profile import get_profile; "
-            "from phasmid.dummy_generator import DummyGeneratorConfig, generate_dummy_dataset; "
-            'p = get_profile("travel"); '
-            "cfg = DummyGeneratorConfig(target_size_bytes=65536, occupancy_ratio=0.5, profile=p, output_dir=tempfile.mkdtemp()); "
-            "r = generate_dummy_dataset(cfg); print(r.files_created)'"
-        )
-        self.assertEqual(rc, 0, f"dummy_generator failed: {err}")
-        self.assertGreater(int(out.strip()), 0)
 
     def test_pi_recognition_mode_config(self):
         rc, out, err = self._ssh(

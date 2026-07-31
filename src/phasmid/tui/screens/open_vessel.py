@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import time
+from typing import Literal
+
+from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
+from textual.css.query import NoMatches
+from textual.timer import Timer
 from textual.widgets import Button, Footer, Input, Label, Select, Static
 
 from ...services.access_cue_service import access_cue_service
@@ -73,11 +79,18 @@ class OpenVesselScreen(OperatorScreen):
     # onlooker, for free, the fact that more than one face exists.
     _FACE_SELECTOR_OPERATIONS = ("add", "remove")
     _OUTPUT_FILE_OPERATIONS = ("retrieve",)
+    _SECURITY_NOTE = (
+        "Object cue capture and recovery use the local camera feed. "
+        "Position the bound object before running the operation."
+    )
 
     def __init__(self, vessel_path: str = "", **kwargs):
         super().__init__(**kwargs)
         self._vessel_path = vessel_path
         self._workflow = VesselWorkflowService()
+        self._running = False
+        self._started_at = 0.0
+        self._tick_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         yield self.webui_warning_banner()
@@ -118,11 +131,7 @@ class OpenVesselScreen(OperatorScreen):
             id="restricted-passphrase-label",
         )
         yield Input(password=True, id="restricted-passphrase")
-        yield Static(
-            "Object cue capture and recovery use the local camera feed. "
-            "Position the bound object before running the operation.",
-            id="security-note",
-        )
+        yield Static(self._SECURITY_NOTE, id="security-note")
         yield Button("Run Operation", id="open-btn", variant="primary")
         yield Footer()
 
@@ -156,11 +165,23 @@ class OpenVesselScreen(OperatorScreen):
             self._attempt_open()
 
     def _attempt_open(self) -> None:
+        """Read and validate, then hand the slow part to a worker.
+
+        Everything below the validation blocks for as long as the object cue
+        takes to resolve - `collect_auth_sequence()` waits up to ten seconds
+        for a match. Run inline from `on_button_pressed`, that froze the whole
+        console for those ten seconds with nothing on screen to say why, which
+        reads as a hang rather than as a device waiting to be shown something.
+        Same defect as the generation freeze fixed in #156, at a smaller scale.
+        """
+        if self._running:
+            return
+
         path = self.query_one("#vessel-path", Input).value.strip()
-        operation = self.query_one("#operation-select", Select).value
+        operation = str(self.query_one("#operation-select", Select).value)
         face_selector_visible = operation in self._FACE_SELECTOR_OPERATIONS
         face = (
-            self.query_one("#face-select", Select).value
+            str(self.query_one("#face-select", Select).value)
             if face_selector_visible
             else None
         )
@@ -169,29 +190,112 @@ class OpenVesselScreen(OperatorScreen):
         passphrase = self.query_one("#passphrase", Input).value
         restricted_passphrase = self.query_one("#restricted-passphrase", Input).value
 
-        if not path:
-            self.app.notify("Vessel path is required.", severity="error")
+        problem = self._validate(
+            path=path,
+            operation=operation,
+            input_file=input_file,
+            output_file=output_file,
+            passphrase=passphrase,
+            restricted_passphrase=restricted_passphrase,
+        )
+        if problem is not None:
+            self.app.notify(problem, severity="error")
             return
 
+        self._running = True
+        self._started_at = time.monotonic()
+        self._set_controls_enabled(False)
+        self._tick_operation()
+        self._tick_timer = self.set_interval(1.0, self._tick_operation)
+        self._run_operation(
+            path,
+            operation,
+            face,
+            input_file,
+            output_file,
+            passphrase,
+            restricted_passphrase,
+        )
+
+    def _validate(
+        self,
+        *,
+        path: str,
+        operation: str,
+        input_file: str,
+        output_file: str,
+        passphrase: str,
+        restricted_passphrase: str,
+    ) -> str | None:
+        """Everything answerable without touching the camera or the Vessel.
+
+        Kept ahead of the worker so a missing field is still reported the
+        instant the button is pressed, rather than after a ten-second wait for
+        an object cue the operation was never going to use.
+        """
+        if not path:
+            return "Vessel path is required."
+        if operation == "add":
+            if not input_file:
+                return "Input file is required for add."
+            if not passphrase or not restricted_passphrase:
+                return "Both passphrases are required for add."
+        elif operation == "list":
+            if not passphrase:
+                return "Passphrase is required for listing."
+        else:
+            if not passphrase:
+                return "Passphrase is required for recovery."
+            if operation == "retrieve" and not output_file:
+                return "Output file is required for recovery."
+            if operation != "retrieve":
+                if not input_file:
+                    return "Stored file name is required for removal."
+                if not restricted_passphrase:
+                    return "Restricted recovery passphrase is required for removal."
+        return None
+
+    def _tick_operation(self) -> None:
+        """Say what the wait is for, and that it is bounded.
+
+        The screen cannot show the camera, so the only honest thing it can do
+        while the cue resolves is name the wait. Deliberately says nothing
+        about whether a match has happened - that would report on the frame in
+        front of the camera, which is #158's open half.
+        """
+        elapsed = int(time.monotonic() - self._started_at)
+        try:
+            note = self.query_one("#security-note", Static)
+        except NoMatches:
+            return
+        note.update(
+            "Waiting for the object cue...\n"
+            f"Elapsed: {elapsed:02d}s\n"
+            "Hold the bound object in front of the camera. The console stays "
+            "responsive."
+        )
+
+    @work(thread=True, exclusive=True, group="open-vessel")
+    def _run_operation(
+        self,
+        path: str,
+        operation: str,
+        face: str | None,
+        input_file: str,
+        output_file: str,
+        passphrase: str,
+        restricted_passphrase: str,
+    ) -> None:
         try:
             # Add/Remove already named their face above; the operator marked
             # it before entering a passphrase. List/Recover haven't - which
             # face was actually reached is only known once the passphrase (and
             # object cue) resolve it below, so bookkeeping for those runs
             # after, not before.
-            if face_selector_visible:
+            if operation in self._FACE_SELECTOR_OPERATIONS:
                 self._workflow.open_vessel(path, face_id=str(face))
             access_cue_service.start()
             if operation == "add":
-                if not input_file:
-                    self.app.notify("Input file is required for add.", severity="error")
-                    return
-                if not passphrase or not restricted_passphrase:
-                    self.app.notify(
-                        "Both passphrases are required for add.",
-                        severity="error",
-                    )
-                    return
                 store_result = self._workflow.add_file(
                     path,
                     input_file,
@@ -200,19 +304,11 @@ class OpenVesselScreen(OperatorScreen):
                     selector=str(face),
                     capture_reference=True,
                 )
-                self.app.notify(
+                message = (
                     f"Stored {store_result.bytes_stored:,} bytes in "
-                    f"{store_result.vessel_path.name}.",
-                    title="Open Vessel",
-                    severity="information",
-                    timeout=6,
+                    f"{store_result.vessel_path.name}."
                 )
             elif operation == "list":
-                if not passphrase:
-                    self.app.notify(
-                        "Passphrase is required for listing.", severity="error"
-                    )
-                    return
                 listing = self._workflow.list_files(
                     path,
                     passphrase,
@@ -220,79 +316,76 @@ class OpenVesselScreen(OperatorScreen):
                     use_attempt_limiter=True,
                 )
                 self._workflow.open_vessel(path, face_id=listing.face.face_id)
-                names = (
+                message = (
                     ", ".join(file.name for file in listing.files) or "No files stored."
                 )
-                self.app.notify(
-                    names,
-                    title="Open Vessel",
-                    severity="information",
-                    timeout=6,
+            elif operation == "retrieve":
+                retrieve_result = self._workflow.retrieve_file(
+                    path,
+                    passphrase,
+                    output_path=output_file,
+                    selector=None,
+                    use_attempt_limiter=True,
+                )
+                self._workflow.open_vessel(
+                    path,
+                    face_id=self._workflow.resolve_face_id(retrieve_result.mode),
+                )
+                message = (
+                    f"Recovered {retrieve_result.bytes_retrieved:,} bytes to "
+                    f"{retrieve_result.output_path}."
                 )
             else:
-                if not passphrase:
-                    self.app.notify(
-                        "Passphrase is required for recovery.", severity="error"
-                    )
-                    return
-                if operation == "retrieve" and not output_file:
-                    self.app.notify(
-                        "Output file is required for recovery.",
-                        severity="error",
-                    )
-                    return
-                if operation == "retrieve":
-                    retrieve_result = self._workflow.retrieve_file(
-                        path,
-                        passphrase,
-                        output_path=output_file,
-                        selector=None,
-                        use_attempt_limiter=True,
-                    )
-                    self._workflow.open_vessel(
-                        path,
-                        face_id=self._workflow.resolve_face_id(retrieve_result.mode),
-                    )
-                    self.app.notify(
-                        f"Recovered {retrieve_result.bytes_retrieved:,} bytes to "
-                        f"{retrieve_result.output_path}.",
-                        title="Open Vessel",
-                        severity="information",
-                        timeout=6,
-                    )
-                else:
-                    if not input_file:
-                        self.app.notify(
-                            "Stored file name is required for removal.",
-                            severity="error",
-                        )
-                        return
-                    if not restricted_passphrase:
-                        self.app.notify(
-                            "Restricted recovery passphrase is required for removal.",
-                            severity="error",
-                        )
-                        return
-                    removed = self._workflow.remove_file(
-                        path,
-                        input_file,
-                        passphrase,
-                        restricted_passphrase,
-                        selector=str(face),
-                    )
-                    self.app.notify(
-                        f"Removed file from {removed.face.face_id}.",
-                        title="Open Vessel",
-                        severity="information",
-                        timeout=6,
-                    )
+                removed = self._workflow.remove_file(
+                    path,
+                    input_file,
+                    passphrase,
+                    restricted_passphrase,
+                    selector=str(face),
+                )
+                message = f"Removed file from {removed.face.face_id}."
         except PermissionError as exc:
-            self.app.notify(str(exc), title="Open Vessel", severity="warning")
+            self.app.call_from_thread(self._finish_operation, str(exc), "warning")
             return
         except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
-            self.app.notify(str(exc), title="Open Vessel", severity="error")
+            self.app.call_from_thread(self._finish_operation, str(exc), "error")
             return
         finally:
             access_cue_service.close()
 
-        self.dismiss()
+        self.app.call_from_thread(self._finish_operation, message, "information")
+
+    def _finish_operation(
+        self, message: str, severity: Literal["information", "warning", "error"]
+    ) -> None:
+        self._running = False
+        if self._tick_timer is not None:
+            self._tick_timer.stop()
+            self._tick_timer = None
+        # The screen can be dismissed while the worker is still waiting on the
+        # camera; the thread cannot be interrupted, so its completion callback
+        # has to tolerate an unmounted screen rather than raising into the app.
+        if not self.is_mounted:
+            return
+        self._restore_security_note()
+        self._set_controls_enabled(True)
+        self.app.notify(
+            message,
+            title="Open Vessel",
+            severity=severity,
+            timeout=6,
+        )
+        if severity == "information":
+            self.dismiss()
+
+    def _restore_security_note(self) -> None:
+        try:
+            self.query_one("#security-note", Static).update(self._SECURITY_NOTE)
+        except NoMatches:
+            return
+
+    def _set_controls_enabled(self, enabled: bool) -> None:
+        try:
+            self.query_one("#open-btn", Button).disabled = not enabled
+        except NoMatches:
+            return

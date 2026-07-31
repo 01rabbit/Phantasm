@@ -7,7 +7,59 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Added
+
+- Doctor reports **Clearing Passwords**: how many set-up entries have a
+  clearing password and how many do not. The mistake it catches is the one that
+  happened on the device — set on one entry and not the other, discovered only
+  when the missing one was needed, at which point "never set" and "wrong
+  password" are indistinguishable *by design*, because the clearing path gives
+  nothing away on failure (#191). Beforehand is the only place the difference
+  can surface. Reported as counts and never as which entry: which one carries a
+  clearing password is what the sealed registry sidecar exists to keep out of
+  readable state (#180). INFO rather than WARN — unlike the environment
+  variables in the check above it, nothing here fires without the operator
+  typing that specific password, so an entry without one is a setup state, not
+  an armed hazard. Suppressed under `PHASMID_FIELD_MODE`, following the Simple
+  screen's cross-entry file total. (#194)
+
+### Changed
+
+- The TUI's Open Vessel operation runs on a worker instead of inline from the
+  button handler. `collect_auth_sequence()` waits up to ten seconds for an
+  object match; run inline, that froze the whole console for those ten seconds
+  with nothing on screen to say why, which reads as a hang rather than as a
+  device waiting to be shown something — the same defect as the generation
+  freeze fixed in #156. Field validation now runs first, so a missing path or
+  passphrase is reported the instant the button is pressed rather than after a
+  wait the operation was never going to use, and an elapsed counter names what
+  is being waited for. It deliberately says nothing about whether a match has
+  happened: reporting live match state is the half of #158 that is in tension
+  with giving limited detail on failed access, and that stays open. (#158)
+
+### Removed
+
+- `src/phasmid/dummy_generator.py`, which produced a directory of fabricated
+  files — text, logs, JSON, CSV, binary stubs, with varied mtimes — to be
+  presented as real. Nothing in `src/` imported it and no CLI, TUI or WebUI
+  path called it, so no operator could run it; but `docs/CLAIMS.md` and
+  `docs/IMPLEMENTATION_STATUS.md` described it as a capability, so a reader
+  auditing this project would find it and conclude the tool manufactures cover
+  stories. That is the position the project abandoned: **the operator supplies
+  the material they would disclose.** (#165)
+
 ### Fixed
+
+- A published claim was evidenced by tests of code that could not run. CLM-40 —
+  "the free-space filler does not forge forensic artifacts, fake kernel logs, or
+  perform timestamp forgery" — cited `tests/test_dummy_generator.py`, which
+  tested the unreachable module above. The filler that actually ships is
+  `VesselWorkflowService._build_generated_file_specs`, and **nothing tested it
+  for that property**. New `tests/test_free_space_filler_content.py` holds the
+  shipped filler to the claim: no system-log or forensic markers, no fabricated
+  dates, deterministic output, and filenames that do not imply a provenance.
+  CLM-37 and the implementation-status entries now point at the live code and
+  its tests too. (#165)
 
 - Anything that asked "is the bound object present?" was answered *no* whenever
   the matcher had been stopped — not because the object was absent, but because

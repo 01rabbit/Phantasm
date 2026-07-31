@@ -6,8 +6,8 @@ This table maps Black Hat Europe Arsenal demo capabilities to the current reposi
 |---|---|---|
 | Local Vessel creation | Implemented / Prototype | `src/phasmid/vault_core.py`, `tests/test_vault_core.py`, `docs/TUI_OPERATOR_CONSOLE.md` |
 | Context profiles | Implemented | `src/phasmid/context_profile.py`, `tests/test_context_profile.py` |
-| Free-space filler generator (fills unused Face space; not disclosure material) | Implemented | `src/phasmid/dummy_generator.py`, `tests/test_dummy_generator.py` |
-| Free-space filler occupancy report | Implemented | `src/phasmid/dummy_profile_eval.py`, `tests/test_dummy_generator.py`, `tests/test_context_profile.py` |
+| Free-space filler generator (fills unused Face space; not disclosure material) | Implemented | `src/phasmid/services/vessel_workflow_service.py`, `tests/test_free_space_filler_content.py`, `tests/test_vessel_workflow_service.py` |
+| Free-space filler occupancy report | Implemented | `src/phasmid/dummy_profile_eval.py`, `tests/test_context_profile.py` |
 | Silent Standby state machine | Implemented | `src/phasmid/standby_state.py`, `tests/test_standby_state.py` |
 | Coercion-safe fallback / recognition routing | Prototype | `src/phasmid/ai_gate.py`, `src/phasmid/config.py`, `tests/test_ai_gate_routing.py`, `tests/test_scenarios.py`, `tests/test_web_server.py` |
 | Raspberry Pi Zero 2 W deployment | Prototype | `docs/RPI_ZERO_APPLIANCE_DEPLOYMENT.md`, `docs/RPI_ZERO_DEPLOYMENT.md`, `docs/FIELD_TEST_PROCEDURE.md` |

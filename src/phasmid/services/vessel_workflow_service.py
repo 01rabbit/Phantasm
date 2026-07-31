@@ -455,6 +455,32 @@ class VesselWorkflowService:
             self.resolve_face_id(selector),
         )
 
+    def clearing_password_coverage(self, path: str | Path) -> tuple[int, int]:
+        """(faces set up, of those how many have a clearing password).
+
+        Deliberately a pair of counts and not a list. Which face carries one is
+        credential-adjacent and is what the sealed sidecar exists to keep out of
+        readable state; how many do is what an operator can act on - "I set one
+        of the two" is the mistake this answers, and it is the one that leaves a
+        face with no way to be ended under pressure.
+
+        Faces that were never set up are excluded from both counts: an entry
+        with no credentials at all has nothing to protect and would otherwise
+        read as a gap the operator needs to close.
+        """
+        vessel = Path(path).expanduser().resolve()
+        initialised = 0
+        armed = 0
+        for selector in ("face_a", "face_b"):
+            face_id = self.resolve_face_id(selector)
+            if not self._credentials_initialized(vessel, face_id):
+                continue
+            initialised += 1
+            record = self._get_face_emergency_auth_record(vessel, face_id)
+            if record.get("salt_b64") and record.get("hash_b64"):
+                armed += 1
+        return initialised, armed
+
     def _capture_camera_profile(self) -> ObjectBindingProfile:
         frame = self._access_cue.latest_frame_copy()
         if frame is None:
