@@ -399,6 +399,47 @@ class VesselWorkflowService:
             return False
         return hmac.compare_digest(actual, expected)
 
+    def _require_bound_object(
+        self,
+        vessel_path: Path,
+        selector: str,
+        *,
+        object_image_path: str | None = None,
+        camera_object: bool = False,
+    ) -> None:
+        """Refuse unless the Face's bound object is being presented.
+
+        A Face can be bound through either of two mechanisms, and destruction
+        has to accept both. The CLI stores a perceptual fingerprint in the
+        registry (`object_binding`); the WebUI binds through the ORB cue store
+        and writes no registry record at all. Asking only the registry made
+        destruction impossible for everything the WebUI had ever protected -
+        `_ensure_object_binding` raised "object binding not registered", which
+        the WebUI reported as an ordinary rejection, so it read as a wrong
+        destroy password. Measured on a WebUI-stored Face: the destroy password
+        verified, and the call still failed.
+
+        Only the *proof* differs. Both paths still require the operator to be
+        holding the right object at the moment they ask.
+        """
+        registry_record = self._get_face_binding_record(
+            vessel_path, self.resolve_face_id(selector)
+        )
+        if self._binding_registered(registry_record):
+            self._ensure_object_binding(
+                vessel_path,
+                selector,
+                object_image_path=object_image_path,
+                camera_object=camera_object,
+            )
+            return
+
+        mode = self.resolve_mode(selector)
+        observed = self._access_cue.auth_sequence(length=1)
+        expected = self._access_cue.sequence_for_mode(mode, length=1)
+        if not observed or list(observed) != list(expected):
+            raise ValueError("object mismatch")
+
     def _binding_registered(self, binding_record: dict[str, object]) -> bool:
         return bool(binding_record.get("source_type"))
 
@@ -1332,7 +1373,7 @@ class VesselWorkflowService:
         face_id = self.resolve_face_id(selector)
         if not self._credentials_initialized(vessel, face_id):
             raise ValueError("credentials not initialized")
-        self._ensure_object_binding(
+        self._require_bound_object(
             vessel,
             selector,
             object_image_path=object_image_path,
@@ -1386,7 +1427,7 @@ class VesselWorkflowService:
         face_id = self.resolve_face_id(selector)
         if not self._credentials_initialized(vessel, face_id):
             raise ValueError("credentials not initialized")
-        self._ensure_object_binding(
+        self._require_bound_object(
             vessel,
             selector,
             object_image_path=object_image_path,

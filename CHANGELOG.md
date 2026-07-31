@@ -7,6 +7,34 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Fixed
+
+- An access lockout never ended. `AttemptLimiter` cleared its failure count
+  only on a success, so after serving the full sixty seconds the caller still
+  stood at `max_failures` and the next single mistake locked them out again —
+  indefinitely, for anyone who could not produce a success. Reported from the
+  device as the lockout "dragging on" long past its sixty seconds. Serving the
+  lockout now spends the failures that earned it, and the lockout itself still
+  holds for its whole period. (#190)
+- `FileAttemptLimiter` could not record a second failure. `write_record`
+  treated rewriting a record in the phase it was already in as an illegal
+  transition, so the first failure persisted and every one after it raised
+  `state transition rejected` — meaning the CLI-side retrieval lockout has
+  never counted past one. A rewrite in the same phase is an update in place,
+  not a transition, and is now allowed; genuine backwards moves are still
+  rejected. (#190)
+- Clearing a Face was impossible for anything the WebUI had protected.
+  `destroy_face` and `destroy_vessel` asked only for the registry's
+  `object_binding` fingerprint, which the CLI writes and the WebUI never does —
+  the WebUI binds through the ORB cue store. Every attempt raised "object
+  binding not registered", which `/destroy_face` reported as an ordinary
+  rejection, indistinguishable from a wrong destroy password. Measured on a
+  WebUI-stored Face: the destroy password verified and the call still failed.
+  Both mechanisms are now accepted; only the *proof* differs, and either way
+  the operator must be holding the right object at the moment they ask. This
+  also repairs the CLI fallback the Runbook documents, which had the same
+  blind spot. (#190)
+
 ### Added
 
 - `POST /destroy_face` — clearing a protected entry from the WebUI. The destroy
