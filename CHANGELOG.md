@@ -20,7 +20,7 @@ and this project follows SemVer-style release intent for documented interfaces.
   `/destroy_face` now resume the matcher and give it a bounded moment to settle,
   gated on a frame actually arriving so a device with no camera answers at once
   rather than standing still on every call. Free when the matcher is already
-  running, which is the normal case. (#193)
+  running, which is the normal case. (#192)
 - The pre-Vessel container implemented the opposite destruction rule from the
   one 0.5.0 settled on, inside the same endpoint. `_purge_for_password_role`
   handed back the payload the destroy password decrypted *and* cleared the
@@ -28,7 +28,7 @@ and this project follows SemVer-style release intent for documented interfaces.
   to and never discloses. Both halves were the wrong way round. Replaced by
   `_clear_accessed_entry`, named for what it does. Only ever ran when no Vessel
   was registered, so no stored data behaved this way in practice — but a
-  contradiction left in the tree is one somebody eventually builds on. (#193)
+  contradiction left in the tree is one somebody eventually builds on. (#192)
 
 ### Added
 
