@@ -1209,6 +1209,7 @@ async def retrieve(request: Request, password: str = Form(...)):
     attempt_scope = f"web:{_client_id(request)}"
     if not _access_attempts.check(attempt_scope).allowed:
         return {"error": text.ACCESS_TEMPORARILY_UNAVAILABLE}
+    _resume_cue_matching()
     auth_sequence = access_cue_service.auth_sequence(length=1)
     if auth_sequence[0] == access_cue_service.match_none():
         _access_attempts.record_failure(attempt_scope)
@@ -1251,6 +1252,17 @@ async def retrieve(request: Request, password: str = Form(...)):
         if result is None:
             continue
 
+        if password_role == PhasmidVault.PURGE_ROLE:
+            # The pre-Vessel container stores the same payload under both a
+            # read credential and a destroy credential, so this slot decrypts.
+            # It must not be handed back: the destroy password ends an entry,
+            # it does not open one, and 0.5.0 settled that it ends *this* entry
+            # rather than the other. Both halves of the old behaviour - the
+            # disclosure and the direction - were the wrong way round.
+            _clear_accessed_entry(mode, source="web")
+            _access_attempts.record_success(attempt_scope)
+            return {"error": text.NO_VALID_ENTRY_FOUND}
+
         audit_event(
             "payload_retrieved",
             entry="local_entry",
@@ -1258,13 +1270,10 @@ async def retrieve(request: Request, password: str = Form(...)):
             bytes=len(result),
             source="web",
         )
-        purge_applied = _purge_for_password_role(mode, password_role, source="web")
-        if result is not None:
-            # Release camera to save power and heat after successful retrieval
-            access_cue_service.close()
+        # Release camera to save power and heat after successful retrieval.
+        access_cue_service.close()
         _access_attempts.record_success(attempt_scope)
-        if not purge_applied:
-            purge_applied = _maybe_auto_purge(mode, source="web")
+        purge_applied = _maybe_auto_purge(mode, source="web")
         return create_file_response(
             result,
             filename or "protected-entry.bin",
@@ -1362,6 +1371,7 @@ async def destroy_face(
     if not _access_attempts.check(attempt_scope).allowed:
         return {"error": text.ACCESS_TEMPORARILY_UNAVAILABLE}
 
+    _resume_cue_matching()
     auth_sequence = access_cue_service.auth_sequence(length=1)
     matched_mode = _raw_gate_status().get("matched_mode")
     if (
@@ -1603,16 +1613,62 @@ def _maybe_auto_purge(accessed_mode, source):
     return True
 
 
-def _purge_for_password_role(accessed_mode, password_role, source):
-    if password_role != PhasmidVault.PURGE_ROLE:
-        return False
-    active_vault().purge_other_mode(accessed_mode)
-    forget_face_contents(_other_mode(accessed_mode))
+#: How long to let the matcher settle after restarting it. The background
+#: thread needs a camera open and a few consecutive frames before it will
+#: report a match, so reading the gate the instant after `start()` always says
+#: "no object". Short enough that it is not a pause anyone waits through, and
+#: paid only when the matcher was found stopped.
+CUE_RESTART_SETTLE_SECONDS = 3.0
+
+#: How long to wait for the restarted camera to hand over any frame at all.
+CUE_RESTART_FRAME_SECONDS = 1.0
+
+
+def _resume_cue_matching() -> None:
+    """Bring the matcher back if a previous retrieval released the camera.
+
+    A successful retrieval calls `access_cue_service.close()` to save power and
+    heat. Everything that then asks "is the bound object present?" is answered
+    "no" - not because the object is absent, but because nothing is looking.
+    The retrieve page restarts it on its next `/video_feed` request, so whether
+    the answer was true depended on whether the browser had reconnected its
+    preview yet.
+
+    Costs nothing when the matcher is already running, which is the normal
+    case: `start()` is a no-op and this returns immediately.
+    """
+    if access_cue_service.matching_active:
+        return
+    access_cue_service.start()
+    try:
+        service = VesselWorkflowService()
+        # Gated on a frame arriving first, so a device with no camera at all
+        # answers immediately instead of standing still for the settle time on
+        # every single call.
+        if not service.wait_for_camera_frame(timeout=CUE_RESTART_FRAME_SECONDS):
+            return
+        service.wait_for_reference_match(timeout=CUE_RESTART_SETTLE_SECONDS)
+    except Exception:
+        LOG.exception("Resuming object-cue matching failed")
+
+
+def _clear_accessed_entry(accessed_mode, source):
+    """Clear the entry whose destroy password was just used.
+
+    Named for what it does, because its predecessor did the opposite:
+    `_purge_for_password_role` cleared the *other* entry and handed this one's
+    contents back. That predates the rule 0.5.0 settled on - a destroy password
+    ends the entry it belongs to, and never discloses - and only ever ran on
+    the pre-Vessel container, so the two paths disagreed with each other in the
+    same endpoint.
+    """
+    active_vault().purge_mode(accessed_mode)
+    forget_face_contents(accessed_mode)
     audit_event(
         "restricted_local_update",
         accessed_entry="local_entry",
         source=source,
-        reason="restricted_recovery",
+        reason="destroy_password",
     )
     return True
 

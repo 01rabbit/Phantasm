@@ -74,6 +74,11 @@ class DestroyFaceTests(unittest.TestCase):
         """The camera sees the object bound to the second entry."""
         return (
             mock.patch.object(
+                type(web_server.access_cue_service),
+                "matching_active",
+                property(lambda self: True),
+            ),
+            mock.patch.object(
                 web_server.access_cue_service,
                 "auth_sequence",
                 return_value=[self.matched_mode],
@@ -88,6 +93,11 @@ class DestroyFaceTests(unittest.TestCase):
     def _with_no_object(self):
         return (
             mock.patch.object(
+                type(web_server.access_cue_service),
+                "matching_active",
+                property(lambda self: True),
+            ),
+            mock.patch.object(
                 web_server.access_cue_service,
                 "auth_sequence",
                 return_value=[web_server.access_cue_service.match_none()],
@@ -97,8 +107,9 @@ class DestroyFaceTests(unittest.TestCase):
 
     def test_it_clears_the_entry_whose_object_is_presented(self):
         async def run():
-            present_a, present_b = self._with_object_present()
+            running, present_a, present_b = self._with_object_present()
             with (
+                running,
                 present_a,
                 present_b,
                 mock.patch.object(
@@ -132,8 +143,9 @@ class DestroyFaceTests(unittest.TestCase):
         """Actionable: it describes the frame, not anything stored."""
 
         async def run():
-            absent_a, absent_b = self._with_no_object()
+            running, absent_a, absent_b = self._with_no_object()
             with (
+                running,
                 absent_a,
                 absent_b,
                 mock.patch.object(
@@ -159,8 +171,8 @@ class DestroyFaceTests(unittest.TestCase):
         """
 
         async def run():
-            absent_a, absent_b = self._with_no_object()
-            with absent_a, absent_b:
+            running, absent_a, absent_b = self._with_no_object()
+            with running, absent_a, absent_b:
                 response = await web_server.destroy_face(
                     _request(), password="x", confirmation="nope"
                 )
@@ -170,8 +182,9 @@ class DestroyFaceTests(unittest.TestCase):
 
     def test_a_wrong_confirmation_phrase_stops_it(self):
         async def run():
-            present_a, present_b = self._with_object_present()
+            running, present_a, present_b = self._with_object_present()
             with (
+                running,
                 present_a,
                 present_b,
                 mock.patch.object(
@@ -191,10 +204,11 @@ class DestroyFaceTests(unittest.TestCase):
 
     def test_a_wrong_destroy_password_reads_like_every_other_refusal(self):
         async def run():
-            present_a, present_b = self._with_object_present()
+            running, present_a, present_b = self._with_object_present()
             service = mock.Mock()
             service.destroy_face.side_effect = ValueError("emergency password mismatch")
             with (
+                running,
                 present_a,
                 present_b,
                 mock.patch.object(
@@ -218,10 +232,11 @@ class DestroyFaceTests(unittest.TestCase):
         """A destroy password must not be more brute-forceable than an access one."""
 
         async def run():
-            present_a, present_b = self._with_object_present()
+            running, present_a, present_b = self._with_object_present()
             service = mock.Mock()
             service.destroy_face.side_effect = ValueError("emergency password mismatch")
             with (
+                running,
                 present_a,
                 present_b,
                 mock.patch.object(
@@ -246,8 +261,9 @@ class DestroyFaceTests(unittest.TestCase):
         self.assertEqual(DESTROY_FACE_PHRASE, "DESTROY FACE")
 
         async def run():
-            present_a, present_b = self._with_object_present()
+            running, present_a, present_b = self._with_object_present()
             with (
+                running,
                 present_a,
                 present_b,
                 mock.patch.object(

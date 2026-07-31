@@ -822,27 +822,21 @@ class WebServerBoundaryTests(unittest.TestCase):
             self.assertFalse(web_server._maybe_auto_purge("secret", source="test"))
         purge.assert_not_called()
 
-    def test_restricted_recovery_password_role_updates_unmatched_entry(self):
-        with mock.patch.object(web_server.vault, "purge_other_mode") as purge:
-            self.assertTrue(
-                web_server._purge_for_password_role(
-                    "dummy",
-                    web_server.PhasmidVault.PURGE_ROLE,
-                    source="test",
-                )
-            )
-        purge.assert_called_once_with("dummy")
+    def test_a_destroy_password_clears_the_entry_it_belongs_to(self):
+        """It used to clear the other one, and hand this one's contents back.
 
-    def test_open_password_role_preserves_unmatched_entry(self):
-        with mock.patch.object(web_server.vault, "purge_other_mode") as purge:
-            self.assertFalse(
-                web_server._purge_for_password_role(
-                    "dummy",
-                    web_server.PhasmidVault.OPEN_ROLE,
-                    source="test",
-                )
-            )
-        purge.assert_not_called()
+        `_purge_for_password_role` predated the rule 0.5.0 settled on - a
+        destroy password ends the entry it belongs to, and never discloses -
+        and it only ran on the pre-Vessel container, so the two storage paths
+        implemented opposite rules inside the same endpoint.
+        """
+        with (
+            mock.patch.object(web_server.vault, "purge_mode") as purge,
+            mock.patch.object(web_server.vault, "purge_other_mode") as purge_other,
+        ):
+            self.assertTrue(web_server._clear_accessed_entry("dummy", source="test"))
+        purge.assert_called_once_with("dummy")
+        purge_other.assert_not_called()
 
     def test_download_response_uses_neutral_filename_without_state_change_header(self):
         response = web_server.create_file_response(

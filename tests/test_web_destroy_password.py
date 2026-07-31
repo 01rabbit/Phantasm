@@ -92,6 +92,9 @@ class DestroyByPasswordTests(unittest.TestCase):
             )
             with (
                 mock.patch.object(
+                    type(self.cue), "matching_active", property(lambda self: True)
+                ),
+                mock.patch.object(
                     self.cue,
                     "auth_sequence",
                     return_value=list(self.cue.sequence_for_mode(mode, length=1)),
@@ -162,6 +165,9 @@ class DestroyByPasswordTests(unittest.TestCase):
             )
             with (
                 mock.patch.object(
+                    type(self.cue), "matching_active", property(lambda self: True)
+                ),
+                mock.patch.object(
                     self.cue, "auth_sequence", return_value=[self.cue.match_none()]
                 ),
                 mock.patch.object(web_server, "_raw_gate_status", return_value={}),
@@ -191,6 +197,9 @@ class DestroyByPasswordTests(unittest.TestCase):
 
         async def run():
             with (
+                mock.patch.object(
+                    type(self.cue), "matching_active", property(lambda self: True)
+                ),
                 mock.patch.object(
                     self.cue,
                     "auth_sequence",

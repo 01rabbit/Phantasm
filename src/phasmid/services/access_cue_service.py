@@ -71,6 +71,16 @@ class AccessCueService:
     def start(self):
         return self.gate.start()
 
+    @property
+    def matching_active(self):
+        """Whether the background matcher is running at all.
+
+        A successful retrieval releases the camera to save power, which stops
+        it. Anything that then asks "is the object present?" gets "no" for a
+        reason that has nothing to do with the object.
+        """
+        return self.gate.matching_active
+
     def generate_frames(self):
         return self.gate.generate_frames()
 
