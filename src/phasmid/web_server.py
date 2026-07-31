@@ -1271,9 +1271,69 @@ async def retrieve(request: Request, password: str = Form(...)):
             purge_applied=purge_applied,
         )
 
+    if _destroyed_by_password(auth_sequence, password, vessel_path):
+        # The credential was correct, so this is not a failed attempt: an
+        # operator who has just cleared one entry still has to be able to open
+        # the one they intend to show, and a lockout here would take that away
+        # at the worst possible moment. The response below is nevertheless the
+        # same one a mistyped password produces - that is the point of it.
+        _access_attempts.record_success(attempt_scope)
+        return {"error": text.NO_VALID_ENTRY_FOUND}
+
     audit_event("retrieve_failed", source="web")
     _access_attempts.record_failure(attempt_scope)
     return {"error": text.NO_VALID_ENTRY_FOUND}
+
+
+def _destroyed_by_password(auth_sequence, password: str, vessel_path) -> bool:
+    """Clear the presented entry when *password* is its destroy password.
+
+    The whole point of this path is that nothing on screen distinguishes it.
+    A password that opens an entry opens it; a password that ends it ends it;
+    both look identical to whoever is watching, and to whoever is being made to
+    type. That is the answer to "they will just make you enter the password" -
+    the password they can compel is not the only one there is.
+
+    Deliberately reached only after the ordinary retrieval has already failed,
+    so an access password can never be shadowed by this, and scoped to the
+    entry whose object is in front of the camera, so one entry's destroy
+    password can never reach the other.
+    """
+    if vessel_path is None:
+        return False
+    matched_mode = _raw_gate_status().get("matched_mode")
+    if matched_mode not in access_cue_service.auth_tokens():
+        return False
+    # `auth_sequence` carries the match *token*, `matched_mode` the mode it
+    # belongs to - two different vocabularies, so they are compared through
+    # the mapping rather than against each other.
+    expected = access_cue_service.sequence_for_mode(str(matched_mode), length=1)
+    if not auth_sequence or list(auth_sequence[:1]) != list(expected):
+        return False
+
+    try:
+        VesselWorkflowService().destroy_face(
+            vessel_path,
+            password,
+            selector=face_for_mode(str(matched_mode)),
+            camera_object=True,
+            confirmation=DESTROY_FACE_PHRASE,
+        )
+    except (ValueError, FileNotFoundError, PermissionError, RuntimeError):
+        # Overwhelmingly "that was not the destroy password", which is the
+        # ordinary case: this runs on every failed retrieval.
+        return False
+    except Exception:
+        LOG.exception("Password-triggered destruction failed unexpectedly")
+        return False
+
+    audit_event(
+        "restricted_local_update",
+        accessed_entry="local_entry",
+        source="web",
+        reason="destroy_password",
+    )
+    return True
 
 
 @app.post(

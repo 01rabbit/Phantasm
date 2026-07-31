@@ -287,7 +287,23 @@ stressful conditions.
 
 Store provides a local-only metadata risk check. It does not call cloud services and does not send telemetry.
 
-`/destroy_face` is the only restricted action gated by a credential rather than
+`/retrieve` carries a second, deliberately indistinguishable outcome. When the
+ordinary retrieval fails and the supplied password is the destroy password of
+the entry whose object is currently matching, that entry is cleared and the
+response is byte-for-byte the one a mistyped password produces. Nothing on the
+surface separates the two, which is the property the path exists for: the
+credential that can be compelled is not the only credential there is. It is
+reached only after retrieval has already failed, so an access password can
+never be shadowed by it, and it is scoped by the live object match, so one
+entry's destroy password cannot reach the other. It does not count against the
+attempt limiter — the credential was correct, and an operator who has just
+cleared one entry still needs the attempts to open another. The cost of giving
+away nothing is that the operator is told nothing either: success is observable
+only as the entry no longer opening.
+
+`/destroy_face` is the explicit form of the same operation, for clearing an
+entry deliberately rather than under pressure, and is the only restricted action
+gated by a credential rather than
 by a public confirmation phrase alone. It requires the bound object of the entry
 being cleared to be matching at the moment of the call, that entry's destroy
 password (a different credential from its access password, which cannot perform
