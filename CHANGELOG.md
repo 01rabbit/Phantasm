@@ -7,6 +7,36 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Added
+
+- Doctor reports **Clearing Passwords**: how many set-up entries have a
+  clearing password and how many do not. The mistake it catches is the one that
+  happened on the device — set on one entry and not the other, discovered only
+  when the missing one was needed, at which point "never set" and "wrong
+  password" are indistinguishable *by design*, because the clearing path gives
+  nothing away on failure (#191). Beforehand is the only place the difference
+  can surface. Reported as counts and never as which entry: which one carries a
+  clearing password is what the sealed registry sidecar exists to keep out of
+  readable state (#180). INFO rather than WARN — unlike the environment
+  variables in the check above it, nothing here fires without the operator
+  typing that specific password, so an entry without one is a setup state, not
+  an armed hazard. Suppressed under `PHASMID_FIELD_MODE`, following the Simple
+  screen's cross-entry file total. (#194)
+
+### Changed
+
+- The TUI's Open Vessel operation runs on a worker instead of inline from the
+  button handler. `collect_auth_sequence()` waits up to ten seconds for an
+  object match; run inline, that froze the whole console for those ten seconds
+  with nothing on screen to say why, which reads as a hang rather than as a
+  device waiting to be shown something — the same defect as the generation
+  freeze fixed in #156. Field validation now runs first, so a missing path or
+  passphrase is reported the instant the button is pressed rather than after a
+  wait the operation was never going to use, and an elapsed counter names what
+  is being waited for. It deliberately says nothing about whether a match has
+  happened: reporting live match state is the half of #158 that is in tension
+  with giving limited detail on failed access, and that stays open. (#158)
+
 ### Removed
 
 - `src/phasmid/dummy_generator.py`, which produced a directory of fabricated

@@ -19,6 +19,7 @@ from ..config import (
     dummy_occupancy_warn,
     dummy_profile_dir,
     duress_mode_enabled,
+    field_mode_enabled,
     purge_confirmation_required,
     state_dir,
 )
@@ -28,6 +29,8 @@ from ..models.doctor import DoctorCheck, DoctorLevel, DoctorResult
 from ..process_hardening import hardening_status
 from ..volatile_state import check_volatile_state, volatile_state_path
 from .profile_service import config_dir
+from .vessel_service import VesselService
+from .vessel_workflow_service import VesselWorkflowService
 
 
 def _check_dir_permissions(path: Path, label: str) -> DoctorCheck:
@@ -308,6 +311,72 @@ def _check_auto_purge_configuration() -> DoctorCheck:
         name="Automatic Destruction",
         level=DoctorLevel.OK,
         message="Retrieval will not destroy the other Face without explicit confirmation",
+    )
+
+
+def _check_clearing_password_coverage() -> DoctorCheck:
+    """How many set-up Faces can be ended under pressure, and how many cannot.
+
+    Reported as counts, never as which Face. Which one carries a clearing
+    password is credential-adjacent, and keeping it out of readable state is
+    what the sealed registry sidecar exists for (#180). How *many* carry one is
+    something an operator can act on, and the mistake it catches is the one
+    that actually happened on the device: a clearing password set on one Face
+    and not the other, discovered only when the missing one was needed - at
+    which point "never set" and "wrong password" are indistinguishable by
+    design, because the clearing path gives nothing away on failure (#191).
+
+    INFO, not WARN. Unlike the environment variables above, nothing here fires
+    without the operator typing that specific password, so a Face without one
+    is a setup state, not an armed hazard.
+
+    Suppressed under Field Mode, following the Simple screen's cross-Face file
+    total: a surface that may be read under observation says less about how
+    many Faces there are and what is configured on them.
+    """
+    if field_mode_enabled():
+        return DoctorCheck(
+            name="Clearing Passwords",
+            level=DoctorLevel.INFO,
+            message="Not shown in field mode",
+        )
+
+    service = VesselWorkflowService()
+    initialised = 0
+    armed = 0
+    for vessel in VesselService().list_all():
+        try:
+            face_count, armed_count = service.clearing_password_coverage(vessel.path)
+        except (OSError, ValueError):
+            # A Vessel that cannot be read is the business of the checks that
+            # look at storage, not of this one.
+            continue
+        initialised += face_count
+        armed += armed_count
+
+    if initialised == 0:
+        return DoctorCheck(
+            name="Clearing Passwords",
+            level=DoctorLevel.INFO,
+            message="No protected entries are set up yet",
+        )
+    if armed == initialised:
+        return DoctorCheck(
+            name="Clearing Passwords",
+            level=DoctorLevel.OK,
+            message=(
+                f"All {initialised} set-up "
+                f"{'entry' if initialised == 1 else 'entries'} "
+                "can be cleared under pressure"
+            ),
+        )
+    return DoctorCheck(
+        name="Clearing Passwords",
+        level=DoctorLevel.INFO,
+        message=(
+            f"{armed} of {initialised} set-up entries have a clearing password. "
+            "An entry without one cannot be ended by entering a password."
+        ),
     )
 
 
@@ -852,6 +921,7 @@ def run_doctor_checks(output_dir: str | None = None) -> DoctorResult:
         _check_scrollback(),
         _check_debug_logging(),
         _check_auto_purge_configuration(),
+        _check_clearing_password_coverage(),
     ]
 
     return DoctorResult(checks=checks)

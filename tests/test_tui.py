@@ -2105,6 +2105,74 @@ def test_plausibility_generation_runs_off_the_event_loop():
     assert "thread=True" in inspect.getsource(FaceManagerScreen)
 
 
+class OpenVesselWorkerTests(unittest.TestCase):
+    """Written as a TestCase on purpose.
+
+    CI runs `python -m unittest discover -s tests`, which collects only
+    `unittest.TestCase` methods. The 110 bare `def test_*` functions in this
+    module - including the generation-worker test above - are collected by
+    pytest and by nothing CI runs, so a regression in them fails silently
+    there. New tests go in a TestCase until that is dealt with.
+    """
+
+    def test_the_open_operation_runs_off_the_event_loop(self):
+        """The cue wait must not be called inline from the button handler.
+
+        `collect_auth_sequence()` waits up to ten seconds for an object match.
+        Inline, that froze the console for those ten seconds with nothing on
+        screen to say why, which reads as a hang rather than as a device
+        waiting to be shown something. Same defect as the generation freeze
+        above (#156), on the path the demo falls back to when the WebUI is
+        unavailable (#158).
+        """
+        from phasmid.tui.screens.open_vessel import OpenVesselScreen
+
+        handler = inspect.getsource(OpenVesselScreen._attempt_open)
+        for blocking in ("retrieve_file", "list_files", "add_file", "remove_file"):
+            with self.subTest(call=blocking):
+                self.assertNotIn(
+                    blocking,
+                    handler,
+                    f"{blocking} is called inline from the button handler; "
+                    "it must be dispatched to a worker",
+                )
+
+        worker_source = inspect.getsource(OpenVesselScreen._run_operation)
+        self.assertIn("retrieve_file", worker_source)
+        self.assertIn("thread=True", inspect.getsource(OpenVesselScreen))
+
+    def test_it_validates_before_it_waits_on_the_camera(self):
+        """A missing field is answerable now, not after a ten-second cue wait."""
+        from phasmid.tui.screens.open_vessel import OpenVesselScreen
+
+        validate = inspect.getsource(OpenVesselScreen._validate)
+        self.assertNotIn("access_cue_service", validate)
+        self.assertIn("Vessel path is required.", validate)
+
+        handler = inspect.getsource(OpenVesselScreen._attempt_open)
+        self.assertLess(
+            handler.index("_validate"),
+            handler.index("_run_operation"),
+            "validation has to run before the worker is dispatched, or a "
+            "missing field is reported only after the wait it did not need",
+        )
+
+    def test_it_names_the_wait_without_reporting_the_frame(self):
+        """#158's other half stays open on purpose.
+
+        Showing live match state is the part that is in tension with giving
+        limited detail on failed access. The elapsed line names the wait
+        without saying anything about what the camera can currently see.
+        """
+        from phasmid.tui.screens.open_vessel import OpenVesselScreen
+
+        tick = inspect.getsource(OpenVesselScreen._tick_operation)
+        self.assertIn("Elapsed", tick)
+        for reporting in ("matched", "match_none", "auth_sequence"):
+            with self.subTest(leak=reporting):
+                self.assertNotIn(reporting, tick)
+
+
 def test_standby_retracts_the_webui(monkeypatch):
     """Silent Standby must take the WebUI down with the local screen.
 
