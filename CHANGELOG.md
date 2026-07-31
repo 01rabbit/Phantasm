@@ -7,7 +7,29 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Removed
+
+- `src/phasmid/dummy_generator.py`, which produced a directory of fabricated
+  files — text, logs, JSON, CSV, binary stubs, with varied mtimes — to be
+  presented as real. Nothing in `src/` imported it and no CLI, TUI or WebUI
+  path called it, so no operator could run it; but `docs/CLAIMS.md` and
+  `docs/IMPLEMENTATION_STATUS.md` described it as a capability, so a reader
+  auditing this project would find it and conclude the tool manufactures cover
+  stories. That is the position the project abandoned: **the operator supplies
+  the material they would disclose.** (#165)
+
 ### Fixed
+
+- A published claim was evidenced by tests of code that could not run. CLM-40 —
+  "the free-space filler does not forge forensic artifacts, fake kernel logs, or
+  perform timestamp forgery" — cited `tests/test_dummy_generator.py`, which
+  tested the unreachable module above. The filler that actually ships is
+  `VesselWorkflowService._build_generated_file_specs`, and **nothing tested it
+  for that property**. New `tests/test_free_space_filler_content.py` holds the
+  shipped filler to the claim: no system-log or forensic markers, no fabricated
+  dates, deterministic output, and filenames that do not imply a provenance.
+  CLM-37 and the implementation-status entries now point at the live code and
+  its tests too. (#165)
 
 - Anything that asked "is the bound object present?" was answered *no* whenever
   the matcher had been stopped — not because the object was absent, but because

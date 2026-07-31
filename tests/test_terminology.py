@@ -126,7 +126,6 @@ class TerminologyAuditTests(unittest.TestCase):
             "src/phasmid/luks_key_store.py",
             "src/phasmid/dummy_profile_eval.py",
             "src/phasmid/context_profile.py",
-            "src/phasmid/dummy_generator.py",
             "src/phasmid/standby_state.py",
         }
         self.assertEqual(all_modules, scanned | internal_allowlist)
