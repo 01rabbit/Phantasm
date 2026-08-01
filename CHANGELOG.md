@@ -79,6 +79,28 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Fixed
 
+- **The tuning sweep recommended a configuration the device cannot run**, and
+  recommended it directly underneath its own printed warning not to. Two
+  defects, both found by the first run on hardware:
+  - **The measurement saturated.** The gate's detector caps at
+    `nfeatures=1000` - the right cap for matching, the wrong one for comparing
+    settings. On the device 640x480 reported 919 keypoints and every
+    resolution above it reported exactly 1000, which reads as "bigger is
+    better" and means "the ruler ended here". Worse, `max` then answered ties
+    with whichever option came first in the list: the sharpness sweep was
+    recommended at 1.0 while the same table showed 2.5 with half again as much
+    detail. The probe now counts with the cap lifted, and ties fall through to
+    detail and then to cost.
+  - **The frame budget was printed and then ignored.** 1024x768 measured 272 ms
+    per frame against a 250 ms interval at four frames a second - and the sweep
+    measures *less* work than the console does, since it never matches, encodes
+    or draws. Anything past the budget is now excluded from the ranking, with
+    what was dropped and why said out loud. More pixels than the device can
+    process is not more cue: the match history needs several consecutive
+    frames, and a frame that arrives late has not arrived.
+
+  Replayed against the device's own numbers, the corrected ranking answers
+  640x480 rather than 1024x768, and sharpness 2.5 rather than 1.0.
 - **The camera was opened, never configured.** For most of this project's life
   exactly one control was set on it — `FrameDurationLimits` — and everything
   else was left at defaults tuned for photographs a person will look at. That
