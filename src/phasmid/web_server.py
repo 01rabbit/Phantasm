@@ -1256,7 +1256,7 @@ async def retrieve(request: Request, password: str = Form(...)):
             # The pre-Vessel container stores the same payload under both a
             # read credential and a destroy credential, so this slot decrypts.
             # It must not be handed back: the destroy password ends an entry,
-            # it does not open one, and 0.5.0 settled that it ends *this* entry
+            # it does not open one, and 0.6.0 settled that it ends *this* entry
             # rather than the other. Both halves of the old behaviour - the
             # disclosure and the direction - were the wrong way round.
             _clear_accessed_entry(mode, source="web")
@@ -1657,7 +1657,7 @@ def _clear_accessed_entry(accessed_mode, source):
 
     Named for what it does, because its predecessor did the opposite:
     `_purge_for_password_role` cleared the *other* entry and handed this one's
-    contents back. That predates the rule 0.5.0 settled on - a destroy password
+    contents back. That predates the rule 0.6.0 settled on - a destroy password
     ends the entry it belongs to, and never discloses - and only ever ran on
     the pre-Vessel container, so the two paths disagreed with each other in the
     same endpoint.
