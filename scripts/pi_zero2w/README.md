@@ -81,7 +81,24 @@ already answers that — but *by how much*. An object clearing its threshold by
 one point and an object clearing it threefold look identical on screen, right
 up until the lighting changes.
 
-With the operator console stopped and the object presented:
+There are two ways to see it. **Start with the overlay** — aiming a camera is
+iterative, and the script cannot show you what the lens is looking at:
+
+```bash
+PHASMID_CUE_DEBUG=1 bash scripts/pi_zero2w/run_demo_console.sh
+```
+
+Then press `w`, open the Store or Retrieve page, and hold the object up. The
+scores are drawn along the bottom of the live preview — keypoints, good
+matches, inliers, and the bar each has to clear — so moving the object and
+watching the numbers respond is one continuous action rather than a guess
+followed by a separate measurement.
+
+**Bench use only.** The preview is a capture-visible surface and these numbers
+describe the mechanism, so the flag is off by default and has no UI control.
+
+For a recorded run with statistics rather than a live readout, stop the console
+and, with the object presented:
 
 ```bash
 .venv/bin/python scripts/pi_zero2w/measure_cue_margin.py --frames 30

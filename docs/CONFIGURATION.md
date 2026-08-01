@@ -47,6 +47,7 @@ All `PHASMID_*` reads are centralized in `src/phasmid/config.py`.
 | `PHASMID_DUMMY_FALLBACK_THRESHOLD` | float (`0.0`-`1.0`) | `0.40` | Object cue routing | Confidence floor used by demo fallback routing policy | `config.dummy_fallback_threshold()` |
 | `PHASMID_CUE_GOOD_MATCH_RATIO` | float (`0.0`-`1.0`) | `0.25` | Object cue matching | Share of the reference template that must be re-found for a match. Capped by `MIN_GOOD_MATCHES`, floored at `GOOD_MATCH_FLOOR` | `config.cue_good_match_ratio()` |
 | `PHASMID_CUE_INLIER_RATIO` | float (`0.0`-`1.0`) | `0.15` | Object cue matching | Share of the template whose geometry must agree. Capped by `MIN_INLIERS`, floored at `INLIER_FLOOR` | `config.cue_inlier_ratio()` |
+| `PHASMID_CUE_DEBUG` | bool | `false` | Camera preview | Draws the live cue scores (keypoints, good matches, inliers, and the bar each must clear) along the bottom of the preview, so a camera can be aimed against a number instead of a yes/no badge. **Bench use only** — the preview is capture-visible and the scores describe the mechanism (CLM-05). Costs one extra feature extraction per frame while enabled | `config.cue_debug_overlay_enabled()` |
 | `PHASMID_ENABLE_DISPLAY` | bool | `false` | Bridge UI simulator | Enables OpenCV preview window for display simulator | `config.display_enabled()` |
 | `PHASMID_DARK` | bool | `false` | TUI theming | Optional dark theme selection flag | `config.tui_dark_enabled()` |
 | `PHASMID_LIGHT` | bool | `false` | TUI theming | Optional light theme selection flag | `config.tui_light_enabled()` |
