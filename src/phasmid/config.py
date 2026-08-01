@@ -299,6 +299,46 @@ def cue_inlier_ratio() -> float:
     return _cue_ratio("PHASMID_CUE_INLIER_RATIO", 0.15)
 
 
+def cue_lowe_ratio() -> float:
+    """How close a second-best descriptor may be before a match is discarded.
+
+    Lowe's ratio test. Raising it admits more good matches, at the cost of
+    admitting ambiguous ones - it loosens *what counts as the same feature*,
+    which is the right knob when the object is recognisable but the light has
+    moved since it was bound.
+
+    It does not loosen geometry. A raised ratio that lets more matches through
+    still has to survive RANSAC, so this alone will not rescue an object being
+    shown at an angle it was not bound at.
+    """
+    return _cue_ratio("PHASMID_CUE_LOWE_RATIO", 0.75)
+
+
+def cue_ransac_reprojection_px() -> float:
+    """How far, in pixels, a correspondence may sit from the fitted geometry.
+
+    RANSAC's reprojection tolerance. This is the knob for a cue that scores
+    plenty of good matches and almost no inliers, which is what a *non-planar*
+    object looks like when it is turned: the correspondences hold individually,
+    but no single plane-to-plane transform explains them all, so they are
+    discarded as outliers. Widening it admits mild perspective and mild depth.
+
+    It is not a fix for a genuinely three-dimensional object seen from a new
+    side. That needs the object bound from that side too, and this build binds
+    one view per entry.
+    """
+    raw = env_text("PHASMID_CUE_RANSAC_PX", "5.0")
+    try:
+        value = float(raw)
+    except ValueError:
+        return 5.0
+    if value < 1.0:
+        return 1.0
+    if value > 50.0:
+        return 50.0
+    return value
+
+
 def cue_debug_overlay_enabled() -> bool:
     """Draw the live cue scores on the camera preview.
 

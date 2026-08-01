@@ -59,6 +59,13 @@ class ObjectCueMatcher:
     LOWE_RATIO = 0.75
     RANSAC_REPROJECTION = 5.0
 
+    #: Instance overrides for the two above, so a device whose camera or
+    #: lighting needs a looser test can have one without every device getting
+    #: it. Set from config at construction; the class attributes stay the
+    #: shipped defaults.
+    lowe_ratio: float
+    ransac_reprojection: float
+
     def __init__(
         self,
         *,
@@ -72,6 +79,8 @@ class ObjectCueMatcher:
         min_object_dominance: float | None = None,
         min_good_match_ratio: float | None = None,
         min_inlier_ratio: float | None = None,
+        lowe_ratio: float | None = None,
+        ransac_reprojection: float | None = None,
     ) -> None:
         self.min_reference_keypoints = min_reference_keypoints
         self.min_frame_descriptors = min_frame_descriptors
@@ -104,6 +113,12 @@ class ObjectCueMatcher:
         )
         self.min_inlier_ratio = (
             self.MIN_INLIER_RATIO if min_inlier_ratio is None else min_inlier_ratio
+        )
+        self.lowe_ratio = self.LOWE_RATIO if lowe_ratio is None else lowe_ratio
+        self.ransac_reprojection = (
+            self.RANSAC_REPROJECTION
+            if ransac_reprojection is None
+            else ransac_reprojection
         )
         self.orb = cast(Any, cv2).ORB_create(nfeatures=1000)
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING)
@@ -370,7 +385,7 @@ class ObjectCueMatcher:
             if len(pair) < 2:
                 continue
             m, n = pair
-            if m.distance < self.LOWE_RATIO * n.distance:
+            if m.distance < self.lowe_ratio * n.distance:
                 good_matches.append(m)
 
         if len(good_matches) <= required_good:
@@ -381,7 +396,7 @@ class ObjectCueMatcher:
         dst_points: Any = [kp[m.trainIdx].pt for m in good_matches]
         dst_pts = cast(Any, np.float32(dst_points)).reshape(-1, 1, 2)
         homography, mask = cv2.findHomography(
-            src_pts, dst_pts, cv2.RANSAC, self.RANSAC_REPROJECTION
+            src_pts, dst_pts, cv2.RANSAC, self.ransac_reprojection
         )
         if homography is None or mask is None:
             return None
@@ -451,7 +466,7 @@ class ObjectCueMatcher:
             if len(pair) < 2:
                 continue
             m, n = pair
-            if m.distance < self.LOWE_RATIO * n.distance:
+            if m.distance < self.lowe_ratio * n.distance:
                 good_matches.append(m)
         base["good_matches"] = len(good_matches)
 
@@ -464,7 +479,7 @@ class ObjectCueMatcher:
         dst_points: Any = [kp[m.trainIdx].pt for m in good_matches]
         dst_pts = cast(Any, np.float32(dst_points)).reshape(-1, 1, 2)
         _homography, mask = cv2.findHomography(
-            src_pts, dst_pts, cv2.RANSAC, self.RANSAC_REPROJECTION
+            src_pts, dst_pts, cv2.RANSAC, self.ransac_reprojection
         )
         if mask is not None:
             base["inliers"] = int(mask.ravel().tolist().count(1))
