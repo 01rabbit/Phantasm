@@ -339,6 +339,102 @@ def cue_ransac_reprojection_px() -> float:
     return value
 
 
+def camera_frame_size() -> tuple[int, int]:
+    """Capture resolution, which is also the resolution the cue is matched at.
+
+    This was 320x240 - about 1.5% of what an `imx708` can deliver - and it
+    was the ceiling on everything downstream. ORB finds corners, and a corner
+    needs pixels to be a corner in. Measured on a printed packet filling ~30%
+    of the frame width, in focus: **24 template keypoints at 320x240, 572 at
+    640x480, 823 at 1024x768.** At 320x240 the object could not be bound at
+    all; the same object, same lighting, same distance, binds comfortably one
+    step up.
+
+    The cost is genuine and lands on a Pi Zero 2 W: grayscale, ORB and matching
+    together measured at roughly 29 ms per frame at 320x240 and 53 ms at
+    640x480 on one core. 640x480 is the default because a cue that cannot be
+    bound is not cheaper, it is broken. Drop it if the device cannot hold the
+    frame rate - `status()` reports the rate actually achieved, so that is a
+    measurement rather than a guess.
+
+    Format: `WIDTHxHEIGHT`.
+    """
+    raw = env_text("PHASMID_CAMERA_SIZE", "640x480").strip().lower()
+    try:
+        width, height = (int(part) for part in raw.split("x", 1))
+    except (ValueError, TypeError):
+        return (640, 480)
+    if width < 160 or height < 120:
+        return (640, 480)
+    return (width, height)
+
+
+def camera_max_exposure_us() -> int:
+    """Ceiling on how long one frame is exposed for, in microseconds.
+
+    The camera was configured with `FrameDurationLimits` of 200-333 ms, which
+    is a 3-5 fps sensor and lets auto-exposure run up to a **200 ms** shutter.
+    A person holding an object still is not still at 200 ms, and motion blur
+    removes exactly what a corner detector needs. Measured on a 572-keypoint
+    template: a 3 px smear (about a 33 ms shutter) scores 197 good matches, a
+    9 px smear about 70, and a 21 px smear 22 - refused.
+
+    Cutting the shutter is not free either: the exposure lost comes back as
+    gain, and gain comes back as noise, which the same measurement shows hurts
+    *more* than blur - 107 good at sigma 4, 45 and refused at sigma 8.
+
+    So it is a genuine trade-off with no universally right answer: it depends on
+    how bright the room is and how steady the hand. The default caps at 33 ms,
+    which measured comfortably clear of the bar without demanding much gain.
+    `scripts/pi_zero2w/tune_camera.py` finds the best value on the actual bench
+    rather than trusting either number here.
+    """
+    return env_int("PHASMID_CAMERA_MAX_EXPOSURE_US", 33000, minimum=1000)
+
+
+def camera_denoise() -> str:
+    """How hard the ISP smooths the image before anything else sees it.
+
+    Denoising is tuned for photographs a person will look at, and it removes
+    small high-frequency structure - print, weave, the edge of a label - which
+    is the same structure ORB calls a corner. The image comes out cleaner and
+    describes less.
+
+    `minimal` (default), `off`, or `fast` to restore the ISP's own choice.
+    """
+    return env_text("PHASMID_CAMERA_DENOISE", "minimal").strip().lower()
+
+
+def camera_sharpness() -> float:
+    """Edge contrast boost applied by the ISP. 1.0 is the camera's default.
+
+    FAST decides a corner by comparing a pixel against a ring around it, so
+    raising local edge contrast raises the number of keypoints found on the
+    same object. Overdone it manufactures edges out of noise, which is why
+    this is modest and adjustable rather than maximal.
+    """
+    raw = env_text("PHASMID_CAMERA_SHARPNESS", "1.5")
+    try:
+        value = float(raw)
+    except ValueError:
+        return 1.5
+    return max(0.0, min(16.0, value))
+
+
+def camera_lock_white_balance() -> bool:
+    """Freeze the colour gains once the camera has settled.
+
+    The frame becomes grayscale before ORB sees it, and grayscale is a
+    weighted sum of the three channels. Auto white balance changes those
+    weights while it hunts, so the same object produces a slightly different
+    grayscale from one second to the next - a global change of exactly the
+    kind that moves descriptors. On a NoIR sensor, where the red channel
+    carries infrared that the AWB algorithm was not designed for, it hunts
+    more than usual.
+    """
+    return env_flag("PHASMID_CAMERA_LOCK_AWB", default=True)
+
+
 def camera_focus_mode() -> str:
     """What to do about the lens on a module that has a movable one.
 

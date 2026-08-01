@@ -9,6 +9,15 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Added
 
+- `scripts/pi_zero2w/tune_camera.py` — finds the camera settings that give
+  *this* object, in *this* room, the most to match on. The defaults above are
+  measured, but they are measured against synthetic scenes, and the real
+  optimum depends on the light and the object in a way nothing decided in
+  advance can capture. It sweeps resolution, shutter ceiling, denoising and
+  sharpening against whatever is in front of the lens, reports what each is
+  worth in keypoints, and prints the launcher line to use. Refuses to
+  recommend anything when no configuration produced a single keypoint, rather
+  than picking a winner out of zeros.
 - `scripts/pi_zero2w/measure_cue_margin.py` — how much margin a bound access
   object actually has on the device it will be shown on. The cue either matches
   or it does not, and the WebUI badge and `/status` report only that; on stage
@@ -70,6 +79,48 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Fixed
 
+- **The camera was opened, never configured.** For most of this project's life
+  exactly one control was set on it — `FrameDurationLimits` — and everything
+  else was left at defaults tuned for photographs a person will look at. That
+  is not the same thing as an image a corner detector can work with, and none
+  of the gaps announce themselves: each one presents as an object that will not
+  bind, or binds and will not match, which is where days of searching went
+  instead. Audited against what the module actually offers, and closed:
+  - **Resolution was 320x240**, about 1.5% of what an `imx708` delivers, and
+    the ceiling on everything downstream. A corner needs pixels to be a corner
+    in. Measured on a printed packet filling ~30% of the frame width, in focus:
+    **24 template keypoints at 320x240, 572 at 640x480, 823 at 1024x768** — and
+    a template needs 60 of its own to be bound at all, so that object could not
+    be bound at the old default no matter what else was right. Now 640x480,
+    tunable by `PHASMID_CAMERA_SIZE`.
+  - **The shutter could run to 200 ms.** A person holding an object still is
+    not still at 200 ms. Measured on a 572-keypoint template: a 3 px smear
+    (~33 ms) scores 197 good matches, 9 px about 70, 21 px scores 22 and is
+    refused. Capped at 33 ms via `PHASMID_CAMERA_MAX_EXPOSURE_US`. Not free —
+    the light lost returns as gain and gain as noise, which the same
+    measurement shows hurts *more* than blur, so the value is adjustable and
+    worth measuring on the bench rather than assuming.
+  - **Denoising smoothed away what ORB looks for** — print, weave, the edge of
+    a label. `PHASMID_CAMERA_DENOISE`, minimal by default.
+  - **Sharpening was left at the ISP's default.** FAST decides a corner from
+    local contrast. `PHASMID_CAMERA_SHARPNESS`, 1.5 by default.
+  - **White balance drifted under the grayscale conversion.** Grayscale is a
+    weighted sum of the channels, so every AWB adjustment is a global change to
+    what ORB sees — and a NoIR sensor, whose red channel carries infrared the
+    algorithm was not designed for, hunts more than most. The gains are now
+    frozen once the camera has settled (`PHASMID_CAMERA_LOCK_AWB`).
+  - **Autofocus was engaged but not aimed.** Metered across the whole frame the
+    lens is as likely to lock onto the desk or the far wall, both of which are
+    more of the picture than the object. Now `AfSpeed` fast, an `AfWindows`
+    focus window on the middle where the object is presented, and an explicit
+    `AfTrigger` sweep before the capture that becomes a template — continuous
+    autofocus is usually in the right place, and "usually" is doing a lot of
+    work at the one moment that gets written to disk.
+
+  Every control is offered against what the module reports supporting, so a
+  fixed-focus or unfamiliar module loses the tuning rather than failing to
+  open, and `status()` reports which were accepted — "the camera ignored half
+  of this" should not look like success.
 - **The camera's lens was never focused.** The module on the device is an
   `imx708` — Camera Module 3 — which has a motorised lens, and picamera2 leaves
   it wherever it powered up unless told otherwise. Pointed at an object on a
