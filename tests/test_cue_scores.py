@@ -120,12 +120,16 @@ class SharedConstantsTests(unittest.TestCase):
         after = matcher.score_frame(state, gray)
         self.assertLess(after["good_matches"], before, "the constant is not being read")
 
-        # The point of the test: the gate moved by exactly the same amount,
-        # because there is one constant and not two copies of 0.75.
-        self.assertEqual(
-            matcher.match_reference_state(state, gray)["good_matches"],
-            after["good_matches"],
-        )
+        # The point of the test: the gate saw exactly the same thing, because
+        # there is one constant and not two copies of 0.75. A ratio this tight
+        # may drop the frame below the bar entirely, which is still agreement -
+        # what must not happen is the gate matching on a count the score does
+        # not report.
+        gated = matcher.match_reference_state(state, gray)
+        if gated is None:
+            self.assertLessEqual(after["good_matches"], after["required_good_matches"])
+        else:
+            self.assertEqual(gated["good_matches"], after["good_matches"])
 
 
 class TuningKnobTests(unittest.TestCase):

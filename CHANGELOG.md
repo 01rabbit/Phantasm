@@ -61,17 +61,52 @@ and this project follows SemVer-style release intent for documented interfaces.
   than no diagnostic, because it is believed — someone would tune against it
   and take the result on stage. `tests/test_cue_scores.py` holds the two paths
   to the same answer in both directions, matching and refusing.
+- `PHASMID_CUE_GOOD_MATCH_RATIO` drops from 0.25 to 0.18. Not a loosening for
+  its own sake: CLAHE finds more keypoints in the same object, and a
+  *proportion* of a richer template is a higher absolute bar, so two
+  presentations that had passed stopped passing — the object tilted five
+  degrees, and the object held ten percent closer. 0.18 is the loosest value at
+  which both return, and no looser. The inlier proportion did not need to move.
 
 ### Fixed
 
+- **A bound object only opened the container in the room it was bound in.**
+  Reported from the device: a Face registered in one place stopped matching
+  once the background changed, which means data stored in one environment
+  could not be recovered in another. For a device whose premise is being
+  carried and used under pressure somewhere else, that is not a rough edge.
+  `to_gray` applied `cv2.equalizeHist` — a *global* remap computed from the
+  whole frame's histogram. The two-shot capture (#184) had already restricted
+  *where* descriptors come from, so the template held only object keypoints;
+  their values were still computed through a mapping the background had a vote
+  in. Measured on an unchanged object patch composited onto different
+  backgrounds, against a bar of 12: **25 good matches on the binding wall, 4 on
+  a dimmer one, 1 in another room.** `to_gray` now uses CLAHE, equalising per
+  tile, so a change on the far side of the frame does not remap the object. The
+  same measurement becomes 502 / 212 / 243, all matching, while the empty scene
+  and a different object still score 0 — the refusal the demo rests on is
+  unchanged. Local equalisation is also far more sensitive on a plain wall: 505
+  template keypoints where the global version found 25, because a histogram
+  dominated by flat wall crushes the object's own contrast into a few levels.
 - `docs/submissions/Phasmid_Demo_Runbook.md` said `PHASMID_RECOGNITION_MODE=demo`
   makes recognition deterministic, which reads as a safety net it is not.
   `_recognition_confidence()` returns 1.0 only when the ORB match has *already*
   succeeded and 0.0 otherwise, so the demo-mode fallback branch is unreachable
-  on a failed match: **there is no rescue path**. Corrected, and a new §9.0.3
+  on a failed match: **there is no rescue path**. Corrected, and a new §9.0.4
   gives the numbers that separate a camera problem from a template problem from
   a geometry problem - tuning thresholds against the wrong one breaks the
   object-absent refusal the demo rests on.
+
+### Migration
+
+- **Objects bound by an earlier build have to be bound again.** Descriptors are
+  only comparable within the grayscale they were cut from, so templates written
+  under `equalizeHist` do not match under CLAHE. Rather than load them and
+  leave an entry that looks bound and silently never matches — which is
+  indistinguishable, to an operator, from the defect above — the store now
+  records which space it wrote (`ObjectCueStore.DESCRIPTOR_SPACE`) and treats
+  anything else as unbound. Re-capture from the Store page; nothing else is
+  affected, and no stored file is touched.
 
 ## [0.6.0] - 2026-08-01
 

@@ -177,9 +177,14 @@ class EffectiveThresholdTests(unittest.TestCase):
         self.assertEqual(inliers, AIGate.MIN_INLIERS)
 
     def test_a_masked_template_is_asked_for_a_share_of_itself(self):
+        """72 keypoints is what a plain wall gave before `to_gray` went local.
+
+        Written as literals rather than as the arithmetic, so a ratio changed
+        without meaning to shows up here as a number that moved.
+        """
         good, inliers = self._for(72)
-        self.assertEqual(good, 18)
-        self.assertEqual(inliers, 11)
+        self.assertEqual(good, 13)  # 0.18 of 72
+        self.assertEqual(inliers, 11)  # 0.15 of 72
 
     def test_a_tiny_template_still_has_to_agree_on_something(self):
         """A proportion of almost nothing is nothing - the floors stop that."""

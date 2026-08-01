@@ -291,7 +291,7 @@ def cue_good_match_ratio() -> float:
     `GOOD_MATCH_FLOOR`. Lower it if a bound object is refused when plainly
     present; raise it if something other than the object opens the cue.
     """
-    return _cue_ratio("PHASMID_CUE_GOOD_MATCH_RATIO", 0.25)
+    return _cue_ratio("PHASMID_CUE_GOOD_MATCH_RATIO", 0.18)
 
 
 def cue_inlier_ratio() -> float:

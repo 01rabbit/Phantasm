@@ -15,6 +15,17 @@ LOG = logging.getLogger(__name__)
 class ObjectCueStore:
     """Persistence layer for encrypted object-cue template state."""
 
+    #: Which grayscale the stored descriptors were cut from. Descriptors are
+    #: only comparable within one space, so a template written under a
+    #: different one has to be treated as absent rather than loaded and left to
+    #: fail every match - "not bound yet" is a state an operator can act on,
+    #: and "bound but silently never matches" is the failure this whole area
+    #: has been spent chasing.
+    #:
+    #: 1 - global `cv2.equalizeHist`
+    #: 2 - CLAHE, local per tile
+    DESCRIPTOR_SPACE = 2
+
     def __init__(
         self,
         *,
@@ -36,7 +47,9 @@ class ObjectCueStore:
 
     def save(self, references: dict[str, dict[str, object | None]]) -> None:
         template = io.BytesIO()
-        payload: dict[str, Any] = {}
+        payload: dict[str, Any] = {
+            "descriptor_space": np.array([self.DESCRIPTOR_SPACE], dtype=np.uint8),
+        }
         for mode in self.modes:
             state = references.get(mode) or self.empty_reference()
             if state["des"] is None:
@@ -74,6 +87,19 @@ class ObjectCueStore:
                 auth_failed_message="reference template authentication failed",
             )
             with np.load(io.BytesIO(plaintext), allow_pickle=False) as template:
+                stored_space = (
+                    int(template["descriptor_space"][0])
+                    if "descriptor_space" in template
+                    else 1
+                )
+                if stored_space != self.DESCRIPTOR_SPACE:
+                    LOG.info(
+                        "object cue templates were built in descriptor space %s "
+                        "and this build reads space %s; treating them as unbound",
+                        stored_space,
+                        self.DESCRIPTOR_SPACE,
+                    )
+                    return references
                 for mode in self.modes:
                     if int(template[f"{mode}_present"][0]) != 1:
                         continue

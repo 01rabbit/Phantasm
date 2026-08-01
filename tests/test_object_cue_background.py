@@ -246,8 +246,15 @@ class ObjectMaskTests(unittest.TestCase):
         refused. That is the whole defect.
         """
         room = _plain_room()
+
+        def globally_equalised(image):
+            # `cv2.equalizeHist` by name rather than through `to_gray`, which
+            # has since moved to CLAHE. The claim being pinned is about the
+            # global remap, so it has to keep naming the global remap.
+            return cv2.equalizeHist(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
+
         mask = self.matcher.object_mask(
-            self.matcher.to_gray(room), self.matcher.to_gray(_held_up(room))
+            globally_equalised(room), globally_equalised(_held_up(room))
         )
         covered = 0.0
         if mask is not None:
