@@ -73,6 +73,39 @@ path resolves to a single gadget address rather than to all interfaces. Without
 a `usb0`/`enx*` address present the check fails by design: that is exactly the
 condition in which a browser on the attached laptop cannot reach the WebUI.
 
+## Cue margin
+
+The smoke test cannot check the camera, and the one camera question that
+matters before a demonstration is not "does the object match" — the WebUI badge
+already answers that — but *by how much*. An object clearing its threshold by
+one point and an object clearing it threefold look identical on screen, right
+up until the lighting changes.
+
+With the operator console stopped and the object presented:
+
+```bash
+.venv/bin/python scripts/pi_zero2w/measure_cue_margin.py --frames 30
+```
+
+It reports, per bound entry, the template's keypoint count, the thresholds that
+count produces, and the good matches and inliers scored over a run of live
+frames — ending in a worst-case margin. **Under about x1.5, expect the stage
+lighting to cross it.**
+
+Prefer moving the object closer or choosing one with more texture over lowering
+`PHASMID_CUE_GOOD_MATCH_RATIO` / `PHASMID_CUE_INLIER_RATIO`: more keypoints
+raise the threshold and the score together, and the score rises faster. Below
+roughly 48 keypoints the floors decide the threshold rather than the ratios, and
+those environment variables will not move it at all — the script says so when
+that is the case.
+
+If the ratios are lowered, re-run with the object absent and again with an
+unbound object. Confirming only the side that should match confirms nothing.
+
+The script reads the same reference store the console uses and registers
+nothing, writes nothing, and changes nothing. The camera is exclusive, so the
+console has to be stopped first.
+
 ## Results
 
 | File | Contents |
