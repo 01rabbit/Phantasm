@@ -17,13 +17,17 @@ and **the object sitting in front of the camera, not moving**:
     .venv/bin/python scripts/pi_zero2w/tune_camera.py
 
 It changes nothing. It prints an export line to put in front of
-`run_demo_console.sh` if the sweep finds something better than the defaults.
+`run_demo_console.sh` if the sweep finds something better than the defaults -
+and it will not recommend a setting the device cannot keep up with, however
+well that setting scores.
 
 Two numbers per configuration:
 
-  keypoints  what ORB finds in the whole frame. More is more to match on, and
-             this is the one that decides whether an object can be bound at
-             all - a template needs 60 of its own.
+  keypoints  what ORB finds in the whole frame, counted with the detector's
+             cap lifted so the number keeps meaning something past the point
+             the gate itself stops at. More is more to match on, and this is
+             what decides whether an object can be bound at all - a template
+             needs 60 of its own.
   sharpness  variance of the Laplacian: how much fine detail survives to be
              found. Falls with blur, whether from a lens in the wrong place or
              a shutter open too long. Useful as the reason a keypoint count
@@ -60,6 +64,21 @@ MATCHER = ObjectCueMatcher(
     min_inliers=30,
 )
 
+#: The gate's detector stops at `nfeatures=1000`, which is the right cap for
+#: matching and the wrong one for comparing settings: past a certain amount of
+#: detail every configuration reports exactly 1000 and the sweep can no longer
+#: tell them apart. Measured on the device, 640x480 gave 919 and everything
+#: above it gave 1000 - which reads as "bigger is better" when it is really
+#: "the ruler ended here". So the probe counts with the cap lifted.
+PROBE = cv2.ORB_create(nfeatures=20000)
+
+#: How much of the frame interval the sweep's own work may take. The console
+#: does more per frame than this does - it matches against every bound entry,
+#: encodes a JPEG and draws the overlay - so a configuration that only just
+#: fits here will not fit there. At the console's four frames a second the
+#: interval is 250 ms; this leaves room for the rest of the pipeline.
+FRAME_BUDGET_MS = 150.0
+
 
 def measure(size: tuple[int, int], env: dict[str, str], settle: float = 1.5) -> dict:
     """Open the camera under `env` and report what it delivers."""
@@ -83,7 +102,7 @@ def measure(size: tuple[int, int], env: dict[str, str], settle: float = 1.5) -> 
             if not success or frame is None:
                 continue
             gray = MATCHER.to_gray(frame)
-            found, _des = MATCHER.orb.detectAndCompute(gray, None)
+            found = PROBE.detect(gray, None)
             keypoints.append(len(found) if found else 0)
             sharpness.append(float(cv2.Laplacian(gray, cv2.CV_64F).var()))
         applied = camera.status()
@@ -117,21 +136,57 @@ def show(label: str, result: dict) -> None:
 
 
 def sweep(title: str, options: list, run) -> tuple:
-    """Try each option, print what it gave, and return the best."""
+    """Try each option and return the best one the device can actually run.
+
+    Two things this must not do, both learned from a run that did them:
+
+    Recommend a configuration the console cannot keep up with. More pixels than
+    the device can process is not more cue - the match history needs several
+    consecutive frames, and frames that arrive late are frames that do not
+    arrive. So anything past the budget is out, however well it scores.
+
+    Pick a winner out of a tie. When several options report the same keypoint
+    count the difference is below what this can measure, and `max` would answer
+    with whichever happened to be first in the list. Ties fall through to
+    sharpness, and if that is level too, to the cheapest.
+    """
     print(f"\n{title}")
     scored = []
     for label, option in options:
         result = run(option)
         show(label, result)
-        scored.append((result["keypoints"], label, option, result))
-    if not any(row[0] for row in scored):
-        # Every configuration scored nothing, which is a camera that is not
-        # delivering rather than a tie. Picking a winner here would hand back a
-        # recommendation derived from zeros.
+        scored.append((label, option, result))
+
+    if not any(row[2]["keypoints"] for row in scored):
+        # Not a tie - a camera that is not delivering. A recommendation
+        # computed from zeros would be worse than none.
         raise CameraDeliveredNothing(title)
-    best = max(scored, key=lambda row: row[0])
-    print(f"  -> best: {best[1]}")
-    return best[2], best[3]
+
+    affordable = [row for row in scored if row[2]["interval_ms"] <= FRAME_BUDGET_MS]
+    if not affordable:
+        cheapest = min(scored, key=lambda row: row[2]["interval_ms"])
+        print(
+            f"  ! every option costs more than {FRAME_BUDGET_MS:.0f} ms/frame; "
+            f"falling back to the cheapest ({cheapest[0]})"
+        )
+        affordable = [cheapest]
+    elif len(affordable) < len(scored):
+        dropped = [row[0] for row in scored if row not in affordable]
+        print(f"  ! too slow for the console, not considered: {', '.join(dropped)}")
+
+    best = max(
+        affordable,
+        key=lambda row: (
+            row[2]["keypoints"],
+            row[2]["sharpness"],
+            -row[2]["interval_ms"],
+        ),
+    )
+    tied = [row[0] for row in affordable if row[2]["keypoints"] == best[2]["keypoints"]]
+    if len(tied) > 1:
+        print(f"  ({len(tied)} tied on keypoints; broken by sharpness)")
+    print(f"  -> best: {best[0]}")
+    return best[1], best[2]
 
 
 def main() -> int:
