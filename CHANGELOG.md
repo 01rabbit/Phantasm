@@ -70,6 +70,20 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Fixed
 
+- **The camera's lens was never focused.** The module on the device is an
+  `imx708` — Camera Module 3 — which has a motorised lens, and picamera2 leaves
+  it wherever it powered up unless told otherwise. Pointed at an object on a
+  desk, that is the wrong distance. Nothing anywhere reports it: an
+  out-of-focus frame is not an error, it is a frame with almost no corners in
+  it, so the object fails to bind (`Object does not stand out from the scene
+  behind it`, with the mask found and under 60 keypoints inside it) and, once
+  bound, fails to match. Every reading looks like a problem with the object.
+  The camera is now asked what it supports and set to continuous autofocus when
+  it has a lens to move; fixed-focus modules have no `AfMode` and are left
+  alone. `PHASMID_CAMERA_FOCUS` overrides — `auto` for a single sweep, `off`
+  for the previous behaviour, or a number of dioptres to park it. `/status`
+  reports which was applied, because "the lens is in the wrong place" is
+  invisible in every other number.
 - **Capture and retrieval were never held to the same standard, and the
   asymmetry ran the wrong way.** Asked from the device: is retrieval stricter
   than capture? It is. Capture *builds* a template from the frame in front of

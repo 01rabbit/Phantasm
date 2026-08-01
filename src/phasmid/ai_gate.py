@@ -608,6 +608,7 @@ class AIGate:
                 for mode in self.MODES
             },
             "camera_backend": camera_status["backend"],
+            "camera_focus_mode": camera_status.get("focus_mode"),
             "last_camera_error": camera_status["last_error"],
             "camera_backend_warnings": camera_status.get("backend_warnings", []),
             "stream_resolution": camera_status["resolution"],
