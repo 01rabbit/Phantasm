@@ -426,10 +426,40 @@ class AIGate:
         if self.matcher.explains_frame(candidate_state, scene_match_gray):
             return False, text.AI_GATE_OBJECT_IS_THE_SCENE
 
-        committed = self._commit_reference(mode, candidate_state)
+        committed = self._commit_reference(mode, candidate_state, verify_live=True)
         if committed[0]:
             self.discard_scene()
         return committed
+
+    def _matches_repeatably(self, candidate_state: dict[str, Any]) -> bool:
+        """Would this template still answer to the object a second from now?
+
+        Capture and retrieval were never held to the same standard, and the
+        asymmetry ran the wrong way. Capture *builds* a template from the frame
+        in front of it, so it succeeds by construction; the only test it ran
+        was the negative one - that the template does not answer to the empty
+        scene. Retrieval then asks for something strictly harder: the per-frame
+        thresholds, and `MATCH_HISTORY_REQUIRED` of the last
+        `MATCH_HISTORY_FRAMES` frames agreeing, which at `TARGET_FPS` is about a
+        second of *consistent* matching. A template scoring near the bar
+        flickers across that window and never accumulates, so the operator gets
+        a clean capture and an entry that will not open, with nothing said in
+        between.
+
+        So capture now applies the bar retrieval will apply, to fresh frames of
+        the object still being held. Failing here costs a re-capture; failing
+        the old way costs finding out at the moment the data is needed.
+        """
+        matched_frames = 0
+        for _ in range(self.MATCH_HISTORY_FRAMES):
+            with self.lock:
+                frame = None if self.latest_frame is None else self.latest_frame.copy()
+            if frame is not None:
+                gray = self.matcher.to_gray(frame)
+                if self.matcher.match_reference_state(candidate_state, gray):
+                    matched_frames += 1
+            time.sleep(1.0 / self.TARGET_FPS)
+        return matched_frames >= self.MATCH_HISTORY_REQUIRED
 
     def _why_no_object(self, scene_diff_gray: Any, frame: Any) -> str:
         """Which of the two capture failures to show the operator.
@@ -502,13 +532,28 @@ class AIGate:
         return cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
 
     def _commit_reference(
-        self, mode: str, candidate_state: dict[str, Any]
+        self,
+        mode: str,
+        candidate_state: dict[str, Any],
+        *,
+        verify_live: bool = False,
     ) -> tuple[bool, str]:
         if self._references_too_similar(mode, candidate_state):
             return (
                 False,
                 text.AI_GATE_CUES_TOO_SIMILAR,
             )
+
+        # Ordered after the similarity check on purpose: that one is cheap and
+        # re-capturing the same object will never satisfy it, so spending a
+        # second of the operator's time holding still first would be a second
+        # spent on a refusal already decided.
+        #
+        # Only the camera path asks for it. Registering from an image file has
+        # no live frames to be repeatable across, and demanding them would
+        # refuse every such binding rather than check anything.
+        if verify_live and not self._matches_repeatably(candidate_state):
+            return False, text.AI_GATE_OBJECT_NOT_REPEATABLE
 
         try:
             updated_references = dict(self.reference_data)
@@ -616,10 +661,19 @@ class AIGate:
             return []
         kp, des = self.matcher.orb.detectAndCompute(frame_gray, None)
         scored = []
-        for index, state in enumerate(reference_data.values()):
+        for index, (mode, state) in enumerate(reference_data.items()):
             score = self.matcher.score_descriptors(state, kp, des)
-            if score is not None:
-                scored.append((f"entry {index + 1}", score))
+            if score is None:
+                continue
+            # How many of the recent frames this entry held, against how many
+            # it has to hold. Clearing the per-frame bar is not enough to open
+            # anything: a score sitting near the threshold flickers, and the
+            # count is where that shows up.
+            score["stable_frames"] = sum(
+                1 for active in self.match_history if mode in active
+            )
+            score["stable_required"] = self.MATCH_HISTORY_REQUIRED
+            scored.append((f"entry {index + 1}", score))
         return scored
 
     def _draw_cue_scores(self, image: Any, scores: list) -> None:
@@ -644,7 +698,9 @@ class AIGate:
                 image,
                 f"{label}  tpl {score['keypoints']}  frame {score['frame_keypoints']}"
                 f"  good {score['good_matches']}/{score['required_good_matches']}"
-                f"  inliers {score['inliers']}/{score['required_inliers']}",
+                f"  inliers {score['inliers']}/{score['required_inliers']}"
+                f"  stable {score.get('stable_frames', 0)}"
+                f"/{score.get('stable_required', self.MATCH_HISTORY_REQUIRED)}",
                 (8, top + line_height * (index + 1) - 3),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.38,

@@ -70,6 +70,26 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Fixed
 
+- **Capture and retrieval were never held to the same standard, and the
+  asymmetry ran the wrong way.** Asked from the device: is retrieval stricter
+  than capture? It is. Capture *builds* a template from the frame in front of
+  it, so it succeeds by construction; the only test it ran was the negative one
+  from #184, that the template does not answer to the empty scene. Nothing
+  asked whether it would still answer to the *object* a moment later.
+  Retrieval, meanwhile, asks past the per-frame thresholds for the entry to
+  appear in `MATCH_HISTORY_REQUIRED` of the last `MATCH_HISTORY_FRAMES` frames
+  — at `TARGET_FPS`, about a second of consistent matching. A template scoring
+  near the bar flickers across that window and never accumulates, so the
+  operator got a clean capture, a green toast, and an entry that would not
+  open, with the two events far enough apart not to look related. Capture now
+  samples fresh frames of the object still being held and applies the same
+  count, refusing with what to change. It runs after the too-similar check,
+  which is cheap and which re-capturing can never satisfy, and only on the
+  camera path — registering from an image file has no live frames to be
+  repeatable across.
+- The cue overlay reports `stable N/3` alongside the per-frame scores. Clearing
+  the per-frame bar is not enough to open anything, and a score sitting near
+  the threshold is visible only as a count that will not fill.
 - **A bound object only opened the container in the room it was bound in.**
   Reported from the device: a Face registered in one place stopped matching
   once the background changed, which means data stored in one environment

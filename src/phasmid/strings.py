@@ -97,6 +97,11 @@ AI_GATE_OBJECT_IS_THE_SCENE = (
     "Rejected: the cue still matches the empty scene, so the background "
     "would open it without the object. Re-capture."
 )
+AI_GATE_OBJECT_NOT_REPEATABLE = (
+    "Captured, but the object did not keep matching over the next second, so "
+    "opening with it would not be reliable. Hold it steadier, move it closer, "
+    "add light, or use something with more surface detail."
+)
 AI_GATE_IMAGE_UNREADABLE = "Image file could not be read. Use a standard image format."
 AI_GATE_NO_FRAME = "No frame."
 AI_GATE_SAVE_FAILED = "Failed to save reference template."
