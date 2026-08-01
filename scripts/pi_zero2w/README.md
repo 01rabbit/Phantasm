@@ -73,6 +73,33 @@ path resolves to a single gadget address rather than to all interfaces. Without
 a `usb0`/`enx*` address present the check fails by design: that is exactly the
 condition in which a browser on the attached laptop cannot reach the WebUI.
 
+## Camera tuning
+
+How many keypoints the cue has to work with is decided by the camera, long
+before any threshold is applied — by resolution, by how long the shutter is
+open, by how hard the ISP denoises, and by where the lens is. Those defaults are
+tuned for photographs a person will look at, which is not the same thing as an
+image a corner detector can work with.
+
+The right values depend on the room and the object. With the console stopped and
+the object sitting in front of the camera, not moving:
+
+```bash
+.venv/bin/python scripts/pi_zero2w/tune_camera.py
+```
+
+It sweeps resolution, shutter ceiling, denoising and sharpening against the
+object actually there, reports what each is worth in keypoints, and prints an
+export line to put in front of the launcher. It writes nothing.
+
+Read the `ms/frame` column as well as the keypoint count: past roughly 250 ms
+the device will not hold four frames a second, and the match history needs
+several consecutive frames before anything opens. More pixels than the Pi can
+process is not more cue.
+
+Re-bind the object after changing any of these — a template is only comparable
+with frames captured the same way — then confirm with **Cue margin** below.
+
 ## Cue margin
 
 The smoke test cannot check the camera, and the one camera question that

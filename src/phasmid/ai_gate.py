@@ -13,6 +13,7 @@ from .camera_frame_source import CameraFrameSource
 from .config import (
     STATE_BLOB_NAME,
     STATE_KEY_NAME,
+    camera_frame_size,
     cue_debug_overlay_enabled,
     cue_good_match_ratio,
     cue_inlier_ratio,
@@ -56,7 +57,9 @@ class AIGate:
     MIN_FRAME_DESCRIPTORS = 10
     MIN_GOOD_MATCHES = 50
     MIN_INLIERS = 30
-    FRAME_SIZE = (320, 240)
+    #: Set from config at construction; the class attribute is the fallback
+    #: for code that reads it without an instance.
+    FRAME_SIZE = (640, 480)
     MATCH_HISTORY_FRAMES = 5
     MATCH_HISTORY_REQUIRED = 3
     REFERENCE_CAPTURE_SAMPLES = 3
@@ -120,6 +123,7 @@ class AIGate:
         )
         self.experimental_object_model_enabled = experimental_object_model_enabled()
         self.object_gate = ObjectGate()
+        self.FRAME_SIZE = camera_frame_size()
         self.camera = CameraFrameSource(frame_size=self.FRAME_SIZE, fps=self.TARGET_FPS)
 
         self.reference_data = {mode: self._empty_reference() for mode in self.MODES}
@@ -404,6 +408,12 @@ class AIGate:
         # what ORB would match. Using the equalised image for the difference
         # remaps the background along with the object and reports a third of the
         # view as changed for an object covering an eighth of it.
+        # Focus before the frame that becomes a template. Continuous autofocus
+        # is usually in the right place, but "usually" is doing a lot of work
+        # at the one moment that gets written to disk and then has to keep
+        # matching for the life of the entry.
+        self.camera.refocus()
+
         scene_diff_gray = self.matcher.to_diff_gray(scene_frame)
         mask = self.matcher.object_mask(
             scene_diff_gray, self.matcher.to_diff_gray(frame)
