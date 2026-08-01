@@ -8,6 +8,8 @@ from typing import Any
 
 import cv2
 
+from .config import camera_focus_mode
+
 LOG = logging.getLogger(__name__)
 
 
@@ -46,6 +48,10 @@ class CameraFrameSource:
         self._first_frame_logged = False
         self.source_pixel_format = "unknown"
         self._last_rgb_to_bgr_applied = False
+        #: What was done about focus, reported in `status()`. A lens
+        #: parked at the wrong distance shows up in no single score, only
+        #: in every score at once.
+        self.focus_mode = "unset"
         self.state = CameraRuntimeState(
             resolution={"width": frame_size[0], "height": frame_size[1]},
             fps_target=fps,
@@ -90,9 +96,11 @@ class CameraFrameSource:
 
         try:
             self.picam2 = Picamera2()
+            camera_controls: dict[str, Any] = {"FrameDurationLimits": (200000, 333333)}
+            camera_controls.update(self._focus_controls())
             config = self.picam2.create_video_configuration(
                 main={"size": self.frame_size, "format": "RGB888"},
-                controls={"FrameDurationLimits": (200000, 333333)},
+                controls=camera_controls,
             )
             self.picam2.configure(config)
             self.picam2.start()
@@ -114,6 +122,61 @@ class CameraFrameSource:
             LOG.error("%s", self.last_error)
             self._release_picamera2()
             return False
+
+    def _focus_controls(self) -> dict[str, Any]:
+        """Focus controls for a module that actually has a lens to move.
+
+        The Camera Module 3 family (`imx708`) has a motorised lens, and
+        picamera2 leaves it wherever it powered up unless told otherwise -
+        which, for a camera pointed at something on a desk, is the wrong
+        distance. Nothing reports that. An out-of-focus frame is not an error;
+        it is a frame with hardly any corners in it, so the cue reads as an
+        object that will not bind and will not match, and every symptom of a
+        misplaced lens is a symptom of something else.
+
+        Fixed-focus modules have no `AfMode` at all, so this asks the camera
+        what it supports rather than assuming a sensor.
+
+        `PHASMID_CAMERA_FOCUS` overrides: `continuous` (default), `auto` for a
+        single sweep, `off` to leave the lens alone, or a number to park it at
+        that many dioptres - 0 is infinity, 5.0 is roughly 20 cm.
+        """
+        setting = camera_focus_mode()
+        if setting == "off":
+            self.focus_mode = "off (lens left alone)"
+            return {}
+
+        try:
+            from libcamera import controls as libcamera_controls  # type: ignore
+
+            supported = self.picam2.camera_controls if self.picam2 else {}
+        except Exception as exc:  # pragma: no cover - depends on the host stack
+            self.focus_mode = "unavailable"
+            LOG.debug("focus controls unavailable: %s", exc)
+            return {}
+
+        if "AfMode" not in supported:
+            self.focus_mode = "fixed lens"
+            return {}
+
+        try:
+            position = float(setting)
+        except ValueError:
+            position = None
+
+        if position is not None:
+            self.focus_mode = f"manual at {position} dioptres"
+            return {
+                "AfMode": libcamera_controls.AfModeEnum.Manual,
+                "LensPosition": position,
+            }
+
+        if setting == "auto":
+            self.focus_mode = "auto (single sweep)"
+            return {"AfMode": libcamera_controls.AfModeEnum.Auto}
+
+        self.focus_mode = "continuous"
+        return {"AfMode": libcamera_controls.AfModeEnum.Continuous}
 
     def _open_opencv(self) -> bool:
         try:
@@ -263,6 +326,7 @@ class CameraFrameSource:
                 "frames_yielded": self.state.frames_yielded,
                 "source_pixel_format": self.source_pixel_format,
                 "rgb_to_bgr_applied": self._last_rgb_to_bgr_applied,
+                "focus_mode": self.focus_mode,
             }
 
     def _prepare_frame_for_jpeg(self, frame, *, source_format: str):

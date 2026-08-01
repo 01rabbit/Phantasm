@@ -339,6 +339,24 @@ def cue_ransac_reprojection_px() -> float:
     return value
 
 
+def camera_focus_mode() -> str:
+    """What to do about the lens on a module that has a movable one.
+
+    The Camera Module 3 family carries a motorised lens that picamera2 leaves
+    where it powered up unless told otherwise. Pointed at an object on a desk,
+    that is the wrong distance, and nothing anywhere reports it: an
+    out-of-focus frame is a frame with very few corners in it, so the object
+    fails to bind and fails to match, and every reading looks like a problem
+    with the object.
+
+    Values: `continuous` (default), `auto` for a single sweep at startup, `off`
+    to leave the lens untouched, or a number of dioptres to park it at - 0 is
+    infinity, 5.0 is roughly 20 cm. Ignored by fixed-focus modules, which have
+    no lens control to set.
+    """
+    return env_text("PHASMID_CAMERA_FOCUS", "continuous").strip().lower()
+
+
 def cue_debug_overlay_enabled() -> bool:
     """Draw the live cue scores on the camera preview.
 
