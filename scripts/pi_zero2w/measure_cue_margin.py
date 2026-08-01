@@ -35,9 +35,16 @@ Reading the result:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
+
+# libcamera logs to stderr at INFO, which buries the table this script exists
+# to print under a dozen lines about tuning files. `run_demo_console.sh`
+# silences it for the same reason; this is run outside that script, so it has
+# to do it itself. Set rather than forced, so a deliberate override survives.
+os.environ.setdefault("LIBCAMERA_LOG_LEVELS", "*:ERROR")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -136,9 +143,15 @@ def sample(gate, bound, frames: int, settle: float) -> dict:
     time.sleep(settle)
     try:
         for index in range(frames):
-            frame = gate.camera.read()
-            if frame is None:
-                print(f"  {index:>3}  no frame from the camera")
+            # `CameraFrameSource.read()` answers (success, frame), the same
+            # pair the gate's own capture loop unpacks. Taking it as a bare
+            # frame reaches cv2 as a tuple and fails several calls later, in a
+            # message about colour conversion.
+            success, frame = gate.camera.read()
+            if not success or frame is None:
+                print(
+                    f"  {index:>3}  no frame from the camera: {gate.camera.status()['last_error']}"
+                )
                 time.sleep(0.25)
                 continue
             gray = matcher.to_gray(frame)
