@@ -825,7 +825,7 @@ class WebServerBoundaryTests(unittest.TestCase):
     def test_a_destroy_password_clears_the_entry_it_belongs_to(self):
         """It used to clear the other one, and hand this one's contents back.
 
-        `_purge_for_password_role` predated the rule 0.5.0 settled on - a
+        `_purge_for_password_role` predated the rule 0.6.0 settled on - a
         destroy password ends the entry it belongs to, and never discloses -
         and it only ran on the pre-Vessel container, so the two storage paths
         implemented opposite rules inside the same endpoint.

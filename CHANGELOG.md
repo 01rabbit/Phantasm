@@ -7,6 +7,93 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-01
+
+> Everything in this release came from running the demo on the device rather
+> than from reading the code. The object cue was binding to the wall behind the
+> object; the retrieval lockout never ended, and on the CLI side had never
+> counted past one failure; clearing a Face was impossible for anything the
+> WebUI had protected. The capability that closes the release is the one the
+> hardware sessions argued for: **a destroy password now works in the field
+> that opens an entry**, so refusing under pressure needs no separate screen a
+> watcher could learn to recognise.
+>
+> This is a MINOR bump: no `vault.bin` format changed and no claim was removed
+> from `docs/CLAIMS.md`, per [docs/VERSIONING.md](docs/VERSIONING.md).
+> `src/phasmid/dummy_generator.py` was removed, but nothing in `src/` imported
+> it and no CLI, TUI or WebUI path reached it, so no documented operator
+> behaviour changed with it — CLM-40 stands and now points at the filler that
+> ships. Two claims are added: CLM-46 and CLM-47.
+
+### Security
+
+- The destroy password now works from the ordinary retrieval field. Entering an
+  entry's destroy password where its access password goes, with that entry's
+  object in front of the camera, clears the entry — and the response is the one
+  a mistyped password produces, byte for byte. Nothing on the surface separates
+  the two, which is the whole property: **the credential that can be compelled
+  is not the only credential there is**, and using the other one requires no
+  different screen, field, or gesture that a person watching could learn to
+  recognise. Reached only after the ordinary retrieval has failed, so an access
+  password can never be shadowed by it, and scoped by the live object match, so
+  one entry's destroy password cannot reach the other. It does not count against
+  the attempt limiter: the credential was correct, and an operator who has just
+  cleared one entry still needs the attempts to open another. The cost of giving
+  nothing away is that the operator is told nothing either — success is
+  observable only as the entry no longer opening, so it has to be rehearsed.
+  The explicit `/destroy_face` panel stays for clearing an entry deliberately
+  rather than under pressure. (#191, CLM-46)
+- `POST /destroy_face` — clearing a protected entry from the WebUI. The destroy
+  credential existed only in `phasmid emergency destroy-face`, so the one
+  scenario the tool exists for, refusing to disclose under duress, was the one
+  that dropped out of the browser and onto a terminal. It reuses the service
+  call the CLI already uses and asks for the same `DESTROY FACE` phrase, so the
+  two interfaces agree rather than each inventing a dialect. Which entry is
+  cleared is decided by the object in front of the camera and never by a request
+  parameter: naming an entry on screen would say there is more than one. The
+  destroy password stays a distinct credential from the access password —
+  neither can do the other's job — so a coerced operator who hands over the
+  access password has not handed over this. Every refusal reads the same, and
+  failures count against the same attempt limiter as `/retrieve`. This is the
+  only restricted action gated by a credential rather than by a public phrase
+  alone, and it deliberately does **not** additionally require a restricted
+  confirmation session: that would add a step without adding authorization, in
+  the one flow reached in front of the person applying the pressure. (#189)
+- An access lockout never ended. `AttemptLimiter` cleared its failure count
+  only on a success, so after serving the full sixty seconds the caller still
+  stood at `max_failures` and the next single mistake locked them out again —
+  indefinitely, for anyone who could not produce a success. Reported from the
+  device as the lockout "dragging on" long past its sixty seconds. Serving the
+  lockout now spends the failures that earned it, and the lockout itself still
+  holds for its whole period. (#190)
+- `FileAttemptLimiter` could not record a second failure. `write_record`
+  treated rewriting a record in the phase it was already in as an illegal
+  transition, so the first failure persisted and every one after it raised
+  `state transition rejected` — meaning the CLI-side retrieval lockout has
+  never counted past one, and the brute-force ceiling CLM-31 and CLM-32
+  describe did not hold on that path. A rewrite in the same phase is an update
+  in place, not a transition, and is now allowed; genuine backwards moves are
+  still rejected. (#190)
+- The pre-Vessel container implemented the opposite destruction rule from the
+  one this release settled on, inside the same endpoint. `_purge_for_password_role`
+  handed back the payload the destroy password decrypted *and* cleared the
+  **other** entry; the rule is that a destroy password ends the entry it belongs
+  to and never discloses. Both halves were the wrong way round. Replaced by
+  `_clear_accessed_entry`, named for what it does. Only ever ran when no Vessel
+  was registered, so no stored data behaved this way in practice — but a
+  contradiction left in the tree is one somebody eventually builds on. (#192)
+- Clearing a Face was impossible for anything the WebUI had protected.
+  `destroy_face` and `destroy_vessel` asked only for the registry's
+  `object_binding` fingerprint, which the CLI writes and the WebUI never does —
+  the WebUI binds through the ORB cue store. Every attempt raised "object
+  binding not registered", which `/destroy_face` reported as an ordinary
+  rejection, indistinguishable from a wrong destroy password. Measured on a
+  WebUI-stored Face: the destroy password verified and the call still failed.
+  Both mechanisms are now accepted; only the *proof* differs, and either way
+  the operator must be holding the right object at the moment they ask. This
+  also repairs the CLI fallback the Runbook documents, which had the same
+  blind spot. (#190)
+
 ### Added
 
 - Doctor reports **Clearing Passwords**: how many set-up entries have a
@@ -21,7 +108,10 @@ and this project follows SemVer-style release intent for documented interfaces.
   variables in the check above it, nothing here fires without the operator
   typing that specific password, so an entry without one is a setup state, not
   an armed hazard. Suppressed under `PHASMID_FIELD_MODE`, following the Simple
-  screen's cross-entry file total. (#194)
+  screen's cross-entry file total. (#194, CLM-47)
+- `PHASMID_CUE_GOOD_MATCH_RATIO` and `PHASMID_CUE_INLIER_RATIO` — per-device
+  tuning for the proportional cue thresholds below. Documented in
+  `docs/CONFIGURATION.md`. (#188)
 
 ### Changed
 
@@ -60,7 +150,6 @@ and this project follows SemVer-style release intent for documented interfaces.
   dates, deterministic output, and filenames that do not imply a provenance.
   CLM-37 and the implementation-status entries now point at the live code and
   its tests too. (#165)
-
 - Anything that asked "is the bound object present?" was answered *no* whenever
   the matcher had been stopped — not because the object was absent, but because
   nothing was looking. A successful retrieval calls `access_cue_service.close()`
@@ -73,83 +162,6 @@ and this project follows SemVer-style release intent for documented interfaces.
   gated on a frame actually arriving so a device with no camera answers at once
   rather than standing still on every call. Free when the matcher is already
   running, which is the normal case. (#192)
-- The pre-Vessel container implemented the opposite destruction rule from the
-  one 0.5.0 settled on, inside the same endpoint. `_purge_for_password_role`
-  handed back the payload the destroy password decrypted *and* cleared the
-  **other** entry; the rule is that a destroy password ends the entry it belongs
-  to and never discloses. Both halves were the wrong way round. Replaced by
-  `_clear_accessed_entry`, named for what it does. Only ever ran when no Vessel
-  was registered, so no stored data behaved this way in practice — but a
-  contradiction left in the tree is one somebody eventually builds on. (#192)
-
-### Added
-
-- The destroy password now works from the ordinary retrieval field. Entering an
-  entry's destroy password where its access password goes, with that entry's
-  object in front of the camera, clears the entry — and the response is the one
-  a mistyped password produces, byte for byte. Nothing on the surface separates
-  the two, which is the whole property: **the credential that can be compelled
-  is not the only credential there is**, and using the other one requires no
-  different screen, field, or gesture that a person watching could learn to
-  recognise. Reached only after the ordinary retrieval has failed, so an access
-  password can never be shadowed by it, and scoped by the live object match, so
-  one entry's destroy password cannot reach the other. It does not count against
-  the attempt limiter: the credential was correct, and an operator who has just
-  cleared one entry still needs the attempts to open another. The cost of giving
-  nothing away is that the operator is told nothing either — success is
-  observable only as the entry no longer opening, so it has to be rehearsed.
-  The explicit `/destroy_face` panel stays for clearing an entry deliberately
-  rather than under pressure. (#191)
-
-### Fixed
-
-- An access lockout never ended. `AttemptLimiter` cleared its failure count
-  only on a success, so after serving the full sixty seconds the caller still
-  stood at `max_failures` and the next single mistake locked them out again —
-  indefinitely, for anyone who could not produce a success. Reported from the
-  device as the lockout "dragging on" long past its sixty seconds. Serving the
-  lockout now spends the failures that earned it, and the lockout itself still
-  holds for its whole period. (#190)
-- `FileAttemptLimiter` could not record a second failure. `write_record`
-  treated rewriting a record in the phase it was already in as an illegal
-  transition, so the first failure persisted and every one after it raised
-  `state transition rejected` — meaning the CLI-side retrieval lockout has
-  never counted past one. A rewrite in the same phase is an update in place,
-  not a transition, and is now allowed; genuine backwards moves are still
-  rejected. (#190)
-- Clearing a Face was impossible for anything the WebUI had protected.
-  `destroy_face` and `destroy_vessel` asked only for the registry's
-  `object_binding` fingerprint, which the CLI writes and the WebUI never does —
-  the WebUI binds through the ORB cue store. Every attempt raised "object
-  binding not registered", which `/destroy_face` reported as an ordinary
-  rejection, indistinguishable from a wrong destroy password. Measured on a
-  WebUI-stored Face: the destroy password verified and the call still failed.
-  Both mechanisms are now accepted; only the *proof* differs, and either way
-  the operator must be holding the right object at the moment they ask. This
-  also repairs the CLI fallback the Runbook documents, which had the same
-  blind spot. (#190)
-
-### Added
-
-- `POST /destroy_face` — clearing a protected entry from the WebUI. The destroy
-  credential existed only in `phasmid emergency destroy-face`, so the one
-  scenario the tool exists for, refusing to disclose under duress, was the one
-  that dropped out of the browser and onto a terminal. It reuses the service
-  call the CLI already uses and asks for the same `DESTROY FACE` phrase, so the
-  two interfaces agree rather than each inventing a dialect. Which entry is
-  cleared is decided by the object in front of the camera and never by a request
-  parameter: naming an entry on screen would say there is more than one. The
-  destroy password stays a distinct credential from the access password —
-  neither can do the other's job — so a coerced operator who hands over the
-  access password has not handed over this. Every refusal reads the same, and
-  failures count against the same attempt limiter as `/retrieve`. This is the
-  only restricted action gated by a credential rather than by a public phrase
-  alone, and it deliberately does **not** additionally require a restricted
-  confirmation session: that would add a step without adding authorization, in
-  the one flow reached in front of the person applying the pressure. (#189)
-
-### Fixed
-
 - A bound object was refused at retrieval when it was plainly in front of the
   camera. `MIN_GOOD_MATCHES=50` / `MIN_INLIERS=30` are absolute counts
   calibrated when a reference template covered the whole frame and carried
@@ -164,8 +176,7 @@ and this project follows SemVer-style release intent for documented interfaces.
   never came from the counts being high: on the same scene the empty view and a
   different object each score zero good matches, so the separation is 42-vs-0,
   not 42-vs-49. After the change all six presentations match and all four
-  negative cases are still refused. Tunable per device via
-  `PHASMID_CUE_GOOD_MATCH_RATIO` and `PHASMID_CUE_INLIER_RATIO`. (#188)
+  negative cases are still refused. (#188)
 - Binding an access object failed on real hardware, and the failure was in the
   two-shot capture added for #184, not in how the object was presented. The
   scene and object frames were differenced after `cv2.equalizeHist`, which is a
@@ -195,14 +206,20 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Documentation
 
-- Demo Runbook and Talk Script updated for the hardware-verified 0.5.0 flow:
+- Demo Runbook and Talk Script updated for the hardware-verified flow:
   two-shot capture in Step 2, the object held up through the save, and
   **Step 4 (object absent, retrieval refused) moved to the WebUI** now that the
   negative case is verified there. Step 3 and Step 4 run in the same tab, so the
   contrast changes only the object — not the screen. `Recover File` stays in the
   TUI as the fallback when the WebUI is unavailable, and the WebUI's five-failure
   lockout is called out, because rehearsing Step 4 there can consume it before
-  the talk.
+  the talk. A new Step 4b covers ending an entry with its destroy password from
+  the same field, including the fact that **success is silent** — the only
+  confirmation is that the entry no longer opens.
+- `docs/CLAIMS.md` gains CLM-46 (a destroy password entered in the retrieval
+  field ends the entry it belongs to, discloses nothing, and is answered
+  identically to a mistyped password) and CLM-47 (Doctor reports clearing-password
+  coverage as counts only, never which entry).
 
 ## [0.5.0] - 2026-07-30
 
