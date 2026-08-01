@@ -31,6 +31,26 @@ and this project follows SemVer-style release intent for documented interfaces.
   and these numbers describe the mechanism (CLM-05), so this is for rehearsing
   with nobody watching. Costs one extra feature extraction per frame while
   enabled, and nothing at all when it is off.
+- `PHASMID_CUE_LOWE_RATIO` and `PHASMID_CUE_RANSAC_PX` expose the two constants
+  that decide *what counts as the same feature* and *how far a correspondence
+  may sit from the fitted geometry*. Asked for from the device, where an object
+  that matched one day stopped matching the next. They are the knobs the
+  proportional thresholds cannot substitute for: the Lowe ratio is the one for
+  light that has moved since the object was bound, and the RANSAC tolerance is
+  the one for **many good matches and almost no inliers**, which is what a
+  non-planar object looks like when it is turned - `findHomography` fits a
+  plane-to-plane transform, so correspondences off that plane are discarded as
+  outliers no matter how real they are. Neither substitutes for binding the
+  view being shown, and loosening either has to be re-verified against the
+  object-absent refusal or Step 4 of the demo stops proving anything.
+- `score_descriptors` reports `frame_keypoints` alongside the template's count,
+  and the overlay shows both. A template of 213 keypoints scoring 5 good
+  matches reads identically whether the frame offered 900 candidates or 6 -
+  whether the object is in front of a working camera and not being recognised,
+  or the camera is delivering a blur. Those want opposite responses.
+- `measure_cue_margin.py --save DIR` writes the first frame and the grayscale
+  actually matched on. No score answers "is the object in the picture at all",
+  which stayed the open question through two rounds of measuring on the device.
 
 ### Changed
 
@@ -41,6 +61,17 @@ and this project follows SemVer-style release intent for documented interfaces.
   than no diagnostic, because it is believed — someone would tune against it
   and take the result on stage. `tests/test_cue_scores.py` holds the two paths
   to the same answer in both directions, matching and refusing.
+
+### Fixed
+
+- `docs/submissions/Phasmid_Demo_Runbook.md` said `PHASMID_RECOGNITION_MODE=demo`
+  makes recognition deterministic, which reads as a safety net it is not.
+  `_recognition_confidence()` returns 1.0 only when the ORB match has *already*
+  succeeded and 0.0 otherwise, so the demo-mode fallback branch is unreachable
+  on a failed match: **there is no rescue path**. Corrected, and a new §9.0.3
+  gives the numbers that separate a camera problem from a template problem from
+  a geometry problem - tuning thresholds against the wrong one breaks the
+  object-absent refusal the demo rests on.
 
 ## [0.6.0] - 2026-08-01
 

@@ -16,6 +16,8 @@ from .config import (
     cue_debug_overlay_enabled,
     cue_good_match_ratio,
     cue_inlier_ratio,
+    cue_lowe_ratio,
+    cue_ransac_reprojection_px,
     debug_enabled,
     dummy_fallback_threshold,
     experimental_object_model_enabled,
@@ -113,6 +115,8 @@ class AIGate:
             min_inliers=self.MIN_INLIERS,
             min_good_match_ratio=cue_good_match_ratio(),
             min_inlier_ratio=cue_inlier_ratio(),
+            lowe_ratio=cue_lowe_ratio(),
+            ransac_reprojection=cue_ransac_reprojection_px(),
         )
         self.experimental_object_model_enabled = experimental_object_model_enabled()
         self.object_gate = ObjectGate()
