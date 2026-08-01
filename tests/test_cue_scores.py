@@ -192,5 +192,65 @@ class TuningKnobTests(unittest.TestCase):
         self.assertGreater(loosened["good_matches"], tightened["good_matches"])
 
 
+class TuningKnobTests(unittest.TestCase):
+    """The two knobs a device with awkward light or a 3-D prop actually needs.
+
+    Both were literals inside the matching path. They are the ones that matter
+    when the proportional thresholds cannot help: the Lowe ratio decides what
+    counts as the same feature, so it is the knob for light that has moved
+    since the object was bound, and the RANSAC tolerance decides how far a
+    correspondence may sit from the fitted plane, which is what a non-planar
+    object strains when it is turned.
+    """
+
+    def test_a_looser_lowe_ratio_admits_more_matches(self):
+        loose = ObjectCueMatcher(
+            min_reference_keypoints=10,
+            min_frame_descriptors=10,
+            min_good_matches=50,
+            min_inliers=30,
+            lowe_ratio=0.9,
+        )
+        tight = ObjectCueMatcher(
+            min_reference_keypoints=10,
+            min_frame_descriptors=10,
+            min_good_matches=50,
+            min_inliers=30,
+            lowe_ratio=0.5,
+        )
+        image = textured(21)
+        rng = np.random.default_rng(21)
+        noisy = np.clip(image.astype(int) + rng.integers(-10, 11, image.shape), 0, 255)
+        gray = loose.to_gray(noisy.astype(np.uint8))
+        state = loose.reference_state_from_image(image)
+
+        self.assertGreater(
+            loose.score_frame(state, gray)["good_matches"],
+            tight.score_frame(state, gray)["good_matches"],
+        )
+
+    def test_the_defaults_are_the_shipped_constants(self):
+        matcher = build_matcher()
+        self.assertEqual(matcher.lowe_ratio, ObjectCueMatcher.LOWE_RATIO)
+        self.assertEqual(
+            matcher.ransac_reprojection, ObjectCueMatcher.RANSAC_REPROJECTION
+        )
+
+    def test_the_knobs_reach_the_gate_and_not_only_the_diagnostic(self):
+        """A knob that only moved the report would be worse than no knob."""
+        matcher = build_matcher()
+        image = textured(33)
+        state = matcher.reference_state_from_image(image)
+        rng = np.random.default_rng(33)
+        noisy = np.clip(image.astype(int) + rng.integers(-10, 11, image.shape), 0, 255)
+        gray = matcher.to_gray(noisy.astype(np.uint8))
+
+        matcher.lowe_ratio = 0.5
+        tightened = matcher.match_reference_state(state, gray)
+        matcher.lowe_ratio = 0.9
+        loosened = matcher.match_reference_state(state, gray)
+        self.assertGreater(loosened["good_matches"], tightened["good_matches"])
+
+
 if __name__ == "__main__":
     unittest.main()

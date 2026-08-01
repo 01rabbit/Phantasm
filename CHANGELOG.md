@@ -108,6 +108,17 @@ and this project follows SemVer-style release intent for documented interfaces.
   anything else as unbound. Re-capture from the Store page; nothing else is
   affected, and no stored file is touched.
 
+### Fixed
+
+- `docs/submissions/Phasmid_Demo_Runbook.md` said `PHASMID_RECOGNITION_MODE=demo`
+  makes recognition deterministic, which reads as a safety net it is not.
+  `_recognition_confidence()` returns 1.0 only when the ORB match has *already*
+  succeeded and 0.0 otherwise, so the demo-mode fallback branch is unreachable
+  on a failed match: **there is no rescue path**. Corrected, and a new §9.0.3
+  gives the numbers that separate a camera problem from a template problem from
+  a geometry problem - tuning thresholds against the wrong one breaks the
+  object-absent refusal the demo rests on.
+
 ## [0.6.0] - 2026-08-01
 
 > Everything in this release came from running the demo on the device rather
