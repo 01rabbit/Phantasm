@@ -7,6 +7,21 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/pi_zero2w/measure_cue_margin.py` — how much margin a bound access
+  object actually has on the device it will be shown on. The cue either matches
+  or it does not, and the WebUI badge and `/status` report only that; on stage
+  that is the wrong resolution, because an object clearing its threshold by one
+  point and one clearing it threefold look identical right up until the lighting
+  changes. It reports the template's keypoint count, the thresholds that count
+  produces, and the good matches and inliers scored over a run of live frames,
+  ending in a worst-case margin. It also names the case the tuning knobs cannot
+  fix: below roughly 48 keypoints `GOOD_MATCH_FLOOR` decides the threshold
+  rather than `PHASMID_CUE_GOOD_MATCH_RATIO`, so lowering the ratio moves
+  nothing and the object itself has to change. Reads the same reference store
+  the console uses and writes nothing.
+
 ## [0.6.0] - 2026-08-01
 
 > Everything in this release came from running the demo on the device rather
