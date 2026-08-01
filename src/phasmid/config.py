@@ -299,6 +299,23 @@ def cue_inlier_ratio() -> float:
     return _cue_ratio("PHASMID_CUE_INLIER_RATIO", 0.15)
 
 
+def cue_debug_overlay_enabled() -> bool:
+    """Draw the live cue scores on the camera preview.
+
+    A bench setting, for the one question the badge cannot answer: not whether
+    the object matches, but by how much. Aiming a camera is an iterative act -
+    move it closer, turn the object, change the light - and doing that against
+    a badge that only says yes or no means guessing which way to move.
+
+    Off by default and deliberately not exposed in any UI. The preview is a
+    capture-visible surface, and the scores say more about the mechanism than
+    an operator under observation should be showing (CLM-05). This is for
+    rehearsal with nobody watching, and it is the reason it is an environment
+    variable rather than a button.
+    """
+    return env_flag("PHASMID_CUE_DEBUG", default=False)
+
+
 def display_enabled() -> bool:
     return env_flag("PHASMID_ENABLE_DISPLAY", default=False)
 

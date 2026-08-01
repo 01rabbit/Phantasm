@@ -49,8 +49,6 @@ os.environ.setdefault("LIBCAMERA_LOG_LEVELS", "*:ERROR")
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-import cv2  # noqa: E402
-import numpy as np  # noqa: E402
 
 from phasmid.ai_gate import AIGate  # noqa: E402
 
@@ -61,43 +59,6 @@ COMFORTABLE_MARGIN = 1.5
 #: Keypoint count below which `GOOD_MATCH_FLOOR` rather than the ratio decides
 #: the threshold, computed from the shipped defaults (12 / 0.25).
 FLOOR_BINDS_BELOW = 48
-
-
-def raw_scores(matcher, ref_state, frame_gray):
-    """Good matches and RANSAC inliers for one frame, without the cutoffs.
-
-    `match_reference_state` returns `None` for anything below threshold, which
-    collapses "scored 17, needed 19" and "scored nothing at all" into the same
-    answer. Those two ask for opposite fixes — one wants a nudge, the other a
-    different object — so they are scored apart here.
-
-    Returns `(frame descriptors, good matches, inliers)`.
-    """
-    ref_des, ref_kp = ref_state["des"], ref_state["kp"]
-    if ref_des is None or ref_kp is None or frame_gray is None:
-        return None
-
-    kp, des = matcher.orb.detectAndCompute(frame_gray, None)
-    if des is None:
-        return (0, 0, 0)
-
-    good = []
-    for pair in matcher.bf.knnMatch(ref_des, des, k=2):
-        if len(pair) < 2:
-            continue
-        candidate, runner_up = pair
-        if candidate.distance < 0.75 * runner_up.distance:
-            good.append(candidate)
-
-    # findHomography needs four correspondences before it can fit anything.
-    if len(good) < 4:
-        return (len(des), len(good), 0)
-
-    src = np.float32([ref_kp[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-    dst = np.float32([kp[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
-    _homography, mask = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
-    inliers = 0 if mask is None else int(mask.ravel().tolist().count(1))
-    return (len(des), len(good), inliers)
 
 
 def report_thresholds(gate) -> list:
@@ -157,12 +118,12 @@ def sample(gate, bound, frames: int, settle: float) -> dict:
             gray = matcher.to_gray(frame)
             cells = []
             for mode, state, good_bar, inlier_bar in bound:
-                scored = raw_scores(matcher, state, gray)
+                scored = matcher.score_frame(state, gray)
                 if scored is None:
                     cells.append(f"{mode}: -")
                     tallies[mode].append(None)
                     continue
-                _descriptors, good, inliers = scored
+                good, inliers = scored["good_matches"], scored["inliers"]
                 matched = good > good_bar and inliers > inlier_bar
                 cells.append(
                     f"{mode}: {'MATCH' if matched else 'miss '} "

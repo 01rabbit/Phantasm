@@ -21,6 +21,26 @@ and this project follows SemVer-style release intent for documented interfaces.
   rather than `PHASMID_CUE_GOOD_MATCH_RATIO`, so lowering the ratio moves
   nothing and the object itself has to change. Reads the same reference store
   the console uses and writes nothing.
+- `PHASMID_CUE_DEBUG` draws the live cue scores along the bottom of the camera
+  preview — keypoints, good matches, inliers, and the bar each has to clear.
+  The measuring script above answers the same question but cannot show what the
+  lens is looking at, and aiming a camera is iterative: closer, turned, relit,
+  each step needing to know whether it helped. Reported from the device as the
+  blind version being awkward to work with, which it was. Off by default and
+  deliberately given no UI control: the preview is a capture-visible surface
+  and these numbers describe the mechanism (CLM-05), so this is for rehearsing
+  with nobody watching. Costs one extra feature extraction per frame while
+  enabled, and nothing at all when it is off.
+
+### Changed
+
+- The Lowe ratio and the RANSAC reprojection tolerance are named constants on
+  `ObjectCueMatcher` rather than literals inside the matching path, and the new
+  `score_frame` / `score_descriptors` read the same ones the gate decides on.
+  A diagnostic reporting different numbers from the ones being applied is worse
+  than no diagnostic, because it is believed — someone would tune against it
+  and take the result on stage. `tests/test_cue_scores.py` holds the two paths
+  to the same answer in both directions, matching and refusing.
 
 ## [0.6.0] - 2026-08-01
 

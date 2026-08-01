@@ -13,6 +13,7 @@ from .camera_frame_source import CameraFrameSource
 from .config import (
     STATE_BLOB_NAME,
     STATE_KEY_NAME,
+    cue_debug_overlay_enabled,
     cue_good_match_ratio,
     cue_inlier_ratio,
     debug_enabled,
@@ -601,6 +602,52 @@ class AIGate:
 
         return True, text.AI_GATE_CUES_CLEARED
 
+    def _cue_scores(self, reference_data: dict, frame_gray: Any) -> list:
+        """Live scores for the preview, when the bench flag asks for them.
+
+        Costs a second feature extraction per frame, so it is not computed
+        unless something is going to display it.
+        """
+        if not cue_debug_overlay_enabled():
+            return []
+        kp, des = self.matcher.orb.detectAndCompute(frame_gray, None)
+        scored = []
+        for index, state in enumerate(reference_data.values()):
+            score = self.matcher.score_descriptors(state, kp, des)
+            if score is not None:
+                scored.append((f"entry {index + 1}", score))
+        return scored
+
+    def _draw_cue_scores(self, image: Any, scores: list) -> None:
+        """Write the scores under the preview, against the bar each has to clear.
+
+        Numbered by position rather than named, matching how the Store page
+        already refers to entries, and so the overlay says nothing the page
+        does not already say about how many there are.
+        """
+        if not scores:
+            return
+        h, w, _ = image.shape
+        line_height = 14
+        top = h - 4 - line_height * len(scores)
+        cv2.rectangle(image, (0, top - 4), (w, h), (0, 0, 0), -1)
+        for index, (label, score) in enumerate(scores):
+            clears = (
+                score["good_matches"] > score["required_good_matches"]
+                and score["inliers"] > score["required_inliers"]
+            )
+            cv2.putText(
+                image,
+                f"{label}  kp {score['keypoints']}"
+                f"  good {score['good_matches']}/{score['required_good_matches']}"
+                f"  inliers {score['inliers']}/{score['required_inliers']}",
+                (8, top + line_height * (index + 1) - 3),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.38,
+                (0, 255, 0) if clears else (0, 165, 255),
+                1,
+            )
+
     def _draw_match_status(self, image: Any) -> None:
         h, w, _ = image.shape
         cv2.rectangle(image, (0, 0), (w, 50), (0, 0, 0), -1)
@@ -761,6 +808,7 @@ class AIGate:
                     mode: self._match_reference_state(state, processed_gray)
                     for mode, state in reference_data.items()
                 }
+                cue_scores = self._cue_scores(reference_data, processed_gray)
                 if self.experimental_object_model_enabled:
                     gate_results = {
                         mode: self.object_gate.evaluate_frame(
@@ -772,6 +820,7 @@ class AIGate:
                 else:
                     self._update_match_result(matches)
                 self._draw_match_status(image)
+                self._draw_cue_scores(image, cue_scores)
 
                 ok, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 55])
                 if not ok:

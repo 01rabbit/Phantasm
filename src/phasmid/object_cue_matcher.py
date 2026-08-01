@@ -52,6 +52,13 @@ class ObjectCueMatcher:
     # when it is too strict the outcome is a visible refusal, not a bad binding.
     MIN_OBJECT_DOMINANCE = 0.60
 
+    # Lowe's ratio test, and the RANSAC reprojection tolerance in pixels. Named
+    # so the scoring path and the matching path cannot drift apart: a diagnostic
+    # that reports different numbers from the ones the gate acts on is worse
+    # than no diagnostic, because it is believed.
+    LOWE_RATIO = 0.75
+    RANSAC_REPROJECTION = 5.0
+
     def __init__(
         self,
         *,
@@ -363,7 +370,7 @@ class ObjectCueMatcher:
             if len(pair) < 2:
                 continue
             m, n = pair
-            if m.distance < 0.75 * n.distance:
+            if m.distance < self.LOWE_RATIO * n.distance:
                 good_matches.append(m)
 
         if len(good_matches) <= required_good:
@@ -373,7 +380,9 @@ class ObjectCueMatcher:
         src_pts = cast(Any, np.float32(src_points)).reshape(-1, 1, 2)
         dst_points: Any = [kp[m.trainIdx].pt for m in good_matches]
         dst_pts = cast(Any, np.float32(dst_points)).reshape(-1, 1, 2)
-        homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+        homography, mask = cv2.findHomography(
+            src_pts, dst_pts, cv2.RANSAC, self.RANSAC_REPROJECTION
+        )
         if homography is None or mask is None:
             return None
 
@@ -388,3 +397,68 @@ class ObjectCueMatcher:
             "required_inliers": required_inliers,
             "required_good_matches": required_good,
         }
+
+    def score_frame(self, ref_state, frame_gray):
+        """What *frame_gray* scores against *ref_state*, cutoffs not applied.
+
+        `match_reference_state` answers None for everything below threshold,
+        which collapses "scored 17, needed 19" and "scored nothing at all" into
+        one answer. Those ask for opposite things - the first wants the object
+        moved a little, the second wants a different object - and a person
+        holding the object up cannot tell them apart from a badge that only
+        says no.
+
+        Returns keypoint count, good matches, inliers and the two bars, or None
+        when there is nothing to score against.
+        """
+        if frame_gray is None:
+            return None
+        kp, des = self.orb.detectAndCompute(frame_gray, None)
+        return self.score_descriptors(ref_state, kp, des)
+
+    def score_descriptors(self, ref_state, kp, des):
+        """`score_frame` against descriptors already extracted from the frame.
+
+        Separate so a caller scoring several templates against one frame pays
+        for feature extraction once, which is most of the cost on this
+        hardware.
+        """
+        ref_des = ref_state.get("des")
+        ref_kp = ref_state.get("kp")
+        if ref_des is None or ref_kp is None:
+            return None
+
+        required_good, required_inliers = self.effective_thresholds(ref_state)
+        base = {
+            "keypoints": len(ref_kp),
+            "good_matches": 0,
+            "inliers": 0,
+            "required_good_matches": required_good,
+            "required_inliers": required_inliers,
+        }
+        if des is None or kp is None:
+            return base
+
+        good_matches = []
+        for pair in self.bf.knnMatch(ref_des, des, k=2):
+            if len(pair) < 2:
+                continue
+            m, n = pair
+            if m.distance < self.LOWE_RATIO * n.distance:
+                good_matches.append(m)
+        base["good_matches"] = len(good_matches)
+
+        # findHomography needs four correspondences before it can fit anything.
+        if len(good_matches) < 4:
+            return base
+
+        src_points: Any = [ref_kp[m.queryIdx].pt for m in good_matches]
+        src_pts = cast(Any, np.float32(src_points)).reshape(-1, 1, 2)
+        dst_points: Any = [kp[m.trainIdx].pt for m in good_matches]
+        dst_pts = cast(Any, np.float32(dst_points)).reshape(-1, 1, 2)
+        _homography, mask = cv2.findHomography(
+            src_pts, dst_pts, cv2.RANSAC, self.RANSAC_REPROJECTION
+        )
+        if mask is not None:
+            base["inliers"] = int(mask.ravel().tolist().count(1))
+        return base
