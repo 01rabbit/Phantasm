@@ -638,7 +638,7 @@ class AIGate:
             )
             cv2.putText(
                 image,
-                f"{label}  kp {score['keypoints']}"
+                f"{label}  tpl {score['keypoints']}  frame {score['frame_keypoints']}"
                 f"  good {score['good_matches']}/{score['required_good_matches']}"
                 f"  inliers {score['inliers']}/{score['required_inliers']}",
                 (8, top + line_height * (index + 1) - 3),

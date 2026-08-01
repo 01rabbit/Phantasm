@@ -431,6 +431,12 @@ class ObjectCueMatcher:
         required_good, required_inliers = self.effective_thresholds(ref_state)
         base = {
             "keypoints": len(ref_kp),
+            # How much texture the camera is finding *right now*, which decides
+            # whether a low score means "wrong object" or "the camera is seeing
+            # a blur". Without it the two are indistinguishable: a template of
+            # 213 keypoints scoring 5 reads the same whether the frame offered
+            # 900 candidates or 6.
+            "frame_keypoints": 0,
             "good_matches": 0,
             "inliers": 0,
             "required_good_matches": required_good,
@@ -438,6 +444,7 @@ class ObjectCueMatcher:
         }
         if des is None or kp is None:
             return base
+        base["frame_keypoints"] = len(kp)
 
         good_matches = []
         for pair in self.bf.knnMatch(ref_des, des, k=2):

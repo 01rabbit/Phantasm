@@ -50,6 +50,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 
+import cv2  # noqa: E402
+
 from phasmid.ai_gate import AIGate  # noqa: E402
 
 #: Below this the reported worst case is close enough to the threshold that a
@@ -82,6 +84,7 @@ def report_thresholds(gate) -> list:
         good_bar, inlier_bar = matcher.effective_thresholds(state)
         print(
             f"  entry {mode:<10} keypoints={len(keypoints):<5} "
+            f"shape={state.get('shape')}  "
             f"needs good>{good_bar}  inliers>{inlier_bar}   "
             f"(good bar is {good_bar / len(keypoints):.0%} of the template)"
         )
@@ -95,10 +98,11 @@ def report_thresholds(gate) -> list:
     return bound
 
 
-def sample(gate, bound, frames: int, settle: float) -> dict:
+def sample(gate, bound, frames: int, settle: float, save_to: Path | None) -> dict:
     """Score `frames` live frames against every bound template."""
     matcher = gate.matcher
     tallies: dict[str, list] = {mode: [] for mode, _, _, _ in bound}
+    saved = False
 
     gate.camera.open()
     time.sleep(settle)
@@ -116,6 +120,15 @@ def sample(gate, bound, frames: int, settle: float) -> dict:
                 time.sleep(0.25)
                 continue
             gray = matcher.to_gray(frame)
+
+            if save_to is not None and not saved:
+                saved = True
+                save_to.mkdir(parents=True, exist_ok=True)
+                cv2.imwrite(str(save_to / "frame.png"), frame)
+                cv2.imwrite(str(save_to / "frame-matched-on.png"), gray)
+                print(f"       saved {save_to}/frame.png and frame-matched-on.png")
+                print(f"       frame shape {frame.shape}")
+
             cells = []
             for mode, state, good_bar, inlier_bar in bound:
                 scored = matcher.score_frame(state, gray)
@@ -127,6 +140,7 @@ def sample(gate, bound, frames: int, settle: float) -> dict:
                 matched = good > good_bar and inliers > inlier_bar
                 cells.append(
                     f"{mode}: {'MATCH' if matched else 'miss '} "
+                    f"frame_kp={scored['frame_keypoints']:>4} "
                     f"good={good:>3}/{good_bar:<3} inliers={inliers:>3}/{inlier_bar:<3}"
                 )
                 tallies[mode].append((good, inliers) if matched else None)
@@ -182,6 +196,17 @@ def main() -> int:
         default=1.0,
         help="seconds to let the camera settle before sampling (default 1.0)",
     )
+    parser.add_argument(
+        "--save",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help=(
+            "write the first frame, and the grayscale actually matched on, as "
+            "PNGs. The one question scores cannot answer is whether the object "
+            "is in the picture at all"
+        ),
+    )
     args = parser.parse_args()
 
     gate = AIGate()
@@ -191,7 +216,7 @@ def main() -> int:
         return 1
 
     print(f"\nPresent the object. Sampling {args.frames} frames...\n")
-    tallies = sample(gate, bound, args.frames, args.settle)
+    tallies = sample(gate, bound, args.frames, args.settle, args.save)
     summarise(bound, tallies)
     return 0
 
