@@ -38,13 +38,21 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from phasmid import web_server  # noqa: E402
 
-#: Long enough to be unmistakable against the loop's own scheduling, short
-#: enough that the suite does not notice.
-BLOCK_SECONDS = 0.40
+#: Long enough to be unmistakable against the loop's own scheduling on a
+#: contended CI runner, short enough that the suite does not notice. The
+#: assertion below is "the loop was alive", not "the loop was fast", so the
+#: margin between this and the tick is deliberately wide: a tight one turns a
+#: real regression test into a flake, and a flaky test gets muted.
+BLOCK_SECONDS = 1.0
 
-#: The loop has to keep turning during that block. A generous fraction of it:
-#: the assertion is "the loop was alive", not "the loop was fast".
+#: What the loop is asked to do while the block is in flight - the home page's
+#: stand-in. Overshooting this by several multiples still passes.
 LOOP_TICK_SECONDS = 0.05
+
+#: The loop must have come back well before the blocking call finished. Half
+#: the block is already generous: on the loop it could not have come back at
+#: all until the full second was over.
+LOOP_MUST_RESPOND_WITHIN = BLOCK_SECONDS / 2
 
 
 def _request():
@@ -75,7 +83,7 @@ class TheLoopKeepsTurningTests(unittest.IsolatedAsyncioTestCase):
         blocked_for = time.perf_counter() - started
 
         self.assertGreaterEqual(blocked_for, BLOCK_SECONDS)
-        self.assertLess(loop_responded_after, BLOCK_SECONDS / 2)
+        self.assertLess(loop_responded_after, LOOP_MUST_RESPOND_WITHIN)
 
     async def test_every_route_that_can_block_is_off_the_loop(self):
         """Named individually, because each one was found by reading it.
@@ -120,7 +128,7 @@ class OneAtATimeTests(unittest.IsolatedAsyncioTestCase):
             with seen:
                 concurrent += 1
                 peak = max(peak, concurrent)
-            time.sleep(BLOCK_SECONDS / 2)
+            time.sleep(0.15)
             with seen:
                 concurrent -= 1
             return {}
