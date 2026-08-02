@@ -2024,7 +2024,13 @@ class RestrictedPhraseAuthorizationTests(unittest.TestCase):
         policy = web_server.RESTRICTED_ACTION_POLICIES["rapid_local_clear"]
         self.assertFalse(policy.require_restricted_confirmation)
 
-        source = inspect.getsource(web_server.web_panic_trigger)
+        # The route is a wrapper that hands the body to the threadpool, so the
+        # gate lives on the implementation. Both are read: a gate that stopped
+        # being reachable from the route would pass a check on the body alone.
+        self.assertIn(
+            "_web_panic_trigger", inspect.getsource(web_server.web_panic_trigger)
+        )
+        source = inspect.getsource(web_server._web_panic_trigger)
         self.assertIn("_ui_unlocked(request)", source)
 
 

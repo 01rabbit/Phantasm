@@ -79,6 +79,40 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Fixed
 
+- **The WebUI froze, and Home never came back.** Reported from the device in
+  the middle of the demonstration sequence: clear an entry with its destroy
+  password, confirm its access password no longer opens it, press Home - and
+  the interface stopped answering. Nothing was wrong with Home.
+
+  Every route was written `async def`, which in FastAPI means the body runs
+  directly on the one event loop. Several of those bodies are not asynchronous
+  in any sense: they derive keys with Argon2id, overwrite container bytes, and
+  poll the camera with `time.sleep`. On a Pi Zero 2 W that is seconds of work
+  per request, and for all of it uvicorn can serve nothing else - not
+  `/status`, not `/video_feed`, not the home page.
+
+  The step that exposed it is the most expensive path in the application.
+  Confirming a cleared entry no longer opens runs every mode's Argon2id against
+  bytes that are now random, waits for all of them to fail, and only then runs
+  the destroy-password check's own derivation. Nothing short-circuits, so the
+  stall is at its longest exactly when an operator is standing in front of an
+  audience.
+
+  Two things in the page turned that stall into a hang. The status poller fired
+  every 1.2 s without waiting for the previous request, and the camera preview
+  holds an MJPEG connection open for the life of the page. A few seconds of
+  silence is enough to fill the browser's six-connection budget for the origin,
+  and the navigation that follows has no socket left to go out on - which is
+  what "frozen" looked like, with a healthy server behind it.
+
+  Both halves are fixed. The nine routes that can block (`/retrieve`,
+  `/destroy_face`, `/purge_other`, `/store`, `/register_key`,
+  `/register_scene`, `/emergency/brick`, `/emergency/initialize`,
+  `/emergency/panic`) now run their work in the threadpool, and the poller
+  keeps one request in flight at a time with a 4-second abort. Being on the
+  loop was also what kept container operations from overlapping, so a device
+  lock now holds that guarantee explicitly rather than by accident.
+
 - **The tuning sweep recommended a configuration the device cannot run**, and
   recommended it directly underneath its own printed warning not to. Two
   defects, both found by the first run on hardware:

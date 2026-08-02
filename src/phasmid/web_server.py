@@ -3,6 +3,7 @@ import ipaddress
 import logging
 import os
 import secrets
+import threading
 import time
 import urllib.parse
 from pathlib import Path
@@ -25,6 +26,7 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from . import strings as text
 from .attempt_limiter import AttemptLimiter
@@ -123,6 +125,50 @@ RESTRICTED_SESSION_COOKIE = "phasmid_restricted_session"
 RESTRICTED_SESSION_TTL_SECONDS = restricted_session_seconds()
 _restricted_sessions = {}
 _access_attempts = AttemptLimiter()
+
+#: Serialises the operations that read or write the container, or that move an
+#: object binding forward.
+#:
+#: These used to be serialised for free: every route was `async def`, so they
+#: all ran on the one event loop and could not overlap. That is also why the
+#: whole interface went dead while any of them ran - see the module note on
+#: `_off_the_event_loop`. Now that they run in the threadpool the loop stays
+#: free, and this keeps the guarantee the loop was providing.
+_DEVICE_OPERATION_LOCK = threading.Lock()
+
+
+def _locked(operation, *args, **kwargs):
+    with _DEVICE_OPERATION_LOCK:
+        return operation(*args, **kwargs)
+
+
+async def _off_the_event_loop(operation, *args, **kwargs):
+    """Run a blocking route body in the threadpool, with the device lock held.
+
+    Every route in this module was written `async def`, which in FastAPI means
+    the body runs directly on the one event loop. Several of those bodies are
+    not asynchronous in any sense: they derive keys with Argon2id, overwrite
+    container bytes, and poll the camera with `time.sleep`. On a Pi Zero 2 W
+    that is seconds of work per request, and for the whole of it uvicorn can
+    serve nothing else - not `/status`, not `/video_feed`, not the home page.
+
+    Reported from the device, at the worst possible moment to find it: clear an
+    entry with its destroy password, confirm its access password no longer
+    opens it, press Home - and the interface never comes back. That second step
+    is the most expensive path in the application. Every mode's Argon2id runs
+    and fails against bytes that are now random, and only then does the
+    destroy-password check run its own. Nothing short-circuits.
+
+    Two things in the page compound a stall into a hang. The status poller
+    fires every 1.2 s without waiting for the previous request to finish, and
+    the camera preview holds an MJPEG connection open for the life of the page.
+    A few seconds of server silence is enough to fill the browser's
+    six-connection budget for the origin, and the navigation that follows has
+    no socket left to go out on. `base.html` fixes its half; this fixes the
+    half that made the silence happen.
+    """
+    return await run_in_threadpool(_locked, operation, *args, **kwargs)
+
 
 UI_SESSION_COOKIE = "phasmid_ui_session"
 UI_SESSION_TTL_SECONDS = ui_session_seconds()
@@ -963,6 +1009,10 @@ async def restricted_confirm(request: Request, confirmation: str = Form(...)):
     ],
 )
 async def register_scene(request: Request):
+    return await _off_the_event_loop(_register_scene, request)
+
+
+def _register_scene(request: Request):
     """Record the empty scene, with the object out of frame.
 
     Binding an object needs to know what the view looks like without it: ORB
@@ -996,6 +1046,24 @@ async def register_key(
     replace: bool = Form(False),
     reference_image: UploadFile | None = File(default=None),
 ):
+    # The upload has to be read here - it is genuinely asynchronous, and the
+    # only part of this route that is. Binding is not: it samples several
+    # camera frames a fifth of a second apart and then re-checks the candidate
+    # against the bar retrieval will apply, which is seconds of `time.sleep`.
+    payload = None
+    if reference_image is not None and reference_image.filename:
+        payload = await read_limited_upload(reference_image)
+    return await _off_the_event_loop(
+        _register_key, request, entry_hint, replace, payload
+    )
+
+
+def _register_key(
+    request: Request,
+    entry_hint: str,
+    replace: bool,
+    payload: bytes | None,
+):
     enforce_rate_limit(request)
     if replace and not _restricted_session_valid(request):
         return {"error": text.RESTRICTED_CONFIRMATION_REQUIRED_UI}
@@ -1019,8 +1087,7 @@ async def register_key(
     ):
         return {"error": text.ENTRY_ALREADY_BOUND}
 
-    if reference_image is not None and reference_image.filename:
-        payload = await read_limited_upload(reference_image)
+    if payload is not None:
         success, message = _image_entry_binding(mode, payload)
         binding_source = "image_file"
     else:
@@ -1059,9 +1126,35 @@ async def store(
     overwrite: bool = Form(False),
     overwrite_confirmation: str = Form(default=""),
 ):
-    enforce_rate_limit(request)
     data = await read_limited_upload(file)
-    orig_filename = file.filename
+    return await _off_the_event_loop(
+        _store,
+        request,
+        data,
+        file.filename,
+        password,
+        secondary_passphrase,
+        restricted_recovery_password,
+        local_note_label,
+        entry_hint,
+        overwrite,
+        overwrite_confirmation,
+    )
+
+
+def _store(
+    request: Request,
+    data: bytes,
+    orig_filename: str | None,
+    password: str,
+    secondary_passphrase: str,
+    restricted_recovery_password: str,
+    local_note_label: str,
+    entry_hint: str,
+    overwrite: bool,
+    overwrite_confirmation: str,
+):
+    enforce_rate_limit(request)
 
     try:
         if not password:
@@ -1205,6 +1298,10 @@ async def metadata_scrub(request: Request, file: UploadFile = File(...)):
     "/retrieve", dependencies=[Depends(require_web_token), Depends(require_ui_unlock)]
 )
 async def retrieve(request: Request, password: str = Form(...)):
+    return await _off_the_event_loop(_retrieve, request, password)
+
+
+def _retrieve(request: Request, password: str):
     enforce_rate_limit(request)
     attempt_scope = f"web:{_client_id(request)}"
     if not _access_attempts.check(attempt_scope).allowed:
@@ -1354,6 +1451,10 @@ async def destroy_face(
     password: str = Form(...),
     confirmation: str = Form(...),
 ):
+    return await _off_the_event_loop(_destroy_face, request, password, confirmation)
+
+
+def _destroy_face(request: Request, password: str, confirmation: str):
     """Clear the entry whose object is presented, using its destroy password.
 
     Deliberately not role-gated to `store`: a recover-scoped session can
@@ -1428,6 +1529,17 @@ async def purge_other(
     legacy_selector: str = Form(default=""),
     confirmation: str = Form(...),
 ):
+    return await _off_the_event_loop(
+        _purge_other, request, accessed_entry, legacy_selector, confirmation
+    )
+
+
+def _purge_other(
+    request: Request,
+    accessed_entry: str,
+    legacy_selector: str,
+    confirmation: str,
+):
     enforce_rate_limit(request)
     require_restricted_action("clear_unmatched_entry", request, confirmation)
     entry_id = _plain_form_value(accessed_entry) or LEGACY_SELECTOR_TO_ENTRY.get(
@@ -1446,6 +1558,10 @@ async def purge_other(
     dependencies=[Depends(require_web_token), Depends(require_ui_unlock)],
 )
 async def emergency_brick(request: Request, confirmation: str = Form(...)):
+    return await _off_the_event_loop(_emergency_brick, request, confirmation)
+
+
+def _emergency_brick(request: Request, confirmation: str):
     enforce_rate_limit(request)
     require_restricted_action("clear_local_access_path", request, confirmation)
     active_vault().silent_brick()
@@ -1459,6 +1575,10 @@ async def emergency_brick(request: Request, confirmation: str = Form(...)):
     dependencies=[Depends(require_web_token), Depends(require_ui_unlock)],
 )
 async def emergency_initialize(request: Request, confirmation: str = Form(...)):
+    return await _off_the_event_loop(_emergency_initialize, request, confirmation)
+
+
+def _emergency_initialize(request: Request, confirmation: str):
     enforce_rate_limit(request)
     require_restricted_action("initialize_container", request, confirmation)
     active_vault().format_container(rotate_access_key=True)
@@ -1472,6 +1592,10 @@ async def emergency_initialize(request: Request, confirmation: str = Form(...)):
 
 @app.post("/emergency/panic", dependencies=[Depends(require_web_token)])
 async def web_panic_trigger(request: Request, secret_trigger: str = Form(...)):
+    return await _off_the_event_loop(_web_panic_trigger, request, secret_trigger)
+
+
+def _web_panic_trigger(request: Request, secret_trigger: str):
     """Hidden endpoint for rapid local state destruction.
 
     Authorization is the page session plus the mutation token.  The trigger
