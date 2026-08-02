@@ -42,7 +42,7 @@
 **JA:** 掴みは短く。バナーを一度指す。時計スタート。
 
 ## [00:30] Slide 2 — whoami（軍歴＝着想源 / inverse framing）
-**EN:** "A quick note on where I come from: like a lot of people in this room, I started in uniform — a former Japan Ground Self-Defense Force officer, a Second Lieutenant, in a cyber unit. My work since has mostly been offensive — and offensive work is really about the **person, not just the algorithm**; the weakest link is human. Phasmid points that lesson the other way: **it doesn't protect the key, it protects the person holding it.** Day-to-day I'm an independent researcher and open-source tool developer, pen tester, CISSP — you may have seen the Azazel system or the PAKURI family at Black Hat Arsenal, BSides, SecTor, CODE BLUE. Find me at **01rabbit** on GitHub."
+**EN:** "A quick note on where I come from: like a lot of people in this room, I started in uniform — a former Japan Ground Self-Defense Force officer, a Second Lieutenant, in a cyber unit. My work since has mostly been offensive — and offensive work is really about the **person, not just the algorithm**; the weakest link is human. Phasmid points that lesson the other way: **it doesn't protect the key, it protects the person holding it.** Day-to-day I'm a senior engineer at **GMO Cybersecurity by Ierae** in Tokyo — security research and open-source tools, pen tester, CISSP — you may have seen the Azazel system or the PAKURI family at Black Hat Arsenal, BSides, SecTor, CODE BLUE. Find me at **01rabbit** on GitHub."
 **JA:** 経歴は着想源として淡々と、武勇伝化しない。"person, not the algorithm" と "protects the person" は必ず言い切る。左カード先頭に軍歴1行あり。ハンドルを指す。約0:55。
 
 ## [01:10] Slide 3 — Agenda
