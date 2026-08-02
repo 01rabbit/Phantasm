@@ -1039,9 +1039,28 @@
             }
         }
 
+        // One status request in flight at a time, and never for long.
+        //
+        // This used to be a bare setInterval that fired regardless of whether
+        // the previous request had come back. When the device was busy - a
+        // retrieval derives keys with Argon2id, and clearing an entry does it
+        // more than once - the requests stacked up. Together with the camera
+        // preview, which holds an MJPEG connection open for the life of the
+        // page, that fills the browser's six-connection budget for this
+        // origin, and the next navigation has no socket left to go out on:
+        // the page appears to hang with nothing wrong on screen. Reported
+        // from the device after clearing an entry and then pressing Home.
+        let statusInFlight = false;
+        const STATUS_TIMEOUT_MS = 4000;
+
         async function pollStatus() {
+            if (statusInFlight) return;
+            if (document.hidden) return;
+            statusInFlight = true;
+            const abort = new AbortController();
+            const timer = window.setTimeout(() => abort.abort(), STATUS_TIMEOUT_MS);
             try {
-                const res = await fetch('/status');
+                const res = await fetch('/status', { signal: abort.signal });
                 const data = await res.json();
                 const device = document.getElementById('deviceState');
                 const camera = document.getElementById('cameraState');
@@ -1066,7 +1085,14 @@
                 setLed(document.getElementById('operationModeLed'),  'active');
 
                 paintObjectBadge(data.object_state);
-            } catch (e) {}
+            } catch (e) {
+                // An aborted or failed poll is not worth reporting: the next
+                // tick will say the same thing, and a toast every 1.2 s while
+                // the device is busy would be its own kind of broken.
+            } finally {
+                window.clearTimeout(timer);
+                statusInFlight = false;
+            }
         }
         const cameraFeed = document.querySelector('.camera-feed');
         if (cameraFeed) {
