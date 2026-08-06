@@ -77,6 +77,16 @@ and this project follows SemVer-style release intent for documented interfaces.
   degrees, and the object held ten percent closer. 0.18 is the loosest value at
   which both return, and no looser. The inlier proportion did not need to move.
 
+### Security
+
+- **`cryptography` 48.0.1 → 50.0.0.** Three advisories were published against
+  48.0.1 (PYSEC-2026-3552, -3553, -3554) and `pip_audit` began failing on every
+  branch, this one included. Nothing here uses the affected paths, but a pinned
+  dependency with known advisories is not a thing to carry onto a stage and be
+  asked about. Suite green on the new version, and the aarch64 wheel the Pi
+  needs is published, so the device installs from a wheel rather than building
+  OpenSSL bindings from source.
+
 ### Fixed
 
 - **The WebUI froze, and Home never came back.** Reported from the device in
