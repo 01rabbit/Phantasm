@@ -147,16 +147,19 @@ EOF
 fi
 
 # HEAD, not GET: /simple/ is the entire package index, tens of megabytes, and
-# -m bounds the whole transfer rather than the connection.
+# -m bounds the whole transfer rather than the connection. The first version of
+# this check asked for that whole index inside a 10-second budget and stopped a
+# deployment on a network that was working - the transfer was slow, not absent.
 #
-# And the failure is named rather than summarised. Comparing interfaces, as the
-# check above does, catches the Pi holding the *route* - it does not catch the
-# Pi holding the *resolver*. macOS merges DNS servers from every active
-# service, so a gadget lease carrying `dhcp-option 6` can put the device in the
-# resolver list while the default route is correctly on Wi-Fi. Name resolution
-# then fails with routing that looks perfect, which is exactly the shape of the
-# report this replaces: "cannot reach pypi.org" from a Mac that had just cloned
-# from GitHub. curl's exit code tells the two apart, so it is reported.
+# And the failure is named rather than summarised, because more than one thing
+# produces "cannot reach pypi.org" and they need different fixes. Comparing
+# interfaces, as the check above does, catches the Pi holding the *route* - it
+# does not catch the Pi holding the *resolver*. macOS merges DNS servers from
+# every active service, so a gadget lease carrying `dhcp-option 6` can put the
+# device in the resolver list while the default route is correctly on Wi-Fi;
+# name resolution then fails with routing that looks perfect. curl's exit code
+# separates that from a refused connection and from a timeout, so it is
+# reported instead of guessed at.
 for host in https://pypi.org/simple/ https://files.pythonhosted.org/; do
     reach_error="$(curl -fsS -I --connect-timeout 5 -m 20 -o /dev/null "$host" 2>&1)"
     reach_code=$?
@@ -165,17 +168,22 @@ for host in https://pypi.org/simple/ https://files.pythonhosted.org/; do
     case $reach_code in
         6) cause="DNS. The name did not resolve.
 
-       Comparing interfaces does not catch this: macOS merges resolvers from
-       every active service, so the device can be in the resolver list while
-       the default route is correctly on Wi-Fi. Check which resolvers are in
-       play, and in what order:
+       Look at the resolver actually being used before assuming a cause -
+       a hotel or conference network answers here far more often than the
+       device does:
 
            scutil --dns | grep -A2 'resolver #1'
            networksetup -getdnsservers Wi-Fi
 
-       The durable fix is on the device - stop the lease carrying a DNS server
-       at all (dnsmasq: dhcp-option=6). See scripts/pi_zero2w/README.md.
-       To test the theory right now, unplug the device and re-run." ;;
+       If the address listed is the device's, macOS has merged its resolver in
+       (it merges resolvers from every active service, so this happens with the
+       default route correctly on Wi-Fi). The durable fix is then on the device
+       - stop the lease carrying a DNS server at all (dnsmasq: dhcp-option=6).
+       See scripts/pi_zero2w/README.md. To confirm, unplug it and re-run.
+
+       If the address belongs to the network you are on, the device is not
+       involved: the venue's resolver is failing, and a public one on Wi-Fi
+       only (networksetup -setdnsservers Wi-Fi 1.1.1.1) gets you moving." ;;
         7) cause="the connection was refused or unreachable - a route or a firewall,
        not a name." ;;
         28) cause="the request timed out. Traffic is being accepted and then dropped,
@@ -245,7 +253,27 @@ python3 -m pip download -r requirements.txt -d "$WHEEL_DIR" \
     --platform manylinux_2_34_aarch64 \
     >/dev/null || die "could not download wheels for $pi_pyver/aarch64.
        Run the same command without the redirect to see which package refused."
+# The build requirements travel too. `pip install -e .` builds the package,
+# and building is isolated: pip creates a fresh environment and fetches
+# setuptools into it. `--no-deps` suppresses runtime dependencies and has no
+# effect on that, so the device reached for pypi.org and failed with
+# "Could not find a version that satisfies the requirement setuptools>=40.8.0"
+# after everything else had already installed cleanly.
+#
+# Python 3.12 stopped seeding new virtual environments with setuptools, and the
+# device runs 3.13, so it is genuinely absent rather than merely unpinned.
+# These are py3-none-any, so the host's own tags are fine.
+python3 -m pip download setuptools wheel -d "$WHEEL_DIR" --only-binary=:all: \
+    >/dev/null || die "could not download the build requirements (setuptools, wheel)."
+
 info "$(find "$WHEEL_DIR" -name '*.whl' | wc -l | tr -d ' ') wheels"
+
+local_pip="$(python3 -m pip --version 2>/dev/null | awk '{print $2}')"
+case "$local_pip" in
+    2[0-3].*) info "note: local pip is $local_pip, which predates some of the
+                 platform tags a 3.13 target can use. If a wheel is missing
+                 below, upgrade it first: python3 -m pip install -U pip" ;;
+esac
 
 # ── 5. carry it across ────────────────────────────────────────────────────────
 # The device's own state is never touched: .state, the vault and the venv are
@@ -275,9 +303,19 @@ rsync -az -e "ssh $(printf '%q ' "${SSH_OPTS[@]}")" \
 
 say "Installing on the device, with no network"
 
+# Three steps, in this order, and none of them may reach a network.
+#   1. the build requirements, so that step 3 has a setuptools to use;
+#   2. the runtime dependencies;
+#   3. the package itself, with build isolation off - otherwise pip discards
+#      the setuptools installed in step 1 and goes looking for another one.
+# PIP_NO_INDEX and PIP_FIND_LINKS are exported as well as passed, so that any
+# subprocess pip spawns inherits the same offline view rather than falling back
+# to the index list in the device's /etc/pip.conf.
 pi_ssh "cd '$PHASMID_PI_REMOTE_DIR' && \
+    export PIP_NO_INDEX=1 PIP_FIND_LINKS='$PHASMID_PI_REMOTE_DIR/.deploy-wheels' && \
+    .venv/bin/pip install --quiet --no-index --find-links .deploy-wheels setuptools wheel && \
     .venv/bin/pip install --quiet --no-index --find-links .deploy-wheels -r requirements.txt && \
-    .venv/bin/pip install --quiet --no-deps -e ." \
+    .venv/bin/pip install --quiet --no-deps --no-build-isolation -e ." \
     || die "the install failed on the device"
 
 # ── 7. verify on the device, not here ─────────────────────────────────────────

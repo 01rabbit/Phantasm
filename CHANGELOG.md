@@ -120,6 +120,29 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Fixed
 
+- **Deploying to the device failed at the last step, offline.** Everything
+  installed, and then `pip install -e .` reached for pypi.org and died on
+  `Could not find a version that satisfies the requirement setuptools>=40.8.0`.
+
+  `--no-deps` suppresses *runtime* dependencies. Building a package is
+  separately isolated: pip creates a fresh environment and fetches setuptools
+  into it, and nothing about `--no-deps` or the outer `--no-index` reaches that
+  subprocess — the device's own `/etc/pip.conf` index list does. Python 3.12
+  also stopped seeding virtual environments with setuptools, and the device
+  runs 3.13, so there was none present to fall back to.
+
+  The build requirements now travel with the dependency wheels, are installed
+  first, and the package is built with `--no-build-isolation`. Reproduced in a
+  virtual environment stripped of setuptools — the old command fails with the
+  same error, the new sequence installs and imports.
+
+- **The network check's own diagnosis was wrong about the first failure.** The
+  resolver on the reporting machine turned out to be the venue's, not the
+  device's, so the DNS explanation this changelog offered did not apply. What
+  actually failed was fetching the entire package index under a ten-second
+  budget. `scripts/pi_zero2w/README.md` now says so instead.
+
+
 - **`deploy_to_device.sh` reported "cannot reach pypi.org" without saying why.**
   Reported from the bench on a Mac whose default route was correctly on Wi-Fi
   and which had just cloned from GitHub. Two faults in one check: it fetched
