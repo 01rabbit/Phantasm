@@ -32,7 +32,7 @@
 
 ---
 
-## 1. 制約と時間予算 / Constraints & budget（合計 ~7:30）
+## 1. 制約と時間予算 / Constraints & budget（合計 ~8:05）
 
 | # | フェーズ | 目安 | 画面 | 対応スライド概念 |
 |---|---|---|---|---|
@@ -40,14 +40,16 @@
 | 1 | Vessel 作成（Create） | 0:50 | TUI Simple | Prepare |
 | 2 | Bind — Face 1・Face 2 登録 | 1:30 | **WebUI**（store トークン） | Bind（cue≠key の準備） |
 | 3 | Operate — 復元 成功／役割の境界 | 0:50 | **WebUI**（store・recover トークン） | Operate |
+| 3b | **2つ目の物体・2つ目のパスワード → 別のファイル** | 0:35 | **WebUI**（Step 3 と同じ画面） | **★★Slot A / Slot B の直接実証** |
 | 4 | **復元 失敗（物体なし）** | 0:50 | **WebUI**（Step 3 と同じタブ） | **★★cue≠key の証明** |
 | 4b | （任意）強要下でデータを守る | 0:40 | **WebUI**（同じ画面・同じ入力欄） | **パスワードだけが違う。** 破壊資格の分離。**不可逆** |
 | 5 | Audit（空き領域と境界） | 0:50 | TUI Expert | 誠実性の可視化 |
 | 6 | Silent Standby | 1:20 | TUI | Disclose / 山場 |
 | 7 | ラップ | 0:10 | TUI Simple | 締め |
 
-> **時計運用:** 開始 ~19:20。**26:00 を超えたら Step 2〜3 を口頭要約**して締めへ。
+> **時計運用:** 開始 ~19:20。**26:00 を超えたら Step 4b と Step 5 を落とす** — 落とす順はこの2つで、Step 3b と Step 4 は残す。
 > **プロジェクタ切替は1往復だけ。** Step 1 の終わりに TUI→ブラウザへ、Step 4 の終わりにブラウザ→TUI へ。Step 2〜4 は同じブラウザ画面で連続する。
+> **Step 3b は Slot A / Slot B の唯一の実証。** 1つの容器に2つのファイルが入っていて、**物体とパスワードの組が違えば違うものが出る** — Slide 7 で言った「見せたものが全てではない」は、ここで初めて目に見える。これを飛ばすと、観客には**ただのパスワード復号**にしか見えない。
 > **Step 4 は cue≠key の唯一の実証。** 物体の有無だけを変えた対比がなければ実証にならない。**Step 3 と同じ画面・同じファイル・同じパスワードで、物体だけを外す** — 画面が切り替わらないことが「他は何も変えていない」ことの担保になる。
 
 ---
@@ -242,8 +244,25 @@
 - **画面期待:** 緑のトーストで復元成功。`recover` タブのナビは `Home` / `Retrieve` /
   `Lock` だけ。
 - **発話（EN）:** "Same object, correct password — the file comes back. And here's a second, narrower session, logged in with a different, role-scoped token. It can decrypt and destroy. It can never reach Face setup at all."
-- **注意:** **画面はこのまま。** 次の Step 4 は同じタブ・同じファイル・同じパスワードで、
-  物体だけを外す。切り替えないことが「他は何も変えていない」ことの担保になる。
+- **注意:** **画面はこのまま。** 次の Step 3b は物体を持ち替えるだけ、その次の Step 4 は
+  同じタブ・同じファイル・同じパスワードで物体だけを外す。切り替えないことが
+  「他は何も変えていない」ことの担保になる。
+
+### Step 3b — 2つ目の物体・2つ目のパスワード（0:35｜★★Slot A / Slot B の実証｜WebUI・Step 3 と同じ画面）
+
+> **これを省くと、観客には「パスワードを入れたらファイルが出た」以上のものが伝わらない。**
+> 1つの容器に2つのファイルが入っていて、**物体とパスワードの組ごとに違うものが出る**ことを
+> 見せて初めて、Slide 7 の二面モデルが実物になる。
+
+- **操作:** **同じ Retrieve 画面のまま**、**物体Bに持ち替える** → 一致表示を待つ →
+  **2つ目のパスワード** → `Open protected file`。**落ちてきたファイルを開いて中身を見せる**。
+- **画面期待:** 別のファイルが復元される。**ファイル名は両方とも `retrieved_payload.bin`**
+  （どの Face が開いたかを漏らさないための設計）なので、**名前ではなく中身で違いを見せる**。
+  2つ目のダウンロードは `retrieved_payload(1).bin` になるため、**事前にダウンロード
+  フォルダを空にしておく**。
+- **発話（EN）:** "Now the same screen. The same container. But a different object — and a different password. And a different file comes back. One container. Two objects. Two passwords. Two files. That is Slot A and Slot B — on the table, in front of you."
+- **注意:** **物体を持ち替えたら一致表示を待ってから押す。** 待たずに押すと拒否される。
+  `/retrieve` は入力パスワードと撮影した cue で全 Face を順に試すので、追加実装は不要。
 
 ### Step 4 — 復元 失敗（0:50｜★★cue≠key の証明｜WebUI・Step 3 と同じ画面）
 
@@ -284,7 +303,7 @@
 ### Step 4b — 強要下でデータを守る（0:40｜任意・WebUI・Step 4 と同じ画面）
 
 > **本番でやるかは当日判断。枠が押していれば省略**し、Step 6 の Silent Standby に
-> 時間を回す（合計は 7:30 → 8:10 になる）。Step 4 と同じ画面・同じ入力欄で続けるので
+> 時間を回す（合計は 8:05 → 8:45 になる）。Step 4 と同じ画面・同じ入力欄で続けるので
 > **追加の画面切替も、追加の操作手順も無い。**
 > **不可逆。** 実施すると片方の Face は戻らない。次の Step 5（Audit）の数字は
 > **消した後の状態**を映すので、`Faces with little or no filler` などが事前の想定と
