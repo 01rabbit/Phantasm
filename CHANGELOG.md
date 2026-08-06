@@ -120,6 +120,22 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Fixed
 
+- **`deploy_to_device.sh` reported "cannot reach pypi.org" without saying why.**
+  Reported from the bench on a Mac whose default route was correctly on Wi-Fi
+  and which had just cloned from GitHub. Two faults in one check: it fetched
+  `/simple/`, the entire package index, under a timeout meant for a handshake;
+  and it discarded curl's stderr, so the one piece of evidence went to
+  `/dev/null`.
+
+  It now sends HEAD, checks the file host as well as the index, and names the
+  cause from curl's exit code. That distinction matters here — comparing
+  interfaces catches the device holding the *route*, but not the device holding
+  the *resolver*. macOS merges DNS servers from every active service, so a
+  gadget lease carrying `dhcp-option 6` can put the device in the resolver list
+  while routing looks perfect, which is the likelier explanation for the report
+  and was invisible to the old check.
+
+
 - **The WebUI froze, and Home never came back.** Reported from the device in
   the middle of the demonstration sequence: clear an entry with its destroy
   password, confirm its access password no longer opens it, press Home - and

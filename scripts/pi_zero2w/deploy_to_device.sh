@@ -146,11 +146,53 @@ EOF
     fi
 fi
 
-if ! curl -sS -m 10 -o /dev/null https://pypi.org/simple/ 2>/dev/null; then
-    die "the Mac cannot reach pypi.org. Connect it to a network first - the
-       wheels for the device are downloaded here, not there."
-fi
-info "internet reachable"
+# HEAD, not GET: /simple/ is the entire package index, tens of megabytes, and
+# -m bounds the whole transfer rather than the connection.
+#
+# And the failure is named rather than summarised. Comparing interfaces, as the
+# check above does, catches the Pi holding the *route* - it does not catch the
+# Pi holding the *resolver*. macOS merges DNS servers from every active
+# service, so a gadget lease carrying `dhcp-option 6` can put the device in the
+# resolver list while the default route is correctly on Wi-Fi. Name resolution
+# then fails with routing that looks perfect, which is exactly the shape of the
+# report this replaces: "cannot reach pypi.org" from a Mac that had just cloned
+# from GitHub. curl's exit code tells the two apart, so it is reported.
+for host in https://pypi.org/simple/ https://files.pythonhosted.org/; do
+    reach_error="$(curl -fsS -I --connect-timeout 5 -m 20 -o /dev/null "$host" 2>&1)"
+    reach_code=$?
+    [[ $reach_code -eq 0 ]] && continue
+
+    case $reach_code in
+        6) cause="DNS. The name did not resolve.
+
+       Comparing interfaces does not catch this: macOS merges resolvers from
+       every active service, so the device can be in the resolver list while
+       the default route is correctly on Wi-Fi. Check which resolvers are in
+       play, and in what order:
+
+           scutil --dns | grep -A2 'resolver #1'
+           networksetup -getdnsservers Wi-Fi
+
+       The durable fix is on the device - stop the lease carrying a DNS server
+       at all (dnsmasq: dhcp-option=6). See scripts/pi_zero2w/README.md.
+       To test the theory right now, unplug the device and re-run." ;;
+        7) cause="the connection was refused or unreachable - a route or a firewall,
+       not a name." ;;
+        28) cause="the request timed out. Traffic is being accepted and then dropped,
+       which is what a split-tunnel VPN or a captive portal looks like." ;;
+        *) cause="curl exited $reach_code." ;;
+    esac
+
+    die "the Mac cannot reach $host
+
+       $cause
+
+       curl said: ${reach_error:-nothing}
+
+       The wheels for the device are downloaded here, not there, so this has to
+       work before anything is deployed."
+done
+info "pypi.org and files.pythonhosted.org reachable"
 
 # ── 3. the local tree ─────────────────────────────────────────────────────────
 
