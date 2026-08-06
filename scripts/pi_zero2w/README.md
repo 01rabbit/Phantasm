@@ -196,9 +196,11 @@ The remote directory is asked of the device (`$HOME/Phasmid`) unless
 this updates a device, it does not provision a new one.
 
 It fast-forwards the local checkout to `origin/main`, asks the device which
-Python it runs, downloads the matching aarch64 wheels **on the Mac**, syncs
-both, installs with `--no-index`, and then verifies on the device rather than
-trusting rsync's exit status. It refuses to run against a dirty working tree:
+Python it runs, downloads the matching aarch64 wheels **on the Mac** — plus
+`setuptools` and `wheel`, because `pip install -e .` builds the package and
+building is isolated, so `--no-deps` does not stop pip fetching a setuptools of
+its own — syncs both, installs with `--no-index` and `--no-build-isolation`,
+and then verifies on the device rather than trusting rsync's exit status. It refuses to run against a dirty working tree:
 deploying uncommitted work puts a build on the device that exists nowhere else.
 
 `.state`, the vault, `*.vessel` and the venv are excluded, so a deployment
@@ -232,24 +234,26 @@ default route at all.
 
 ### When the route looks right and the network still does not work
 
-Reported from the bench after the service order was already fixed: the deploy
-script showed the default route correctly on `en0` and then refused, saying it
-could not reach pypi.org.
+Seen on the bench once: the default route was correctly on `en0` and the script
+still refused, saying it could not reach pypi.org. That one was the check
+itself — it fetched `/simple/`, the whole package index, under a timeout meant
+for a handshake, which a hotel connection will not finish. It sends HEAD now
+and the same machine passes.
 
-Comparing interfaces catches the device holding the **route**. It does not
-catch the device holding the **resolver**. macOS merges DNS servers from every
-active service, so a gadget lease carrying `dhcp-option 6` puts the device in
-the resolver list while the default route stays correctly on Wi-Fi — and name
-resolution fails with routing that looks perfect.
+Two other causes are worth telling apart, and the script names them from curl's
+exit code rather than leaving it to be guessed. Comparing interfaces catches
+the device holding the **route**; it does not catch the device holding the
+**resolver**. macOS merges DNS servers from every active service, so a gadget
+lease carrying `dhcp-option 6` can put the device in the resolver list while
+the default route stays correctly on Wi-Fi.
 
 ```bash
-scutil --dns | grep -A2 'resolver #1'    # which resolver wins
+scutil --dns | grep -A2 'resolver #1'    # which resolver actually wins
 networksetup -getdnsservers Wi-Fi
 ```
 
-The quickest confirmation is to unplug the device and try again. The script now
-reports curl's exit code and names the cause, so a repeat says `DNS` rather
-than `cannot reach pypi.org`.
+If `resolver #1` names the venue's DNS rather than `10.12.194.1`, that is not
+it. The quickest confirmation either way is to unplug the device and retry.
 
 **On the Pi, better:** stop advertising a router *or a DNS server* at all, and
 no laptop has either problem — including a borrowed one at the venue. If the

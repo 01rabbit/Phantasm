@@ -245,7 +245,27 @@ python3 -m pip download -r requirements.txt -d "$WHEEL_DIR" \
     --platform manylinux_2_34_aarch64 \
     >/dev/null || die "could not download wheels for $pi_pyver/aarch64.
        Run the same command without the redirect to see which package refused."
+# The build requirements travel too. `pip install -e .` builds the package,
+# and building is isolated: pip creates a fresh environment and fetches
+# setuptools into it. `--no-deps` suppresses runtime dependencies and has no
+# effect on that, so the device reached for pypi.org and failed with
+# "Could not find a version that satisfies the requirement setuptools>=40.8.0"
+# after everything else had already installed cleanly.
+#
+# Python 3.12 stopped seeding new virtual environments with setuptools, and the
+# device runs 3.13, so it is genuinely absent rather than merely unpinned.
+# These are py3-none-any, so the host's own tags are fine.
+python3 -m pip download setuptools wheel -d "$WHEEL_DIR" --only-binary=:all: \
+    >/dev/null || die "could not download the build requirements (setuptools, wheel)."
+
 info "$(find "$WHEEL_DIR" -name '*.whl' | wc -l | tr -d ' ') wheels"
+
+local_pip="$(python3 -m pip --version 2>/dev/null | awk '{print $2}')"
+case "$local_pip" in
+    2[0-3].*) info "note: local pip is $local_pip, which predates some of the
+                 platform tags a 3.13 target can use. If a wheel is missing
+                 below, upgrade it first: python3 -m pip install -U pip" ;;
+esac
 
 # ── 5. carry it across ────────────────────────────────────────────────────────
 # The device's own state is never touched: .state, the vault and the venv are
@@ -275,9 +295,19 @@ rsync -az -e "ssh $(printf '%q ' "${SSH_OPTS[@]}")" \
 
 say "Installing on the device, with no network"
 
+# Three steps, in this order, and none of them may reach a network.
+#   1. the build requirements, so that step 3 has a setuptools to use;
+#   2. the runtime dependencies;
+#   3. the package itself, with build isolation off - otherwise pip discards
+#      the setuptools installed in step 1 and goes looking for another one.
+# PIP_NO_INDEX and PIP_FIND_LINKS are exported as well as passed, so that any
+# subprocess pip spawns inherits the same offline view rather than falling back
+# to the index list in the device's /etc/pip.conf.
 pi_ssh "cd '$PHASMID_PI_REMOTE_DIR' && \
+    export PIP_NO_INDEX=1 PIP_FIND_LINKS='$PHASMID_PI_REMOTE_DIR/.deploy-wheels' && \
+    .venv/bin/pip install --quiet --no-index --find-links .deploy-wheels setuptools wheel && \
     .venv/bin/pip install --quiet --no-index --find-links .deploy-wheels -r requirements.txt && \
-    .venv/bin/pip install --quiet --no-deps -e ." \
+    .venv/bin/pip install --quiet --no-deps --no-build-isolation -e ." \
     || die "the install failed on the device"
 
 # ── 7. verify on the device, not here ─────────────────────────────────────────
