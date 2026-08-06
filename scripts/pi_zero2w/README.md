@@ -230,10 +230,31 @@ remove the route to its own directly-connected subnet, and `phasmid-pi.local`
 keeps resolving because mDNS is link-local multicast and does not use the
 default route at all.
 
-**On the Pi, better:** stop advertising a router at all, and no laptop has the
-problem — including a borrowed one at the venue. If the gadget address is
-handed out by `dnsmasq`, adding these to its config and restarting it makes the
-lease carry an address and nothing else:
+### When the route looks right and the network still does not work
+
+Reported from the bench after the service order was already fixed: the deploy
+script showed the default route correctly on `en0` and then refused, saying it
+could not reach pypi.org.
+
+Comparing interfaces catches the device holding the **route**. It does not
+catch the device holding the **resolver**. macOS merges DNS servers from every
+active service, so a gadget lease carrying `dhcp-option 6` puts the device in
+the resolver list while the default route stays correctly on Wi-Fi — and name
+resolution fails with routing that looks perfect.
+
+```bash
+scutil --dns | grep -A2 'resolver #1'    # which resolver wins
+networksetup -getdnsservers Wi-Fi
+```
+
+The quickest confirmation is to unplug the device and try again. The script now
+reports curl's exit code and names the cause, so a repeat says `DNS` rather
+than `cannot reach pypi.org`.
+
+**On the Pi, better:** stop advertising a router *or a DNS server* at all, and
+no laptop has either problem — including a borrowed one at the venue. If the
+gadget address is handed out by `dnsmasq`, adding these to its config and
+restarting it makes the lease carry an address and nothing else:
 
 ```
 dhcp-option=3       # no router
