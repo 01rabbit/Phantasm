@@ -34,3 +34,6 @@ phasmid-autotest/
 
 !requirements.txt
 !MIO _Logo.png
+
+# Dependency wheels staged for an offline device deployment.
+.deploy-wheels/

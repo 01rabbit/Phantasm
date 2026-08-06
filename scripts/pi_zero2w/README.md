@@ -150,6 +150,104 @@ The script reads the same reference store the console uses and registers
 nothing, writes nothing, and changes nothing. The camera is exclusive, so the
 console has to be stopped first.
 
+## Deploying an update to the device
+
+The device is meant to stay off networks, which makes `git pull` on the device
+the wrong tool: it needs the internet to work, and the Pi only has the USB link
+to the laptop. Deployment therefore runs **from the Mac**, and carries the
+dependency wheels across with the source.
+
+With the Pi attached over USB and the operator console stopped, given a
+`~/.ssh/config` block like
+
+```
+Host phasmid
+    HostName phasmid-pi.local
+    User phasmid
+    IdentityFile ~/.ssh/id_ed25519
+    AddKeysToAgent yes
+    UseKeychain yes
+```
+
+the whole invocation is:
+
+```bash
+export PHASMID_PI_SSH=phasmid
+bash scripts/pi_zero2w/deploy_to_device.sh
+```
+
+`PHASMID_PI_SSH` is passed to `ssh` verbatim, so the config block is honoured
+whole — user, hostname, port, key, agent behaviour. Nothing is reconstructed
+from separate variables, because a script that rebuilds half an ssh config gets
+the other half wrong: with the block above, a `PHASMID_PI_USER` defaulting to
+`pi` connects as the wrong account and deploys into a home directory that does
+not exist.
+
+Without an alias the older variables still work:
+
+```bash
+export PHASMID_PI_HOST=10.12.194.1
+export PHASMID_PI_USER=phasmid
+bash scripts/pi_zero2w/deploy_to_device.sh
+```
+
+The remote directory is asked of the device (`$HOME/Phasmid`) unless
+`PHASMID_PI_REMOTE_DIR` says otherwise, and it must already be a checkout —
+this updates a device, it does not provision a new one.
+
+It fast-forwards the local checkout to `origin/main`, asks the device which
+Python it runs, downloads the matching aarch64 wheels **on the Mac**, syncs
+both, installs with `--no-index`, and then verifies on the device rather than
+trusting rsync's exit status. It refuses to run against a dirty working tree:
+deploying uncommitted work puts a build on the device that exists nowhere else.
+
+`.state`, the vault, `*.vessel` and the venv are excluded, so a deployment
+cannot destroy a bound object or a stored file.
+
+### When the Pi takes over the Mac's default route
+
+Reported from the bench, and the reason the script checks for it before doing
+anything: with the Pi attached, the Mac loses the internet. The gadget hands
+out a DHCP lease that includes a router option, macOS ranks that service above
+Wi-Fi, and every packet meant for the internet is sent to a device that has no
+upstream. `git pull` then fails — and the failure looks like a git problem, not
+a network one.
+
+**On the Mac, once:** System Settings → Network → **⋯** → *Set Service Order*,
+drag **Wi-Fi above the USB gadget service**, Apply. macOS takes the default
+route from the highest-priority active service, so this survives replugging.
+The Pi stays reachable at its own address; only the default route moves back.
+
+To unblock a single session without changing anything permanent:
+
+```bash
+route -n get default | awk '/interface:/{print $2}'   # confirm which one it is
+sudo route -n delete default -interface en5           # substitute the real one
+```
+
+The device stays reachable either way — removing the default route does not
+remove the route to its own directly-connected subnet, and `phasmid-pi.local`
+keeps resolving because mDNS is link-local multicast and does not use the
+default route at all.
+
+**On the Pi, better:** stop advertising a router at all, and no laptop has the
+problem — including a borrowed one at the venue. If the gadget address is
+handed out by `dnsmasq`, adding these to its config and restarting it makes the
+lease carry an address and nothing else:
+
+```
+dhcp-option=3       # no router
+dhcp-option=6       # no DNS server
+```
+
+Check what is actually serving the lease first — this is configured on the
+device by hand and is not part of this repository:
+
+```bash
+systemctl status dnsmasq
+ip -4 addr show usb0
+```
+
 ## Results
 
 | File | Contents |
