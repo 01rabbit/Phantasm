@@ -26,6 +26,16 @@ and this project follows SemVer-style release intent for documented interfaces.
   which is the better one because it covers any laptop, including a borrowed
   one at the venue.
 
+  The ssh destination is `PHASMID_PI_SSH`, passed to `ssh` verbatim so a
+  `~/.ssh/config` block is honoured whole. Nothing is reconstructed from
+  separate user/host/port/key variables: a script that rebuilds half an ssh
+  config gets the other half wrong, and against a real config whose `User` is
+  `phasmid` a default of `pi` connects as the wrong account and deploys into a
+  home directory that does not exist. The remote directory is likewise asked of
+  the device rather than defaulted, and the device's address is read from
+  `SSH_CONNECTION` rather than from a variable — the destination may be an
+  alias or an mDNS name, and the route check needs an address.
+
   State is never carried: `.state`, the vault, `*.vessel` and the venv are
   excluded, so deploying cannot destroy a bound object. Verification runs on
   the device, not on rsync's exit status.

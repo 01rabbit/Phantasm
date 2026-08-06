@@ -7,10 +7,25 @@
 # Run from macOS, from the repository root, with the Pi attached over USB and
 # the operator console stopped.
 #
-#   export PHASMID_PI_HOST=10.12.194.1      # the gadget address, or the name
-#   export PHASMID_PI_USER=pi
-#   export PHASMID_PI_REMOTE_DIR=/home/pi/Phasmid
+#   export PHASMID_PI_SSH=phasmid           # an ssh_config Host alias
 #   bash scripts/pi_zero2w/deploy_to_device.sh
+#
+# `PHASMID_PI_SSH` is used verbatim as the ssh destination, so a ~/.ssh/config
+# block is honoured whole - user, hostname, port, key, agent behaviour. Nothing
+# here reconstructs any of it, because a script that rebuilds half of an ssh
+# config gets the other half wrong: with
+#
+#     Host phasmid
+#         HostName phasmid-pi.local
+#         User phasmid
+#
+# the older `PHASMID_PI_USER`/`PHASMID_PI_HOST` pair would have connected as
+# `pi` to a machine whose account is `phasmid`, and deployed into a home
+# directory that does not exist.
+#
+# Without an alias, the older variables still work:
+#   export PHASMID_PI_HOST=10.12.194.1
+#   export PHASMID_PI_USER=phasmid
 #
 # Three things this does that a bare `git pull` on the device cannot:
 #
@@ -37,10 +52,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
-: "${PHASMID_PI_USER:=pi}"
-: "${PHASMID_PI_REMOTE_DIR:=/home/pi/Phasmid}"
-: "${PHASMID_PI_SSH_PORT:=22}"
 : "${PHASMID_DEPLOY_REF:=origin/main}"
+# Deliberately not defaulted: the remote directory is asked of the device
+# below, because $HOME depends on the account and the account depends on the
+# ssh config. A default of /home/pi/Phasmid is a guess that deploys silently
+# into the wrong place on any device whose user is not `pi`.
+: "${PHASMID_PI_REMOTE_DIR:=}"
 
 WHEEL_DIR="$REPO_ROOT/.deploy-wheels"
 
@@ -48,22 +65,57 @@ say()  { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 info() { printf '   %s\n' "$*"; }
 die()  { printf '\n\033[1;31mSTOP:\033[0m %s\n' "$*" >&2; exit 1; }
 
-[[ -n "${PHASMID_PI_HOST:-}" ]] || die \
-    "PHASMID_PI_HOST is not set. Use the gadget address the browser uses,
-       export PHASMID_PI_HOST=10.12.194.1"
+SSH_OPTS=(-o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new)
 
-SSH_OPTS=(-p "$PHASMID_PI_SSH_PORT" -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new)
-[[ -n "${PHASMID_PI_SSH_KEY:-}" ]] && SSH_OPTS+=(-i "$PHASMID_PI_SSH_KEY")
-pi_ssh() { ssh "${SSH_OPTS[@]}" "$PHASMID_PI_USER@$PHASMID_PI_HOST" "$@"; }
+if [[ -n "${PHASMID_PI_SSH:-}" ]]; then
+    SSH_DEST="$PHASMID_PI_SSH"
+else
+    [[ -n "${PHASMID_PI_HOST:-}" ]] || die \
+        "Neither PHASMID_PI_SSH nor PHASMID_PI_HOST is set. With a ~/.ssh/config
+       Host block, the short form is all you need:
+           export PHASMID_PI_SSH=phasmid"
+    SSH_DEST="${PHASMID_PI_USER:-pi}@$PHASMID_PI_HOST"
+    SSH_OPTS+=(-p "${PHASMID_PI_SSH_PORT:-22}")
+    [[ -n "${PHASMID_PI_SSH_KEY:-}" ]] && SSH_OPTS+=(-i "$PHASMID_PI_SSH_KEY")
+fi
 
-# ── 1. the default route ──────────────────────────────────────────────────────
-# The reported failure. Checked before anything else, because every later step
-# assumes the Mac can still reach the internet.
+pi_ssh() { ssh "${SSH_OPTS[@]}" "$SSH_DEST" "$@"; }
 
-say "Checking that the Pi has not taken the default route"
+# ── 1. reach the device, and ask it where it is ───────────────────────────────
+# The address is taken from the connection rather than from a variable. The
+# destination may be an ssh_config alias or an mDNS name, and `route -n get`
+# needs an address; asking the far end removes the guess. mDNS keeps working
+# even when the default route is wrong, because it is link-local multicast -
+# which is why this can run before the check below rather than after it.
+
+say "Reaching the device"
+
+conn="$(pi_ssh 'echo "$SSH_CONNECTION"' 2>/dev/null)"
+[[ -n "$conn" ]] || die "cannot ssh to '$SSH_DEST'. Check that the device is
+       attached, that sshd is up, and that the alias resolves:
+           ssh -G $SSH_DEST | head"
+# SSH_CONNECTION is "client-ip client-port server-ip server-port".
+pi_addr="$(awk '{print $3}' <<<"$conn")"
+info "device address  : $pi_addr"
+
+if [[ -z "$PHASMID_PI_REMOTE_DIR" ]]; then
+    PHASMID_PI_REMOTE_DIR="$(pi_ssh 'echo "$HOME/Phasmid"' 2>/dev/null)"
+    [[ -n "$PHASMID_PI_REMOTE_DIR" ]] || die "cannot determine the remote
+       directory. Set PHASMID_PI_REMOTE_DIR explicitly."
+fi
+info "remote directory: $PHASMID_PI_REMOTE_DIR"
+pi_ssh "test -d '$PHASMID_PI_REMOTE_DIR/.git'" || die \
+    "$PHASMID_PI_REMOTE_DIR on the device is not a checkout. Set
+       PHASMID_PI_REMOTE_DIR to the right path."
+
+# ── 2. the default route ──────────────────────────────────────────────────────
+# The reported failure. Checked before any download, because everything after
+# this assumes the Mac can still reach the internet.
+
+say "Checking that the device has not taken the default route"
 
 if command -v route >/dev/null 2>&1; then
-    pi_iface="$(route -n get "$PHASMID_PI_HOST" 2>/dev/null | awk '/interface:/{print $2}')"
+    pi_iface="$(route -n get "$pi_addr" 2>/dev/null | awk '/interface:/{print $2}')"
     default_iface="$(route -n get default 2>/dev/null | awk '/interface:/{print $2}')"
     info "route to the Pi : ${pi_iface:-unknown}"
     info "default route   : ${default_iface:-none}"
@@ -87,8 +139,8 @@ To unblock this session only, without changing anything permanent:
 
   sudo route -n delete default -interface $pi_iface
 
-The Pi stays reachable at $PHASMID_PI_HOST either way - removing the default
-route does not remove the route to its own subnet.
+The device stays reachable at $pi_addr either way - removing the default route
+does not remove the route to its own directly-connected subnet.
 EOF
         die "default route points at the device"
     fi
@@ -100,7 +152,7 @@ if ! curl -sS -m 10 -o /dev/null https://pypi.org/simple/ 2>/dev/null; then
 fi
 info "internet reachable"
 
-# ── 2. the local tree ─────────────────────────────────────────────────────────
+# ── 3. the local tree ─────────────────────────────────────────────────────────
 
 say "Bringing the local repository to $PHASMID_DEPLOY_REF"
 
@@ -117,7 +169,7 @@ git merge --ff-only "$PHASMID_DEPLOY_REF" || die \
     "cannot fast-forward to $PHASMID_DEPLOY_REF. Resolve the local branch first."
 info "at $(git rev-parse --short HEAD)  $(git log -1 --format=%s)"
 
-# ── 3. wheels for the device's own Python ─────────────────────────────────────
+# ── 4. wheels for the device's own Python ─────────────────────────────────────
 # Asked, not assumed: the interpreter on the device decides which wheels match,
 # and guessing produces an install that fails after the files are already there.
 
@@ -153,11 +205,11 @@ python3 -m pip download -r requirements.txt -d "$WHEEL_DIR" \
        Run the same command without the redirect to see which package refused."
 info "$(find "$WHEEL_DIR" -name '*.whl' | wc -l | tr -d ' ') wheels"
 
-# ── 4. carry it across ────────────────────────────────────────────────────────
+# ── 5. carry it across ────────────────────────────────────────────────────────
 # The device's own state is never touched: .state, the vault and the venv are
 # excluded, so a deployment cannot destroy a bound object or a stored file.
 
-say "Syncing to $PHASMID_PI_USER@$PHASMID_PI_HOST:$PHASMID_PI_REMOTE_DIR"
+say "Syncing to $SSH_DEST:$PHASMID_PI_REMOTE_DIR"
 
 rsync -az --delete \
     --exclude '.git/' \
@@ -170,14 +222,14 @@ rsync -az --delete \
     --exclude 'vault.bin' \
     --exclude '__pycache__/' \
     -e "ssh $(printf '%q ' "${SSH_OPTS[@]}")" \
-    "$REPO_ROOT/" "$PHASMID_PI_USER@$PHASMID_PI_HOST:$PHASMID_PI_REMOTE_DIR/" \
+    "$REPO_ROOT/" "$SSH_DEST:$PHASMID_PI_REMOTE_DIR/" \
     || die "rsync failed"
 
 rsync -az -e "ssh $(printf '%q ' "${SSH_OPTS[@]}")" \
-    "$WHEEL_DIR/" "$PHASMID_PI_USER@$PHASMID_PI_HOST:$PHASMID_PI_REMOTE_DIR/.deploy-wheels/" \
+    "$WHEEL_DIR/" "$SSH_DEST:$PHASMID_PI_REMOTE_DIR/.deploy-wheels/" \
     || die "could not copy the wheels"
 
-# ── 5. install, offline ───────────────────────────────────────────────────────
+# ── 6. install, offline ───────────────────────────────────────────────────────
 
 say "Installing on the device, with no network"
 
@@ -186,7 +238,7 @@ pi_ssh "cd '$PHASMID_PI_REMOTE_DIR' && \
     .venv/bin/pip install --quiet --no-deps -e ." \
     || die "the install failed on the device"
 
-# ── 6. verify on the device, not here ─────────────────────────────────────────
+# ── 7. verify on the device, not here ─────────────────────────────────────────
 
 say "Verifying"
 

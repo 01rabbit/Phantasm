@@ -157,14 +157,43 @@ the wrong tool: it needs the internet to work, and the Pi only has the USB link
 to the laptop. Deployment therefore runs **from the Mac**, and carries the
 dependency wheels across with the source.
 
-With the Pi attached over USB and the operator console stopped:
+With the Pi attached over USB and the operator console stopped, given a
+`~/.ssh/config` block like
+
+```
+Host phasmid
+    HostName phasmid-pi.local
+    User phasmid
+    IdentityFile ~/.ssh/id_ed25519
+    AddKeysToAgent yes
+    UseKeychain yes
+```
+
+the whole invocation is:
 
 ```bash
-export PHASMID_PI_HOST=10.12.194.1      # the address the browser uses
-export PHASMID_PI_USER=pi
-export PHASMID_PI_REMOTE_DIR=/home/pi/Phasmid
+export PHASMID_PI_SSH=phasmid
 bash scripts/pi_zero2w/deploy_to_device.sh
 ```
+
+`PHASMID_PI_SSH` is passed to `ssh` verbatim, so the config block is honoured
+whole — user, hostname, port, key, agent behaviour. Nothing is reconstructed
+from separate variables, because a script that rebuilds half an ssh config gets
+the other half wrong: with the block above, a `PHASMID_PI_USER` defaulting to
+`pi` connects as the wrong account and deploys into a home directory that does
+not exist.
+
+Without an alias the older variables still work:
+
+```bash
+export PHASMID_PI_HOST=10.12.194.1
+export PHASMID_PI_USER=phasmid
+bash scripts/pi_zero2w/deploy_to_device.sh
+```
+
+The remote directory is asked of the device (`$HOME/Phasmid`) unless
+`PHASMID_PI_REMOTE_DIR` says otherwise, and it must already be a checkout —
+this updates a device, it does not provision a new one.
 
 It fast-forwards the local checkout to `origin/main`, asks the device which
 Python it runs, downloads the matching aarch64 wheels **on the Mac**, syncs
@@ -195,6 +224,11 @@ To unblock a single session without changing anything permanent:
 route -n get default | awk '/interface:/{print $2}'   # confirm which one it is
 sudo route -n delete default -interface en5           # substitute the real one
 ```
+
+The device stays reachable either way — removing the default route does not
+remove the route to its own directly-connected subnet, and `phasmid-pi.local`
+keeps resolving because mDNS is link-local multicast and does not use the
+default route at all.
 
 **On the Pi, better:** stop advertising a router at all, and no laptop has the
 problem — including a borrowed one at the venue. If the gadget address is
