@@ -147,16 +147,19 @@ EOF
 fi
 
 # HEAD, not GET: /simple/ is the entire package index, tens of megabytes, and
-# -m bounds the whole transfer rather than the connection.
+# -m bounds the whole transfer rather than the connection. The first version of
+# this check asked for that whole index inside a 10-second budget and stopped a
+# deployment on a network that was working - the transfer was slow, not absent.
 #
-# And the failure is named rather than summarised. Comparing interfaces, as the
-# check above does, catches the Pi holding the *route* - it does not catch the
-# Pi holding the *resolver*. macOS merges DNS servers from every active
-# service, so a gadget lease carrying `dhcp-option 6` can put the device in the
-# resolver list while the default route is correctly on Wi-Fi. Name resolution
-# then fails with routing that looks perfect, which is exactly the shape of the
-# report this replaces: "cannot reach pypi.org" from a Mac that had just cloned
-# from GitHub. curl's exit code tells the two apart, so it is reported.
+# And the failure is named rather than summarised, because more than one thing
+# produces "cannot reach pypi.org" and they need different fixes. Comparing
+# interfaces, as the check above does, catches the Pi holding the *route* - it
+# does not catch the Pi holding the *resolver*. macOS merges DNS servers from
+# every active service, so a gadget lease carrying `dhcp-option 6` can put the
+# device in the resolver list while the default route is correctly on Wi-Fi;
+# name resolution then fails with routing that looks perfect. curl's exit code
+# separates that from a refused connection and from a timeout, so it is
+# reported instead of guessed at.
 for host in https://pypi.org/simple/ https://files.pythonhosted.org/; do
     reach_error="$(curl -fsS -I --connect-timeout 5 -m 20 -o /dev/null "$host" 2>&1)"
     reach_code=$?
@@ -165,17 +168,22 @@ for host in https://pypi.org/simple/ https://files.pythonhosted.org/; do
     case $reach_code in
         6) cause="DNS. The name did not resolve.
 
-       Comparing interfaces does not catch this: macOS merges resolvers from
-       every active service, so the device can be in the resolver list while
-       the default route is correctly on Wi-Fi. Check which resolvers are in
-       play, and in what order:
+       Look at the resolver actually being used before assuming a cause -
+       a hotel or conference network answers here far more often than the
+       device does:
 
            scutil --dns | grep -A2 'resolver #1'
            networksetup -getdnsservers Wi-Fi
 
-       The durable fix is on the device - stop the lease carrying a DNS server
-       at all (dnsmasq: dhcp-option=6). See scripts/pi_zero2w/README.md.
-       To test the theory right now, unplug the device and re-run." ;;
+       If the address listed is the device's, macOS has merged its resolver in
+       (it merges resolvers from every active service, so this happens with the
+       default route correctly on Wi-Fi). The durable fix is then on the device
+       - stop the lease carrying a DNS server at all (dnsmasq: dhcp-option=6).
+       See scripts/pi_zero2w/README.md. To confirm, unplug it and re-run.
+
+       If the address belongs to the network you are on, the device is not
+       involved: the venue's resolver is failing, and a public one on Wi-Fi
+       only (networksetup -setdnsservers Wi-Fi 1.1.1.1) gets you moving." ;;
         7) cause="the connection was refused or unreachable - a route or a firewall,
        not a name." ;;
         28) cause="the request timed out. Traffic is being accepted and then dropped,
