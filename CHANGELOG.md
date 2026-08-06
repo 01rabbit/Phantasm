@@ -9,6 +9,27 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Added
 
+- `scripts/pi_zero2w/deploy_to_device.sh` — puts the repository onto the device
+  from the Mac, over the USB link, with no network on the device. `git pull` on
+  the device is the wrong tool for an appliance that is supposed to stay off
+  networks, and on a Pi Zero 2 W a source build of the OpenSSL bindings is not
+  something that finishes; so the wheels are downloaded on the Mac, for the
+  Python the device actually reports rather than one assumed for it, and
+  installed with `--no-index`.
+
+  It also refuses to start when the Mac's default route points at the Pi.
+  Reported from the bench: attaching the device costs the Mac its internet,
+  because the gadget's DHCP lease carries a router option and macOS ranks that
+  service above Wi-Fi. `git pull` then fails in a way that reads as a git
+  problem. The script names the cause and gives both the one-session fix and
+  the permanent one; `scripts/pi_zero2w/README.md` adds the device-side fix,
+  which is the better one because it covers any laptop, including a borrowed
+  one at the venue.
+
+  State is never carried: `.state`, the vault, `*.vessel` and the venv are
+  excluded, so deploying cannot destroy a bound object. Verification runs on
+  the device, not on rsync's exit status.
+
 - `scripts/pi_zero2w/tune_camera.py` — finds the camera settings that give
   *this* object, in *this* room, the most to match on. The defaults above are
   measured, but they are measured against synthetic scenes, and the real
