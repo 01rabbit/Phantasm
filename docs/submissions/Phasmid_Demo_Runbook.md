@@ -12,7 +12,7 @@
 > - **Issue #169・Phase 1:** TUI の **Add File** と Expert 画面の **Doctor・Inspect を非活性化**した — いずれも役割別トークンで保護された WebUI（`/store`、`/operator/doctor`、`/operator/inspect`）と完全に重複するため。**Recover File と Audit はあえて非活性化していない** — Audit は本改訂で壇上の演目からは外れたが、**卓上デモと質疑で使う**（→ §4「実演から外したもの」）。Recover File は否定証明が WebUI に移って本編からは外れたが、**壇上で WebUI が使えなくなった場合に否定証明を成立させる唯一の代替経路**なので残す。**削除ではなく非活性化** — 内部のサービス呼び出し・画面コードはそのまま残しており、リハーサルで問題が出れば1行で復元できる。
 > - **Expert フッタの安全端末幅が 145→124 桁に下がった**（Doctor/Inspect の非活性化でフッタの項目数が減ったため。Audit は残っているので115桁までは下がらない）。
 > - **囮ファイルは運用者が用意する**ものとし、生成機能は空き領域の填充に位置づけ直している（v4 からの変更点、引き続き有効）。
-> - **本番構成を 12 シーンに組み直した（本改訂）。** 変更は4点。**(1) SCENE 1 で作った容器をディスク上の実物として見せる** — `ls` / `file` / `xxd` の3行。以降は必ずファイル名で参照する。これが無いと、2つのファイルが出てきても観客には「別々の入れ物から出た」としか見えず、デモの主張が丸ごと伝わらない。**(2) 対比を両方向にした** — 物体だけ違う（SCENE 6）と、パスワードだけ違う（SCENE 7）の両方を見せる。**(3) 強要と破壊を独立したシーンにした**（SCENE 8・9・10）。**(4) Silent Standby と Audit を実演から外した** — 理由は §0 の表と §4 の各注記に書いた。
+> - **本番構成を 12 シーンに組み直した（本改訂）。** 変更は4点。**(1) SCENE 1 で作った容器をディスク上の実物として見せる** — `ls` / `file` / `od` の3行。以降は必ずファイル名で参照する。これが無いと、2つのファイルが出てきても観客には「別々の入れ物から出た」としか見えず、デモの主張が丸ごと伝わらない。**(2) 対比を両方向にした** — 物体だけ違う（SCENE 6）と、パスワードだけ違う（SCENE 7）の両方を見せる。**(3) 強要と破壊を独立したシーンにした**（SCENE 8・9・10）。**(4) Silent Standby と Audit を実演から外した** — 理由は §0 の表と §4 の各注記に書いた。
 > - **画面切替が往復から片道1回になった。** TUI に戻るシーンが無くなったため。ラップトップ1台で「スライド／ターミナル／ブラウザ」を切り替える構成なら、フルスクリーンのスペースを順送りするだけで済む（→ §2）。
 
 ---
@@ -30,7 +30,7 @@
 | **成功例だけを見せる** | 物体キューが効いていることの証明にならない。観客にはただのパスワード復号に見える | **失敗を両方向で見せる**（SCENE 6・7） |
 | **TUI で Add File を探す** | #169 で非活性化済み。Operation セレクタには Recover File・List Files・Remove File しか出ない | **Bind も復元も否定証明も WebUI**（SCENE 3〜10）。TUI の `Recover File` は WebUI が使えない時の代替 |
 | **Silent Standby を壇上で見せる** | 「WebUI ごと落ちる」と言っても、ブラウザ側には痕跡が残る。**実装が主張に追いついていないものを壇上に出すと、質疑で崩れる** | **演目から外す。** 概念は Slide 14 で説明済み。実装が固まるまで、実演は卓上デモに留める |
-| **Audit を壇上で開く** | 上段で `Header absent / Magic bytes absent` と言いながら、下段で `Tracked Faces 2` と数える。**その数字の出どころは容器ではなく手元の台帳**で、SCENE 1 で `xxd` まで見せた直後にこれを出すと、自分で作った印象を自分で崩す | **演目から外し、SCENE 10 の最後の3行で「判定しないこと」だけを言う。** 画面は卓上デモと質疑の持ち札に回す（→ §5） |
+| **Audit を壇上で開く** | 上段で `Header absent / Magic bytes absent` と言いながら、下段で `Tracked Faces 2` と数える。**その数字の出どころは容器ではなく手元の台帳**で、SCENE 1 で16進ダンプまで見せた直後にこれを出すと、自分で作った印象を自分で崩す | **演目から外し、SCENE 10 の最後の3行で「判定しないこと」だけを言う。** 画面は卓上デモと質疑の持ち札に回す（→ §5） |
 | **別タブに recover トークンのセッションを並べる** | **同一ブラウザでは成立しない。** セッションはクッキー1つ（`phasmid_ui_session`）で全タブ共有なので、2つ目のタブで解錠すると1つ目のセッションも置き換わる | **役割分離は SCENE 2 で口頭説明のみ。** 実演したいならプライベートウィンドウか別ブラウザが要るが、壇上でやる価値はない |
 | **ダウンロードフォルダを空にせずに始める** | 復元ファイル名は Face によらず `retrieved_payload.bin`。2つ目が `retrieved_payload(1).bin` になり、**SCENE 6 の「違うファイルが出た」が名前の違いに見えてしまう** | **事前に空にする。** 違いは必ず**中身**で見せる |
 | **通知を切らずに投影する** | ラップトップ1台構成では、Slack もメールもカレンダーも投影画面に出る | **集中モードをオンにする。** スペースを3つに固定し、デスクトップと Dock を映さない |
@@ -59,7 +59,7 @@
 
 > **時計運用:** 開始 ~19:20。**26:00 を超えたら SCENE 5 と SCENE 8 を落とす** — 落とす順はこの2つ。SCENE 5 は機能確認、SCENE 8 は SCENE 5 と同一操作なので、片方だけ残せば筋は通る。**SCENE 1・6・7・9・10 は何があっても残す。**
 > **画面切替は片道1回だけ。** SCENE 1 の終わりに TUI→ブラウザへ移り、**そのまま最後まで戻らない**。SCENE 2〜11 は同じブラウザ画面で連続する。
-> **SCENE 1 が全体の前提を作る。** ここでディスク上の実物（`ls` / `file` / `xxd`）を見せ、以降ファイル名で参照し続けることで初めて「**1つの容器から**2つ出た」が成立する。これを飛ばすと、以降のシーンが全部「別々の入れ物を順に開いただけ」に見える。
+> **SCENE 1 が全体の前提を作る。** ここでディスク上の実物（`ls` / `file` / `od`）を見せ、以降ファイル名で参照し続けることで初めて「**1つの容器から**2つ出た」が成立する。これを飛ばすと、以降のシーンが全部「別々の入れ物を順に開いただけ」に見える。
 > **SCENE 6 と 7 は対になっている。** 6 は物体だけを変えて失敗させ、7 はパスワードだけを変えて失敗させる。**片方だけでは「物体が鍵だ」とも「パスワードが鍵だ」とも取れてしまう。** 両方向を見せて初めて「両方が要る／どちらも鍵ではない」が実証になる。
 > **SCENE 9 が山場。** 同じ画面・同じ物体・同じ入力欄・同じボタンで、**打ち間違えたときと文字通り同じ表示**が出る。外から区別がつかないこと自体が主張なので、ここは手を速く動かさない。
 
@@ -81,6 +81,16 @@
       `retrieved_payload.bin` で、2つ目は `retrieved_payload(1).bin` になる。
       **SCENE 6 の「違うファイルが出た」が名前の違いに見えてしまう**ため、
       違いは必ず中身で見せる。空にしておけば混乱しない。
+- [ ] **SCENE 1 で叩くコマンドが実機にあることを確認する。** 実機は Raspberry Pi OS Lite で、
+      **`xxd` は入っていない**（旧 `vim-common`／現 `xxd` パッケージが無い）。壇上で
+      `command not found` を出さないため、設営時に一度通す:
+
+      ```bash
+      for c in ls file od; do command -v $c || echo "MISSING: $c"; done
+      ```
+
+      `od` は coreutils なので必ずある。**デバイスに何かを追加インストールして解決しない** —
+      ネットワークに出さない前提そのものを崩す。
 - [ ] **端末幅を124桁以上にする**（`tput cols` で確認）。これを下回ると Expert フッタから
       `w WebUI` が**無言で消える** — 露出したWebUIを引っ込めるキーが画面から失われる。
       省略記号は出ないので、狭いことに気付けない（→ §9）。
@@ -205,14 +215,19 @@
 - **操作:** **`n` (New)** → `vessel-path` に `demo.vessel` → **`vessel-size` を `64M` に変更**（Select、既定は `512M`。**既定のまま作らない**）→ `vessel-label`（"Non-sensitive label"、任意）→ `create-btn`。
   続けてシェルに切り替え、実物を見せる:
   ```bash
-  ls -lh demo.vessel     # 1つのファイル、64M
-  file demo.vessel       # "data" — 何も分からない
-  xxd demo.vessel | head -5
+  ls -lh demo.vessel                    # 1つのファイル、64M
+  file demo.vessel                      # "data" — 何も分からない
+  od -A x -t x1z -N 96 demo.vessel      # 6行だけ出る
   ```
 - **画面期待:** `PROTECTED STORAGE` に新規 Vessel が出現。**下段のパネルが `Choose an action:` に変わること**（空状態メッセージが消える）。`file` は `data` を返す。
 - **発話（EN）:** "First, I make a vessel. A deniable container. One file. Sixty-four megabytes. Let me show you what that looks like on disk. `ls` — one file. That is all there is. `file` — it says 'data'. It has nothing to say, because there is nothing to read. No header. No magic bytes. No format at all. On disk, this is random. Remember the name. Demo dot vessel. Everything from here comes out of this one file."
 - **注意:** Vessel を作ると **Face が2つ自動生成される**（`face_a` / `face_b`、ともに `available`）。物体キューも自動でクリーンな状態から始まる（0.4.0）。**Create Face を押す必要はない。手順に含めない。**
-- **注意（副産物）:** `xxd` の3行は Slide 6 の「ヘッダも magic bytes も無い」を**実物で裏付ける**。旧構成にはこの裏付けが無く、主張がスライドの中だけで完結していた。
+- **注意（`xxd` ではなく `od`）:** **`xxd` は実機に入っていない。** Raspberry Pi OS Lite は
+  `xxd` パッケージ（旧 `vim-common`）を含まないので、壇上で `command not found` になる。
+  **`od` は coreutils なので必ずある。** `-A x` で16進オフセット、`-t x1z` で
+  16進＋右端に ASCII、`-N 96` で96バイト＝6行に切る — `head` へのパイプも要らない。
+  実機で踏んだ（→ §9.0.6）。
+- **注意（副産物）:** この16進ダンプは Slide 6 の「ヘッダも magic bytes も無い」を**実物で裏付ける**。旧構成にはこの裏付けが無く、主張がスライドの中だけで完結していた。
 
 ### ⟶ 画面切替（片道1回・以降 TUI に戻らない）
 
@@ -292,7 +307,7 @@
   **最後の3行は操作なし。手を止めて、客席を見て言う。**
 - **画面期待:** Slot B は `No valid entry found.`。Slot A は従来どおり復元される。
 - **発話（EN）:** "Let me prove that. Object B. Slot B's real password. The correct way. Nothing. I cannot get it back either. That is not a bug. And Slot A still opens, exactly as before. — One thing this tool will never tell you: whether your cover story is believable. That is your job. It does not pretend otherwise."
-- **注意（最後の3行が Audit ビートの代わり）:** 旧構成にはここで TUI の Audit 画面を開き「判定しないことを誇る」ステップがあった。**画面は出さず、この3行に置き換えた。** 理由は2つ。**(1) 置き場所がない** — SCENE 9〜10 の破壊が感情のピークで、その後に監査画面を出すと温度が下がったところで終わる。前に置けば積み上げた緊張を切る。**(2) 画面が自己矛盾する** — Audit は上段で `Header absent / Magic bytes absent / Metadata minimized` と言いながら、下段で `Tracked Vessels 1 / Tracked Faces 2` と数える。その数字は容器ではなく**手元の台帳**（`VesselService().list_all()`）から来ているので、SCENE 1 で `xxd` まで見せた直後にこれを出すと、自分で作った印象を自分で崩す。**破壊を見せた直後に、作った本人が先に限界を言う方が効く。**
+- **注意（最後の3行が Audit ビートの代わり）:** 旧構成にはここで TUI の Audit 画面を開き「判定しないことを誇る」ステップがあった。**画面は出さず、この3行に置き換えた。** 理由は2つ。**(1) 置き場所がない** — SCENE 9〜10 の破壊が感情のピークで、その後に監査画面を出すと温度が下がったところで終わる。前に置けば積み上げた緊張を切る。**(2) 画面が自己矛盾する** — Audit は上段で `Header absent / Magic bytes absent / Metadata minimized` と言いながら、下段で `Tracked Vessels 1 / Tracked Faces 2` と数える。その数字は容器ではなく**手元の台帳**（`VesselService().list_all()`）から来ているので、SCENE 1 で16進ダンプまで見せた直後にこれを出すと、自分で作った印象を自分で崩す。**破壊を見せた直後に、作った本人が先に限界を言う方が効く。**
 - **注意（この失敗はカウントされる）:** 破壊済みの Face を正規のパスワードで開こうとすると `_destroyed_by_password` は False を返し、**失敗として記録される**。ただし直前の SCENE 8 の成功でカウンタは 0 に戻っているので、ここで 1 になるだけ（→ §9.0.6）。
 
 ### SCENE 11 — ラップ（0:10）
@@ -632,6 +647,14 @@ SCENE 6（1回目のパスワード違い）・SCENE 7（物体違い）・SCENE
 0 に戻る**。実際のピークは 1。**破壊操作そのものは成功として記録される**
 （`_destroyed_by_password` が成功したとき `record_success`）ので、SCENE 9 は
 カウンタに影響しない。
+
+**実機で踏んだもの:**
+
+- **`xxd` が入っていない。** SCENE 1 の16進ダンプを `xxd` で書いていたが、Raspberry Pi OS
+  Lite には `xxd` パッケージ（旧 `vim-common`）が無く、**壇上なら `command not found` に
+  なっていた**。`od -A x -t x1z -N 96` に差し替えた — `od` は coreutils なので必ずある。
+  **デバイスに追加インストールして解決しない** — ネットワークに出さない前提そのものを崩す。
+  同種の事故を防ぐため、設営時にコマンドの存在を確認する項目を §2 に追加した。
 
 **未確認（会場でしか測れない）:**
 

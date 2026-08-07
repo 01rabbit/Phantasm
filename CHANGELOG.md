@@ -15,7 +15,7 @@ and this project follows SemVer-style release intent for documented interfaces.
   **The container is now shown on disk.** The old opening created a vessel and
   moved on. Two files then came out of it later, and nothing on screen said
   they had come out of the *same* one — so the demonstration read as "two
-  containers opened in turn," which is not the claim. `ls`, `file` and `xxd`
+  containers opened in turn," which is not the claim. `ls`, `file` and `od`
   now run on the vessel the moment it exists, and every scene after that names
   the file. The three lines also do something the deck could not: they put the
   "no header, no magic bytes" claim in front of the audience as bytes rather
@@ -38,7 +38,8 @@ and this project follows SemVer-style release intent for documented interfaces.
   screen cannot support is worse on stage than no claim. Audit's own screen
   reports `Header absent / Magic bytes absent` above `Tracked Faces 2`, and
   that count comes from the local registry rather than from the container — so
-  opening it minutes after `xxd` undercuts the thing `xxd` just established.
+  opening it minutes after that dump undercuts the thing the dump just
+  established.
   It moves to the table and to Q&A, where the registry can be explained to one
   person instead of implied to a room.
 
