@@ -35,10 +35,10 @@
             <section class="step-card">
                 <div class="step-head">
                     <span class="step-number">1</span>
-                    <div><h3>Choose the entry</h3><p class="step-help">Pick which protected space this goes into. Setting up both takes two passes, one entry at a time.</p></div>
+                    <div><h3>Choose the slot</h3><p class="step-help">Pick which protected space this goes into. Setting up both takes two passes, one slot at a time.</p></div>
                 </div>
                 <label class="field">
-                    <span>Entry</span>
+                    <span>Slot</span>
                     <select name="entry_hint" id="entryHint">{% for entry in entries %}<option value="{{ entry.id }}">{{ entry.label }}</option>{% endfor %}</select>
                 </label>
             </section>
@@ -197,8 +197,8 @@
     captureButton.addEventListener('click', async () => {
         // Bind to the entry the operator chose in step 1. Without this the
         // server falls back to whichever entry is currently matched or first
-        // unbound, while /store below honours the selector - so picking Entry 2
-        // first would put the object on Entry 1 and the file on Entry 2.
+        // unbound, while /store below honours the selector - so picking Slot B
+        // first would put the object on Slot A and the file on Slot B.
         const body = new URLSearchParams({
             replace: 'false',
             entry_hint: document.getElementById('entryHint').value || '',

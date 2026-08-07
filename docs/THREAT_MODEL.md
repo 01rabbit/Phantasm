@@ -562,7 +562,7 @@ Phasmid explicitly does not aim to provide:
 - Sensitive Web actions require a fresh restricted confirmation session in addition to the Web token. Restricted action pages and entry maintenance details are withheld until that confirmation is active.
 - The Web server binds to `127.0.0.1` by default, including when started from the TUI with `w`. See [WebUI Bind Address](#webui-bind-address).
 - **Inactivity Auto-Kill**: When managed via the TUI, the WebUI server is
-  automatically terminated after 10 minutes of operator inactivity to minimize
+  automatically terminated after 30 minutes of operator inactivity to minimize
   exposure time and return the system to a stealth state.
 - **Exposure Visualization**: The TUI Home Screen displays a high-visibility
   warning banner while the WebUI port is open, preventing accidental long-term

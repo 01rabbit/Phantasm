@@ -235,7 +235,7 @@ limiter.
 **Process crash**: A panic event or deliberate process termination disrupts service.
 
 *Controls*: The systemd unit restarts on failure (`Restart=on-failure`, `RestartSec=2`).
-The TUI auto-kills the WebUI after 10 minutes of inactivity to limit exposure.
+The TUI auto-kills the WebUI after 30 minutes of inactivity to limit exposure.
 
 **LUKS mount unavailability**: If the optional LUKS layer or tmpfs mount is
 unavailable, Phasmid refuses to start rather than falling back to unencrypted storage.

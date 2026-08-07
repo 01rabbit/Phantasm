@@ -186,9 +186,15 @@ LEGACY_SELECTOR_TO_ENTRY = {
     "prof" + "ile_b": "entry_2",
 }
 MODE_TO_ENTRY = {mode: entry for entry, mode in ENTRY_TO_MODE.items()}
+#: What the two protected spaces are called on screen. The identifiers stay
+#: `entry_1` / `entry_2` because they are wire values - form fields, stored
+#: state, and the legacy selector mapping all carry them - but the operator
+#: never sees those. "Slot A" and "Slot B" are what the demonstration says out
+#: loud, and a screen that disagrees with the person in front of it is one more
+#: thing for the audience to resolve.
 ENTRY_LABELS = {
-    "entry_1": "Entry 1",
-    "entry_2": "Entry 2",
+    "entry_1": "Slot A",
+    "entry_2": "Slot B",
 }
 SECURITY_HEADERS = {
     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
@@ -260,7 +266,7 @@ async def security_headers_middleware(request: Request, call_next):
 
 
 def display_entry_label(entry_id):
-    return ENTRY_LABELS.get(entry_id, "Entry")
+    return ENTRY_LABELS.get(entry_id, "Slot")
 
 
 def active_vault() -> PhasmidVault:
@@ -673,8 +679,8 @@ def _select_entry_for_store(entry_hint=None, overwrite=False):
     """Resolve which entry a store operation targets.
 
     An explicit, valid ``entry_hint`` takes priority - the store page's
-    visible entry selector lets an operator deliberately set up Entry 1 and
-    Entry 2 in turn, rather than depending on whichever entry the camera
+    visible slot selector lets an operator deliberately set up Slot A and
+    Slot B in turn, rather than depending on whichever entry the camera
     happens to match or the dict-iteration order of the first unbound one.
     The object cue itself is still what actually authorizes the write: an
     already-bound entry is only reused when the camera currently matches it
@@ -936,9 +942,9 @@ async def video_feed():
     # restarted. See AIGate.generate_frames() / _finish_camera_consumer().
     #
     # start() is a no-op once the background matcher thread is already
-    # running; it only matters right after a successful Retrieve released
-    # the camera to save power (see the `/retrieve` handler) and no TUI
-    # Vessel Open has happened since to bring it back.
+    # running; it only matters when something else stopped the matcher - the
+    # TUI's Open Vessel closes the camera when it finishes - and nothing has
+    # brought it back since.
     access_cue_service.start()
     return StreamingResponse(
         access_cue_service.generate_frames(),
@@ -1367,8 +1373,23 @@ def _retrieve(request: Request, password: str):
             bytes=len(result),
             source="web",
         )
-        # Release camera to save power and heat after successful retrieval.
-        access_cue_service.close()
+        # The camera is deliberately *not* released here. This used to call
+        # access_cue_service.close() "to save power and heat after successful
+        # retrieval", which is the same mistake /video_feed used to make on
+        # disconnect: close() is a full-shutdown primitive - it joins the
+        # matcher thread and zeroes the consumer count regardless of who is
+        # still reading - so a browser watching the preview kept its last
+        # frame on screen and never got another. Reported from the device as
+        # "the camera freezes after decrypting a file, and changing tabs fixes
+        # it": navigating away built a fresh <img>, which re-requested
+        # /video_feed, which called start() again.
+        #
+        # Nothing is leaked by leaving it alone. generate_frames() releases the
+        # camera itself once its last consumer exits, which is exactly what
+        # happens when the operator leaves the page or closes the tab - the
+        # case the power saving was actually for. While the page is open the
+        # preview is on screen, so the camera being on is what the operator is
+        # looking at.
         _access_attempts.record_success(attempt_scope)
         purge_applied = _maybe_auto_purge(mode, source="web")
         return create_file_response(
@@ -1751,12 +1772,11 @@ CUE_RESTART_FRAME_SECONDS = 1.0
 def _resume_cue_matching() -> None:
     """Bring the matcher back if a previous retrieval released the camera.
 
-    A successful retrieval calls `access_cue_service.close()` to save power and
-    heat. Everything that then asks "is the bound object present?" is answered
-    "no" - not because the object is absent, but because nothing is looking.
-    The retrieve page restarts it on its next `/video_feed` request, so whether
-    the answer was true depended on whether the browser had reconnected its
-    preview yet.
+    The TUI's Open Vessel closes the camera when it finishes. Everything that
+    then asks "is the bound object present?" is answered "no" - not because the
+    object is absent, but because nothing is looking. The WebUI's pages restart
+    it on their next `/video_feed` request, so whether the answer was true
+    depended on whether the browser had reconnected its preview yet.
 
     Costs nothing when the matcher is already running, which is the normal
     case: `start()` is a no-op and this returns immediately.
