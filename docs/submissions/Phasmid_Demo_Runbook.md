@@ -246,7 +246,7 @@
 > **重要（#169・TUI の Add File は非活性化済み）:** TUI の Operation セレクタには
 > **Recover File・List Files・Remove File しか出ない。** Face の登録は **WebUI の Store 画面**で行う。
 
-- **操作:** **Store** 画面 → Step 1「Choose the entry」で **Entry 1** を選択 → **偽装用ファイル**を選択 → **パスワードA** → **物体を手元に置いたまま `1 · Capture empty scene`** → **物体Aをかざして `2 · Capture access object`** → **かざしたまま `Protect file`**。
+- **操作:** **Store** 画面 → Step 1「Choose the slot」で **Slot A** を選択 → **偽装用ファイル**を選択 → **パスワードA** → **物体を手元に置いたまま `1 · Capture empty scene`** → **物体Aをかざして `2 · Capture access object`** → **かざしたまま `Protect file`**。
 - **画面期待:** 1枚目で `Empty scene captured. Now hold the object in front of it.`、2枚目で `Object cue matched`。`Access object: Captured` に変わり、カメラプレビューのオーバーレイが `No object cue match` から一致表示に変わる。`Protect file` 成功で緑のトースト。
 - **発話（EN）:** "Slot A. This is the file I would hand over. Now watch the camera. It takes two shots. First, the empty scene. Just my table. Then the same view, with the object in it. The device keeps the difference between them. Not my table. Not the room. The object. And this is a cue, not a key. It does not encrypt anything. It decides whether the operation may start at all. A photograph of it opens nothing."
 - **注意:** **撮影から保存まで物体を下ろさない。** 0.6.0 から保存の瞬間にも一致が再確認される（#186）。下ろすと `That entry is already set up...` で拒否される。
@@ -254,10 +254,10 @@
 
 ### SCENE 4 — Slot B: the file you would not（1:00｜★BIND｜WebUI）
 
-- **操作:** Step 1 を **Entry 2** に切り替え → **真のファイル**を選択 → **パスワードB** → **Advanced security options** で **Clearing password（破壊用）** を設定 → **物体を外して `1 · Capture empty scene`** → **物体Bをかざして `2 · Capture access object`** → **かざしたまま `Protect file`**。
-- **画面期待:** Entry を切り替えるたびに `Access object: Not captured` にリセットされ、**空シーンの撮り直しからやり直しになる**（前の空シーンは使い回されない）。
+- **操作:** Step 1 を **Slot B** に切り替え → **真のファイル**を選択 → **パスワードB** → **Advanced security options** で **Clearing password（破壊用）** を設定 → **物体を外して `1 · Capture empty scene`** → **物体Bをかざして `2 · Capture access object`** → **かざしたまま `Protect file`**。
+- **画面期待:** スロットを切り替えるたびに `Access object: Not captured` にリセットされ、**空シーンの撮り直しからやり直しになる**（前の空シーンは使い回されない）。
 - **発話（EN）:** "Slot B. Same file on disk. Same demo dot vessel. A different object. A different password. And one more thing here, which I will use later. A second password for this slot. Not one that opens it. Both slots now live inside that one file."
-- **注意:** **Entry を切り替えたら必ず物体も差し替える。** 同じ物体を両方の Face に使おうとすると `Object binding failed` で拒否される（cue≠key を壊さないための安全装置。実機で確認済み）。
+- **注意:** **スロットを切り替えたら必ず物体も差し替える。** 同じ物体を両方の Face に使おうとすると `Object binding failed` で拒否される（cue≠key を壊さないための安全装置。実機で確認済み）。
 - **注意:** ここで Clearing password を設定し忘れると **SCENE 9 が実演できない**。設定したことを口に出して言うのは意図的で、SCENE 9 の伏線になる。
 
 ### SCENE 5 — Slot A opens（0:20｜WebUI）
@@ -416,7 +416,7 @@ CLI の Vessel 既定名と同一であるため、パス存在で判定する�
 - [ ] **次サイクル用に囮ファイルを保存し直す。** 空き領域の填充（約4分）まで戻す場合は、
       填充済みVesselを複数用意しておき差し替える。
 - [ ] Silent Standby を `active` に復帰（`Ctrl+R`）。
-- [ ] WebUIプロセス停止（`w`、またはinactivity auto-kill 10分待機）。
+- [ ] WebUIプロセス停止（`w`、またはinactivity auto-kill 30分待機）。
 - [ ] ブラウザタブ（store の1つだけ）を `/unlock` 済みの状態に戻す。
 - [ ] カメラ画角・三脚位置を再固定。
 

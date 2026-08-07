@@ -41,8 +41,8 @@ class DocsAndTemplateTests(unittest.TestCase):
 
         `/register_key` falls back to whichever entry is currently matched or
         first unbound, while `/store` honours the selector. With the hint
-        missing, choosing Entry 2 first put the object on Entry 1 and the file
-        on Entry 2 - two faces, each holding half of a pair.
+        missing, choosing Slot B first put the object on Slot A and the file
+        on Slot B - two faces, each holding half of a pair.
         """
         store = read_text("src/phasmid/templates/store.html")
         capture_call = store.split("captureButton.addEventListener")[1]

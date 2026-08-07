@@ -9,6 +9,20 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Changed
 
+- The two protected spaces are called **Slot A** and **Slot B** on screen,
+  not Entry 1 and Entry 2. The demonstration says "Slot A" out loud while the
+  screen said "Entry 1", and an audience that has to reconcile the two is
+  spending attention on nothing. The identifiers underneath are untouched -
+  `entry_1` / `entry_2` are wire values carried by form fields, stored state
+  and the legacy selector mapping, and none of them are ever shown.
+
+- The WebUI's inactivity auto-kill is thirty minutes rather than ten. The
+  timer only advances on TUI keypresses, and bind and retrieve both moved to
+  the browser - so an operator working entirely in the browser looks idle to
+  it and has the server pulled out from under them mid-task. Ten minutes was
+  short enough to reach inside a single rehearsal pass.
+
+
 - The live demo is 12 scenes instead of 9, and the screen switch is one-way.
   What changed and why:
 

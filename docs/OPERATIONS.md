@@ -63,7 +63,7 @@ management and local checks.
 
 ### Safety Mechanisms
 
-- **Inactivity Auto-Kill**: The TUI monitors operator input. If no keys are pressed for 10 minutes, the WebUI is automatically terminated.
+- **Inactivity Auto-Kill**: The TUI monitors operator input. If no keys are pressed for 30 minutes, the WebUI is automatically terminated.
 - **Visual Feedback**: The TUI Home Screen displays a prominent warning while the WebUI is active.
 - **Process Isolation**: The WebUI runs as a managed subprocess and is terminated cleanly by the TUI on exit or retraction.
 

@@ -92,7 +92,16 @@ class ClearingPasswordCoverageTests(unittest.TestCase):
         reported = f"{_check_clearing_password_coverage().message} " + str(
             _check_clearing_password_coverage().detail or ""
         )
-        for naming in ("face_a", "face_b", "Entry 1", "Entry 2", "first", "second"):
+        for naming in (
+            "face_a",
+            "face_b",
+            "Slot A",
+            "Slot B",
+            "Entry 1",
+            "Entry 2",
+            "first",
+            "second",
+        ):
             with self.subTest(naming=naming):
                 self.assertNotIn(naming, reported)
 

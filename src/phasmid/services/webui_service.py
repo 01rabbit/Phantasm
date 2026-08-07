@@ -44,7 +44,12 @@ class WebUIService:
     def _init_service(self) -> None:
         self._process: subprocess.Popen | None = None
         self._timer: threading.Timer | None = None
-        self._timeout_seconds = 600  # 10 minutes
+        # Thirty minutes, not ten. The timer only advances on TUI keypresses,
+        # so an operator working entirely in the browser - which is where bind
+        # and retrieve now live - looks idle to it and gets the server pulled
+        # out from under them mid-task. Ten minutes was short enough to reach
+        # during a single rehearsal pass.
+        self._timeout_seconds = 1800  # 30 minutes
         self._on_timeout_cb: Callable[[], None] | None = None
         self._start_time: float | None = None
         self._host = self.resolve_bind_host()

@@ -19,7 +19,7 @@ compelled disclosure.
 3. Check the visible WebUI-active warning before continuing. Do not expose the
    interface to an untrusted network.
 
-When the TUI manages the WebUI, it stops the server after ten minutes without
+When the TUI manages the WebUI, it stops the server after thirty minutes without
 operator input. Stop it with `w` when the graphical task is complete.
 
 ## Access Token

@@ -312,7 +312,7 @@ Starting the WebUI launches a background process managed by the TUI.
 - **Host Validation**: Requests addressed by DNS name are rejected, so a page
   the operator visits cannot repoint its domain at the WebUI. Use
   `PHASMID_ALLOWED_HOSTS` if the device is genuinely reached by name.
-- **Auto-Kill Timer**: If the TUI detects no operator input for 10 minutes while
+- **Auto-Kill Timer**: If the TUI detects no operator input for 30 minutes while
   the WebUI is active, it will automatically terminate the WebUI server to
   return the system to a stealth state.
 - **Exposure Warning**: When the WebUI is active, a high-visibility warning

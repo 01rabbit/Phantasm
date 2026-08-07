@@ -1194,7 +1194,7 @@ class SelectEntryForStoreTests(unittest.TestCase):
     Before this, `/store` ignored `entry_hint` unless `overwrite` was set,
     so there was no way for an operator to deliberately choose which entry a
     file went into - the very first store on a fresh Vessel silently landed
-    on Entry 1 because of dict iteration order in `_first_unbound_entry()`,
+    on Slot A because of dict iteration order in `_first_unbound_entry()`,
     not operator intent.
     """
 
@@ -1229,7 +1229,7 @@ class SelectEntryForStoreTests(unittest.TestCase):
         """Picking an entry from the menu can target a slot, not substitute for its object.
 
         The camera must currently show the object already registered for the
-        chosen entry - otherwise this would let an operator write to Entry 1
+        chosen entry - otherwise this would let an operator write to Slot A
         while merely selecting it from a dropdown, with no object check at all.
         """
         with (
