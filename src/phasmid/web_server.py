@@ -942,9 +942,9 @@ async def video_feed():
     # restarted. See AIGate.generate_frames() / _finish_camera_consumer().
     #
     # start() is a no-op once the background matcher thread is already
-    # running; it only matters right after a successful Retrieve released
-    # the camera to save power (see the `/retrieve` handler) and no TUI
-    # Vessel Open has happened since to bring it back.
+    # running; it only matters when something else stopped the matcher - the
+    # TUI's Open Vessel closes the camera when it finishes - and nothing has
+    # brought it back since.
     access_cue_service.start()
     return StreamingResponse(
         access_cue_service.generate_frames(),
@@ -1373,8 +1373,23 @@ def _retrieve(request: Request, password: str):
             bytes=len(result),
             source="web",
         )
-        # Release camera to save power and heat after successful retrieval.
-        access_cue_service.close()
+        # The camera is deliberately *not* released here. This used to call
+        # access_cue_service.close() "to save power and heat after successful
+        # retrieval", which is the same mistake /video_feed used to make on
+        # disconnect: close() is a full-shutdown primitive - it joins the
+        # matcher thread and zeroes the consumer count regardless of who is
+        # still reading - so a browser watching the preview kept its last
+        # frame on screen and never got another. Reported from the device as
+        # "the camera freezes after decrypting a file, and changing tabs fixes
+        # it": navigating away built a fresh <img>, which re-requested
+        # /video_feed, which called start() again.
+        #
+        # Nothing is leaked by leaving it alone. generate_frames() releases the
+        # camera itself once its last consumer exits, which is exactly what
+        # happens when the operator leaves the page or closes the tab - the
+        # case the power saving was actually for. While the page is open the
+        # preview is on screen, so the camera being on is what the operator is
+        # looking at.
         _access_attempts.record_success(attempt_scope)
         purge_applied = _maybe_auto_purge(mode, source="web")
         return create_file_response(
@@ -1757,12 +1772,11 @@ CUE_RESTART_FRAME_SECONDS = 1.0
 def _resume_cue_matching() -> None:
     """Bring the matcher back if a previous retrieval released the camera.
 
-    A successful retrieval calls `access_cue_service.close()` to save power and
-    heat. Everything that then asks "is the bound object present?" is answered
-    "no" - not because the object is absent, but because nothing is looking.
-    The retrieve page restarts it on its next `/video_feed` request, so whether
-    the answer was true depended on whether the browser had reconnected its
-    preview yet.
+    The TUI's Open Vessel closes the camera when it finishes. Everything that
+    then asks "is the bound object present?" is answered "no" - not because the
+    object is absent, but because nothing is looking. The WebUI's pages restart
+    it on their next `/video_feed` request, so whether the answer was true
+    depended on whether the browser had reconnected its preview yet.
 
     Costs nothing when the matcher is already running, which is the normal
     case: `start()` is a no-op and this returns immediately.

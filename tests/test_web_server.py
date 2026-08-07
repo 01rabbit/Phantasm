@@ -375,6 +375,58 @@ class WebServerBoundaryTests(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_a_successful_retrieval_leaves_the_camera_running(self):
+        """The preview must survive the operation the operator just performed.
+
+        Reported from the device: decrypt a file and the camera image freezes;
+        switching to another tab clears it. That is the same mistake
+        /video_feed used to make on disconnect, from the other direction. This
+        path called ``access_cue_service.close()`` "to save power and heat
+        after successful retrieval", and close() is a full shutdown - it joins
+        the matcher thread and zeroes the consumer count without asking who is
+        still reading. The browser's stream ended mid-page, so its <img> kept
+        the last frame it had received and never got another. Changing tabs
+        appeared to fix it because a new page builds a new <img>, which
+        re-requests /video_feed, which calls start().
+
+        Nothing has to be released here: generate_frames() lets the camera go
+        once its last consumer exits, which is what leaving the page does.
+        """
+
+        async def run():
+            request = SimpleNamespace(
+                client=SimpleNamespace(host="127.0.0.1"),
+                url=SimpleNamespace(path="/retrieve"),
+                cookies={},
+            )
+            with (
+                mock.patch.object(
+                    web_server.access_cue_service,
+                    "auth_sequence",
+                    return_value=["reference_dummy_matched"],
+                ),
+                mock.patch.object(
+                    web_server.access_cue_service, "modes", return_value=("dummy",)
+                ),
+                mock.patch.object(web_server, "resolve_web_vessel", return_value=None),
+                mock.patch.object(
+                    web_server.vault,
+                    "retrieve_with_policy",
+                    return_value=(b"payload", "f.bin", "open"),
+                ),
+                mock.patch.object(web_server, "_maybe_auto_purge", return_value=False),
+                mock.patch.object(web_server.access_cue_service, "close") as close,
+                mock.patch.object(
+                    web_server.access_cue_service, "release_camera"
+                ) as release_camera,
+            ):
+                await web_server.retrieve(request, password="pw")
+
+            close.assert_not_called()
+            release_camera.assert_not_called()
+
+        asyncio.run(run())
+
     def test_video_feed_restarts_a_camera_a_prior_retrieve_released(self):
         """See test_store_page_restarts_a_camera_... for the failure this guards.
 
@@ -1734,11 +1786,11 @@ class AccessTokenRoleGateTests(unittest.TestCase):
         self.assertEqual(response["status"], 200)
 
     def test_store_page_restarts_a_camera_a_prior_retrieve_released(self):
-        """A successful Retrieve stops the camera thread to save power/heat.
+        """The TUI's Open Vessel stops the camera thread when it finishes.
 
-        Nothing but the TUI's Open Vessel action ever calls start() again.
-        A WebUI-only session (Store/Retrieve, no TUI Open) that hits Retrieve
-        once must still get a working camera preview on its next Store visit.
+        Nothing but that action calls start() again. A WebUI-only session
+        (Store/Retrieve, no TUI Open) that arrives after it must still get a
+        working camera preview.
         """
         from phasmid.services.access_token_service import ROLE_STORE
 

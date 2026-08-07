@@ -7,6 +7,24 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Fixed
+
+- The camera preview froze after decrypting a file, and changing tabs cleared
+  it. A successful retrieval called `access_cue_service.close()` "to save power
+  and heat" - but `close()` is a full shutdown: it joins the matcher thread and
+  zeroes the consumer count without regard for who is still reading. The
+  browser's MJPEG stream ended mid-page, so its `<img>` kept the last frame it
+  had and never received another; navigating away appeared to fix it because a
+  new page builds a new `<img>`, which re-requests `/video_feed`, which calls
+  `start()`.
+
+  This is the same mistake `/video_feed` used to make when a tab disconnected,
+  approached from the other side, and it has the same answer: camera lifetime
+  belongs to `generate_frames()`, which releases the hardware once its last
+  consumer exits. That is exactly what leaving the page does, so the power
+  saving still happens in the case it was meant for - and while the page is
+  open, the camera being on is what the operator is looking at.
+
 ### Changed
 
 - The two protected spaces are called **Slot A** and **Slot B** on screen,
