@@ -186,7 +186,7 @@
   <header class="mast">
     <div class="eyebrow">DEF CON · Demo Labs · 30-min slot</div>
     <h1>Phasmid — Demo Run-of-Show
-      <span class="sub">Beat by beat across 26 slides: the on-stage line, the delivery cue, and — for the ~7-minute live demo — the eight demo steps — all on the TUI — with the object-cue refusal as the only live proof that the cue is not the key, the Silent Standby transition, and honest scope kept in frame.</span>
+      <span class="sub">Beat by beat across 26 slides: the on-stage line, the delivery cue, and — for the ~8.5-minute live demo — twelve scenes, one screen switch — with the two-way contrast (object alone, then password alone) as the live proof that the cue is not the key, the compelled-password sequence, and honest scope kept in frame.</span>
     </h1>
     <dl class="metagrid">
       <div><dt>Presenter</dt><dd>Makoto “Mr. Rabbit” Sugita</dd></div>
@@ -221,11 +221,11 @@
 
   <div class="callout plain"><span class="badge">THE IDEA</span><div>Phasmid は <b>Janus＝二つの面</b>。<b>見せる面</b>（capture-visible／圧力下で開示する、ありふれた面）と <b>守る面</b>（protected local state／可視経路の外）を一つの vessel に持つ。全編この対比を貫く — <b>“見せたものが全てではない。”</b> 信頼の核は2点：<b>cue ≠ key</b> と <b>倫理（Allowed / Disallowed）</b>。必ず明瞭に言い切る。</div></div>
 
-  <div class="callout"><span class="badge">v4 · 何が変わったか</span><div><b>①製品モデルが確定した。</b> <b>囮ファイルはツールが作らない — 利用者が用意する。</b> 生成機能は「空き領域の填充」へ降格し、画面上も <code>Free Space Filler</code> / <code>Fill Free Space</code> に改称済み。可信性スコアの表示は撤去した（分量しか測れないものを判定に見せていたため）。<b>②パスフレーズは3つ</b>（真の復号／真の破壊／偽の復号）。<b>③強要下では開示しない</b> — 制限パスフレーズは破壊資格であり取出資格ではない。<b>④デモ本編は全て TUI で行う。</b> 旧版は cue の映像証拠を求めて WebUI で束ねる構成だったが、実機検証の結果 <b>Step 3b（物体を外して失敗させる対比）</b>の方が証明として強く、切替も1往復で済む。</div></div>
+  <div class="callout"><span class="badge">v4 · 何が変わったか</span><div><b>①製品モデルが確定した。</b> <b>囮ファイルはツールが作らない — 利用者が用意する。</b> 生成機能は「空き領域の填充」へ降格し、画面上も <code>Free Space Filler</code> / <code>Fill Free Space</code> に改称済み。可信性スコアの表示は撤去した（分量しか測れないものを判定に見せていたため）。<b>②パスフレーズは3つ</b>（真の復号／真の破壊／偽の復号）。<b>③強要下では開示しない</b> — 制限パスフレーズは破壊資格であり取出資格ではない。<b>④デモ本編は 12 シーン構成に組み直した。</b> <b>SCENE 1 で容器をディスク上の実物として見せ</b>（<code>ls</code> / <code>file</code> / <code>xxd</code>）、以降ファイル名で参照し続ける — これが無いと「1つの容器から2つ出た」が伝わらない。<b>拒否は両方向で見せる</b>（SCENE 6: 物体だけ違う／SCENE 7: パスワードだけ違う）。<b>Audit と Silent Standby は実演しない。</b> 画面切替は <b>SCENE 1→2 の片道1回だけ</b>。</div></div>
 
   <div class="callout"><span class="badge">TUI 下部バー</span><div><b>Simple ホーム（起動時・既定）</b> — <code>o Open · n New · g Guided · e Expert · w WebUI · q Quit</code>（<code>? Help</code> / <code>r Refresh</code> は非表示バインド）。<br><b>Expert ホーム（<code>e</code> で入る、<code>Esc</code> で戻る）</b> — <code>o Open · x Close · c Create · i Inspect · f Faces · g Guided · a Audit · d Doctor · s Settings · ? Help · q Quit</code>（<code>l LUKS</code> は LUKS 無効時＝既定では非表示）。<br><code>w</code> WebUI と Silent Standby ホットキーは<b>アプリ全体</b>のバインドで、どちらの層でも効く。デモは「話す前に、まず下部バーのキーを押す」。</div></div>
 
-  <div class="callout danger"><span class="badge">本番でやってはいけない</span><div>実機で実際に踏んだものだけを挙げる。<br><b>①マウスでボタンを押す</b> — SSH 越しのターミナルではクリックが Textual に届かない。ボタンはフォーカスされるだけで発火しない。<b>全操作を <code>Tab</code> / <code>Shift+Tab</code> と <code>Enter</code> で行う。</b><br><b>②壇上で <code>Fill Free Space</code> を実行</b> — 64 MiB / 15% で<b>実測約4分</b>。枠は1:20。事前に埋めておき、壇上では <code>Inspect Free Space</code> のみ。<br><b>③囮をツールに作らせる</b> — 生成される填充物は汎用ファイルであり、開示材料としての真実味がない。<b>囮は運用者が用意する。</b><br><b>④素の <code>phasmid</code> で起動</b> — libcamera のログが TUI を破壊する／WebUI がラップトップから見えない／<code>Ctrl+S</code> が XOFF に食われる。<b><code>scripts/pi_zero2w/run_demo_console.sh</code> を使う。</b><br><b>⑤成功例だけを見せる</b> — 物体キューが効いている証明にならない。観客にはただのパスワード復号に見える。<b>Step 3b を必ず見せる。</b><br><b>⑥端末幅を123桁未満にする</b> — Expert フッタから <code>w WebUI</code> が<u>無言で</u>消える。省略記号も出ない。露出した WebUI を引っ込めるキーが画面から失われる。</div></div>
+  <div class="callout danger"><span class="badge">本番でやってはいけない</span><div>実機で実際に踏んだものだけを挙げる。<br><b>①マウスでボタンを押す</b> — SSH 越しのターミナルではクリックが Textual に届かない。ボタンはフォーカスされるだけで発火しない。<b>全操作を <code>Tab</code> / <code>Shift+Tab</code> と <code>Enter</code> で行う。</b><br><b>②壇上で <code>Fill Free Space</code> を実行</b> — 64 MiB / 15% で<b>実測約4分</b>。枠は1:20。事前に埋めておき、壇上では <code>Inspect Free Space</code> のみ。<br><b>③囮をツールに作らせる</b> — 生成される填充物は汎用ファイルであり、開示材料としての真実味がない。<b>囮は運用者が用意する。</b><br><b>④素の <code>phasmid</code> で起動</b> — libcamera のログが TUI を破壊する／WebUI がラップトップから見えない／<code>Ctrl+S</code> が XOFF に食われる。<b><code>scripts/pi_zero2w/run_demo_console.sh</code> を使う。</b><br><b>⑤成功例だけを見せる</b> — 物体キューが効いている証明にならない。観客にはただのパスワード復号に見える。<b>SCENE 6 と 7 の対比を必ず見せる</b>（片方だけでも足りない）。<br><b>⑥端末幅を123桁未満にする</b> — Expert フッタから <code>w WebUI</code> が<u>無言で</u>消える。省略記号も出ない。露出した WebUI を引っ込めるキーが画面から失われる。</div></div>
 
   <!-- ============ TIMING MAP ============ -->
   <div class="quickmap">
@@ -239,7 +239,7 @@
       <div class="qstep"><div class="qrn" style="background:var(--gold-ink)">5</div><div><div class="qhead"><b>機構</b><span class="qkey">08:50–13:50</span></div><div class="qsay">12 Pillars（★3パスフレーズ）→ 16 Flow。★13 cue≠key、★14 囮は利用者が用意する。</div></div></div>
       <div class="qstep"><div class="qrn" style="background:var(--gold-ink)">6</div><div><div class="qhead"><b>内部・実機</b><span class="qkey">13:50–17:05</span></div><div class="qsay">17 Tech → 20 Guards。★18 実機。数値はQ&amp;Aへ。</div></div></div>
       <div class="qstep"><div class="qrn" style="background:var(--gold-ink)">7</div><div><div class="qhead"><b>倫理・限界</b><span class="qkey">17:05–19:05</span></div><div class="qsay">★21 Ethics（強要下では開示しない）→ 22 Scope。目を合わせる。No snake oil。</div></div></div>
-      <div class="qstep webui"><div class="qrn" style="background:var(--violet)">8</div><div><div class="qhead"><b>ライブデモ</b><span class="qkey">19:05–26:20</span></div><div class="qsay">23 Divider → 24 Demo。<b>全て TUI</b>の8手・約6:30。★Step 3b が証明。26:00超で残手順を口頭要約。</div></div></div>
+      <div class="qstep webui"><div class="qrn" style="background:var(--violet)">8</div><div><div class="qhead"><b>ライブデモ</b><span class="qkey">19:05–26:20</span></div><div class="qsay">23 Divider → 24 Demo。<b>12 シーン・切替1回</b>・約8:30。★SCENE 6・7 が証明、★SCENE 9 が山場。26:00超で SCENE 5・8 を落とす。</div></div></div>
       <div class="qstep reset"><div class="qrn">9</div><div><div class="qhead"><b>締め → Q&amp;A</b><span class="qkey">26:20–45:00</span></div><div class="qsay">25 Quick start → 26 Closing。残り約18分をQ&amp;A・卓上デモ・交流へ。</div></div></div>
     </div>
     <div class="callout plain" style="margin-top:14px"><span class="badge">進行原則</span><div>デモは山場だが <b>約7分で切り上げ、延伸しない</b>。深い技術論争は歓迎しつつ <b>“let’s go deep in Q&amp;A / find me after”</b> でQ&amp;Aへ誘導。</div></div>
@@ -253,7 +253,7 @@
     <div class="pstep"><div class="pstep-t"><span class="pnum">A</span>T-30分（設営時）</div>
       <ul class="checklist">
         <li>実機（<b>Pi Zero 2 W + カメラ + 三脚</b>）を設置、給電確認</li>
-        <li>TUI を映す出力／画面ミラー経路を確立、<b>プロジェクタ切替キー</b>を把握</li>
+        <li>ラップトップ1台でスペースを3つ（スライド／ターミナル／ブラウザ）固定し <code>Ctrl+←→</code> だけで送る。<b>集中モードをオンにする</b> — 通知が投影画面に出る</li>
         <li>カメラのピント・画角・照明（物体が安定認識される距離に固定）</li>
         <li><b>デモ用プロファイルで初期化</b>。起動は必ず <code>bash scripts/pi_zero2w/run_demo_console.sh</code>（<code>LIBCAMERA_LOG_LEVELS</code> / <code>PHASMID_WEBUI_EXPOSE_GADGET</code> / <code>PHASMID_WEB_TOKEN</code> / <code>PHASMID_RECOGNITION_MODE=demo</code> と <code>stty -ixon</code> を設定する。<b>素の起動ではデモが成立しない</b>）</li><li><b>【最重要】囮ファイルを自分で用意し、開示する Face（<code>face_a</code>）に保存しておく。</b>真のファイルによく似た、公開して差し支えない偽ファイルを1つ。<code>o</code> → <code>Add File</code> で<b>偽ファイル用パスフレーズ</b>を使って保存する</li><li><b>真のファイルを <code>face_b</code> に保存。</b>用意するパスフレーズは3つ：<b>真の復号用・真の破壊用・偽の復号用</b></li><li><b>端末幅を123桁以上にする</b>（<code>tput cols</code>）。下回ると Expert フッタから <code>w WebUI</code> が無言で消える</li><li>（任意）<b><code>Fill Free Space</code> を事前実行</b>（約4分）。空き領域を埋め、容器が不自然に空でないようにする</li>
         <li><b>バックアップ録画</b>（2–3分クリップ）を再生機に用意し<b>頭出し</b></li>
@@ -367,7 +367,7 @@
     <div class="body">
       <div class="r"><div class="lab line">LINE</div><div class="say">“Here’s the fun part. You show an everyday <em>object</em> to the camera to operate the access gate — nothing to type, nothing that looks like a secret. But this is the part people get wrong, so let me be clear: the object is a <em>cue, not a key</em>. It drives operation and policy checks. It is <em>not</em> the encryption key. A photo of the object unlocks nothing. The crypto stays with Argon2id and AES-GCM — the object just decides whether you get to act. <em>And you’ll watch this fail live in a few minutes</em> — same file, same password, no object.”</div></div>
       <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“A cue, not a key. <em>A photo of it unlocks nothing.</em>” <span class="cue-txt" style="margin-left:6px">— cue≠key を二度言う</span></div></div>
-      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">ゆっくり。手元の物体を掲げると効果的。<b>最後の一文で Step 3b を予告する</b> — 実証を約束しておくとデモの山が強くなる</div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">ゆっくり。手元の物体を掲げると効果的。<b>最後の一文で拒否の実演を予告する</b> — 実証を約束しておくとデモの山が強くなる</div></div>
     </div>
   </div>
   <div class="beat"><div class="head"><span class="slide-chip">SLIDE 14</span><span class="title">Coercion-safe delaying</span><span class="pill star">★ CORE</span></div>
@@ -381,7 +381,7 @@
           <div class="node"><div class="st"><span class="d" style="background:var(--s-dummy)"></span>dummy_disclosure</div><div class="sd">operator's own decoy</div><div class="trans">not memory erase</div></div>
         </div>
       </div></div>
-      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>本トークで最も誤解されやすい点。</b>「ツールが囮を作る」と思われた瞬間に設計の真実味が全部落ちる。<b>「囮は利用者が用意する」と「填充は空き領域対策に過ぎない」を分けて言い切る。</b>Silent Standby はデモで見せると予告</div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>本トークで最も誤解されやすい点。</b>「ツールが囮を作る」と思われた瞬間に設計の真実味が全部落ちる。<b>「囮は利用者が用意する」と「填充は空き領域対策に過ぎない」を分けて言い切る。</b><b>Silent Standby はデモで見せないので予告しない</b> — 概念としてここで説明しきる</div></div>
     </div>
   </div>
   <div class="beat"><div class="head"><span class="slide-chip">SLIDE 15 · 16</span><span class="title">Design principle: restraint · Prepare → Bind → Operate → Disclose</span></div>
@@ -429,101 +429,200 @@
   </div>
 
   <!-- ============ PART 8 — LIVE DEMO ============ -->
-  <div class="part"><span class="tc">19:05–26:20</span><h2>8 · Live demo — all on the TUI</h2><span class="note">slides 23–24 · ~7 min · centerpiece</span></div>
+  <div class="part"><span class="tc">19:05–27:50</span><h2>8 · Live demo — one file, two objects, two passwords</h2><span class="note">slides 23–24 · ~8:30 · centerpiece</span></div>
 
-  <div class="callout danger"><span class="badge">構成の根拠 · 必読</span><div><b>証明は「成功」ではなく「対比」で作る。</b> 成功例だけを見せても、観客には<u>パスワードを打ったらファイルが出た</u>としか見えない — 物体キューが効いていることを<b>何も証明していない</b>。<b>物体だけを外し、他を一切変えずに失敗させる（Step 3b）</b>ことでしか cue≠key は実証できない。旧版はカメラ枠の発光を映すために WebUI で cue を束ねる構成だったが、<b>TUI は照合の過程を一切表示しない（#158）</b>という事実は変わらず、映像的な演出よりも<b>失敗→成功の往復</b>の方が強い。切替は <b>Step 4→5 と Step 5→6 の1往復だけ</b>に抑える。</div></div>
+  <div class="callout danger"><span class="badge">構成の根拠 · 必読</span><div><b>証明は「成功」ではなく「対比」で作る。</b> 成功例だけを見せても、観客には<u>パスワードを打ったらファイルが出た</u>としか見えない。<b>物体だけを変えて失敗させ（SCENE 6）、パスワードだけを変えて失敗させる（SCENE 7）</b> — <b>片方だけでは「物体が鍵だ」とも「パスワードが鍵だ」とも取れてしまう</b>ので、両方向を揃えて初めて cue≠key の実証になる。<br><b>そして SCENE 1 が全体の前提を作る。</b> 作った容器を <code>ls</code> / <code>file</code> / <code>xxd</code> でディスク上の実物として見せ、以降ファイル名で参照し続けることで初めて「<b>1つの容器から</b>2つ出た」が成立する。これを飛ばすと、以降のシーンが全部「別々の入れ物を順に開いただけ」に見える。<br><b>切替は SCENE 1→2 の片道1回だけで、TUI には戻らない。</b></div></div>
 
-  <div class="callout"><span class="badge">SLIDE 23 · 章扉</span><div><b>LINE:</b> “Alright — live demo.” <span class="o" style="font-family:var(--mono)">— 呼吸を整え実機へ。プロジェクタ入力を TUI へ切替。<b>バックアップ録画の頭出しを確認。</b></span></div></div>
-  <div class="callout"><span class="badge">SLIDE 24 · DEMO INTRO</span><div><b>LINE:</b> “This is the real TUI — <b>Local Disclosure Control</b>. I’ll <b>create a vessel</b>. I’ll <b>store a file</b> while holding an everyday object in front of the camera. I’ll <b>recover it</b> with the object — it comes back. Then watch this: <em>same file, same password, same everything — only the object is gone.</em> Then <b>Audit</b>, the local <b>WebUI</b>, and <b>Silent Standby</b>. Watch the bottom bar.” <span class="o" style="font-family:var(--mono)">— 話しすぎない／画面を指す／各ステップで一呼吸。7分で切り上げる。</span></div></div>
+  <div class="callout"><span class="badge">SLIDE 23 · 章扉</span><div><b>LINE:</b> “Alright — live demo.” <span class="o" style="font-family:var(--mono)">— 呼吸を整え実機へ。スペースをターミナル（TUI）へ切替。<b>バックアップ録画の頭出しを確認。</b></span></div></div>
+  <div class="callout"><span class="badge">SLIDE 24 · DEMO INTRO</span><div><b>LINE:</b> “This is the real system. One file on disk. Two objects, two passwords, two files inside it. And a password that <em>ends</em> one instead of opening it.” <span class="o" style="font-family:var(--mono)">— 話しすぎない／画面を指す／各シーンで一呼吸。8分半で切り上げる。</span></div></div>
 
   <div class="switcher" id="demo-mode">
     <div class="seg" role="tablist" aria-label="Demo mode">
-      <button class="seg-btn" role="tab" data-t="live" aria-selected="true"><span class="d" style="background:var(--mint)"></span>実機ライブ（全 TUI・8手・~6:30）</button>
+      <button class="seg-btn" role="tab" data-t="live" aria-selected="true"><span class="d" style="background:var(--mint)"></span>実機ライブ（12シーン・切替1回・~8:30）</button>
       <button class="seg-btn" role="tab" data-t="fallback" aria-selected="false"><span class="d" style="background:var(--violet)"></span>フォールバック（録画・要約）</button>
     </div>
     <div class="views">
       <div class="view" data-v="live">
 
-        <div class="beat"><div class="head"><span class="slide-chip">STEP 0 · 0:20</span><span class="title">Orientation</span></div>
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 0 · 0:20</span><span class="title">The console</span></div>
           <div class="body">
-            <div class="r"><div class="lab do">DO</div><div class="show-txt"><b>Simple ホーム</b>を提示。下部バーを指す（<code>o · n · g · e · q · w</code> の6つだけ）</div></div>
-            <div class="r"><div class="lab line">LINE</div><div class="say">“This is the real TUI — <em>Local Disclosure Control</em>. The home screen is deliberately small: open, new, guided, expert. Under pressure you do not want a wall of options. The full control set is one key away.”</div></div>
-            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><code>PHASMID</code> ロゴ · <code>PROTECTED STORAGE</code> 表 · 下部バー6項目</div></div>
-            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">この最小面こそが coercion-aware 設計の一部である旨を一言。<b><code>! SYSTEM: n WARN</code> はこの画面には出ない</b>（Expert 専用）— 誠実性の話は Step 4 で行う</div></div>
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">Simple Operator 画面を出したまま提示する。<br>下部のバー（open / new / guided / expert）を指す。</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“This is the real console.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Local Disclosure Control.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“The home screen is deliberately small.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Open. New. Guided. Expert.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Under pressure, you do not want a wall of options.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“The full control set is one key away.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">実機の操作画面をそのまま見せる。「これはスライドの絵ではなく本物の画面である」ことと、ホーム画面がわざと小さく作ってあることを示す。ここはまだ何も操作しない。</div></div>
           </div>
         </div>
 
-<div class="beat"><div class="head"><span class="slide-chip">STEP 1 · 0:50</span><span class="title">Create a Vessel — Prepare</span></div>
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 1 · 1:10</span><span class="title">One file on disk</span><span class="pill star">★ 前提</span></div>
           <div class="body">
-            <div class="r"><div class="lab do">DO</div><div class="show-txt"><span class="k">n</span> New → <code>vessel-path</code> → <code>vessel-size</code>（Select・既定 <code>512M</code>）→ <code>vessel-label</code>（任意）→ <code>create-btn</code></div></div>
-            <div class="r"><div class="lab line">LINE</div><div class="say">“First I create a <em>vessel</em> — a deniable container file. This is the Prepare step. It has no header and no magic bytes: on disk it is indistinguishable from random data.”</div></div>
-            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><code>PROTECTED STORAGE</code> に新規行。下段パネルが <code>Choose an action:</code> に変わる</div></div>
-            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">Vessel を作ると <b>Face が2つ自動生成される</b>（<code>face_a</code>/<code>face_b</code>）。<b>Create Face は押さない。</b> 失敗時は既存デモ Vessel を <span class="k">o</span> Open して継続</div></div>
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">TUI: n (New) → vessel-path に demo.vessel → vessel-size を 64M に変更（既定の 512M のまま作らない）<br>     → vessel-label（任意）→ create-btn<br>シェルに切り替えて、実物を見せる:<br>  ls -lh demo.vessel<br>  file demo.vessel<br>  xxd demo.vessel | head -5</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“First, I make a vessel.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“A deniable container. One file.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Sixty-four megabytes.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Let me show you what that looks like on disk.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“ls — one file. That is all there is.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“file — it says 'data'.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“It has nothing to say, because there is nothing to read.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“No header. No magic bytes. No format at all.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“On disk, this is random.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Remember the name. Demo dot vessel.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Everything from here comes out of this one file.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">容器（Vessel）を作る。そのうえで、作った直後にディスク上の実物を見せる。ここがこのデモで一番効く追加で、「1つのファイルの中に、あとから2つ入る」ことを観客の頭に焼き付ける場面。これを省くと、以降で2つのファイルが出てきても「別々の入れ物から出た」としか見えない。以降のシーンでは必ずファイル名（demo.vessel）を口に出して参照し続ける。</div></div>
+            <div class="r"><div class="lab state">注意</div><div class="show-txt">Vessel を作ると Face が2つ自動生成される。Create Face を押す必要はない。</div></div>
           </div>
         </div>
 
-<div class="beat"><div class="head"><span class="slide-chip">STEP 2 · 1:10</span><span class="title">Store with the object cue — Bind</span><span class="pill star">★ BIND</span></div>
+<div class="beat"><div class="head"><span class="slide-chip">⟶ 切替</span><span class="title">TUI からブラウザへ（切替はここ1回だけ・以降 TUI には戻らない）</span></div>
           <div class="body">
-            <div class="r"><div class="lab do">DO</div><div class="show-txt"><span class="k">o</span> Open → <code>Y</code> → Operation を <b><code>Add File</code></b> に変更（Select はフォーカスして <code>Enter</code> → <code>↓</code> → <code>Enter</code>）→ <code>Input file</code> → <code>Passphrase</code> と <code>Restricted recovery passphrase</code> → <b>物体をカメラの前に配置</b> → <code>Tab</code> で <code>Run Operation</code> → <code>Enter</code></div></div>
-            <div class="r"><div class="lab line">LINE</div><div class="say">“Now the object cue. I hold an everyday object in front of the camera while I store this file. Remember: this is a <em>cue, not a key</em>. It gates the operation; it is not the encryption key. A photograph of it unlocks nothing.”</div></div>
-            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><code>Stored N,NNN bytes in travel.vessel.</code> · <code>VESSEL STATUS</code> の <code>Face Files</code> が増える</div></div>
-            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>旧版が <code>f</code> Faces と書いていたのは誤り。</b> Faces 画面はラベルと填充の管理画面で、<u>カメラに一切関与しない</u>。物体キューを扱うのは <code>o</code> Open の <code>Add File</code> だけ（<code>capture_reference=True</code> を渡す唯一の経路）。<b>TUI はカメラ映像も一致状態も表示しない（#158）</b> — だから次の対比が必須</div></div>
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">スペースを「スライド／ターミナル／ブラウザ」の3つに固定し、Ctrl+←→ だけで移動する。<br>集中モード（おやすみモード）を必ずオンにしておく — 通知が投影画面に出る。</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">画面をブラウザに移す。旧構成のような往復はしない。片道1回だけなので、PC一台構成ならフルスクリーンのスペースを1つ隣に送るだけで済む。</div></div>
           </div>
         </div>
 
-<div class="beat"><div class="head"><span class="slide-chip">STEP 3a · 0:40</span><span class="title">Recover with the object — Operate</span></div>
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 2 · 0:50</span><span class="title">Into the browser</span></div>
           <div class="body">
-            <div class="r"><div class="lab do">DO</div><div class="show-txt"><span class="k">o</span> Open → <code>Y</code> → Operation は <code>Recover File</code>（既定）→ <code>Output file</code> → <code>Passphrase</code> → <b>物体をカメラの前に配置</b> → <code>Run Operation</code></div></div>
-            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><span class="ok">緑</span> <code>Recovered N,NNN bytes to &lt;path&gt;.</code></div></div>
-            <div class="r"><div class="lab line">LINE</div><div class="say">“Same object, correct password — the file comes back.”</div></div>
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">ブラウザで /unlock を開く（事前にブックマークしておく）<br>store トークンを入力してログイン</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“The device also serves a local web interface.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“I am logging in now.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“One word about these tokens, because it matters.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“In real use, you issue two of them.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“A full-control token — used once, somewhere safe, to set things up.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“And a recovery token, that can decrypt and nothing else.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“That is the one you carry into a bad situation.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“It cannot reach setup, so it cannot give setup away.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Today I use one token, for time. Just know the split is there.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">WebUI にログインする。ここでトークンの設計を口頭だけで説明する。本来はフルコントロール用と復号専用の2種類を発行して使い分けるが、今日は時間の都合で1つで進める、と正直に断る。実演はしない。</div></div>
+            <div class="r"><div class="lab state">注意</div><div class="show-txt">同じブラウザでは2つのセッションを同時に持てない（セッションはクッキー1つで全タブ共有）。「別タブで復号専用トークンを見せる」は実機では成立しないので、口頭説明にとどめる。</div></div>
           </div>
         </div>
 
-<div class="beat"><div class="head"><span class="slide-chip">STEP 3b · 0:40</span><span class="title">Recover WITHOUT the object — refused</span><span class="pill star">★★ cue≠key の証明</span></div>
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 3 · 0:50</span><span class="title">Slot A — the file you would hand over</span></div>
           <div class="body">
-            <div class="r"><div class="lab do">DO</div><div class="show-txt"><b>物体をカメラの視野から外す</b>（退ける、または手で覆う）。<b>他の項目は一切変えず</b>、もう一度 <code>Run Operation</code></div></div>
-            <div class="r"><div class="lab show">SHOW</div><div class="show-txt">約10秒後、<span class="rej">赤</span>で <code>Open Vessel / no bound object matched</code>。<b>出力ファイルは作られない</b></div></div>
-            <div class="r"><div class="lab line">LINE</div><div class="say">“Same file. Same password. Same everything — only the object is gone. The device waits ten seconds for a match, does not get one, and refuses. That is what ‘the cue gates the operation’ means — and notice it tells you almost nothing about <em>why</em> it failed. That is deliberate.”</div></div>
-            <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“Only the object is gone. <em>And it refuses.</em>”</div></div>
-            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>ここで間を取る。</b> これが cue≠key の唯一の実証。可能なら<b>この直後に物体を戻して再実行し、成功させる</b> — 失敗→成功の往復まで見せると「壊れたのではない」ことまで示せる。<b>TUI 経路は失敗を記録しないので何度失敗させてもロックしない</b>（WebUI 経路は5回で60秒ロック。リハーサルは TUI で）</div></div>
-            <div class="r"><div class="lab state">技術</div><div class="show-txt">質問されたら：<code>collect_auth_sequence()</code> が <code>wait_for_reference_match(timeout=10.0)</code> を呼び、不一致なら <code>match_none</code> を返す。この値は<b>復号の入力そのもの</b>（<code>_read_face_namespace</code> に渡る）なので、<b>照合を迂回した復元は成立しない</b></div></div>
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">Store 画面 → Step 1「Choose the entry」で Entry 1 を選択<br>→ 偽装用ファイルを選択 → パスワードA を入力<br>→ 物体を手元に置いたまま「1 · Capture empty scene」<br>→ 物体A をかざして「2 · Capture access object」<br>→ かざしたまま「Protect file」</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Slot A. This is the file I would hand over.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Now watch the camera. It takes two shots.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“First, the empty scene. Just my table.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Then the same view, with the object in it.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“The device keeps the difference between them.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Not my table. Not the room. The object.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“And this is a cue, not a key.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“It does not encrypt anything.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“It decides whether the operation may start at all.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“A photograph of it opens nothing.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">1つ目のスロットに「渡してもいい方のファイル」を登録する。2段階撮影（空のシーン → 物体）が見えるのはここだけで、cue（合図）は key（鍵）ではない、という説明はこの場面で行う。物体Aを使う。</div></div>
+            <div class="r"><div class="lab state">注意</div><div class="show-txt">撮影から保存まで物体を下ろさない。保存の瞬間にも一致判定が走る。</div></div>
           </div>
         </div>
 
-<div class="beat"><div class="head"><span class="slide-chip">STEP 4 · 0:50</span><span class="title">Audit — free space, and what it won’t judge</span><span class="pill star">★ 誠実性</span></div>
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 4 · 1:00</span><span class="title">Slot B — the file you would not</span></div>
           <div class="body">
-            <div class="r"><div class="lab do">DO</div><div class="show-txt"><span class="k">e</span> Expert → <span class="k">a</span> Audit。<b><code>Free Space Filler</code> セクション</b>を指す（戻るのは <code>Esc</code>）</div></div>
-            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><code>Tracked Vessels / Tracked Faces / Faces with free space filled / Faces partially filled / Faces with little or no filler / Disclosure material: operator-supplied; filler is not disclosure material</code></div></div>
-            <div class="r"><div class="lab line">LINE</div><div class="say">“<em>Audit</em> reports per face. Note what it does <em>not</em> claim: it does not tell me my cover story is convincing. The file I would hand over is one I wrote and stored myself — the tool cannot judge whether it is believable, and it does not pretend to. All it reports here is how much free space is filled, so an otherwise empty container does not read as empty. Judging the cover story is the operator’s job, and the tool is honest about that boundary.”</div></div>
-            <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“It reports what it can measure. <em>It refuses to score what it can’t.</em>”</div></div>
-            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>任意：<span class="k">d</span> Doctor を開いてよい。</b> 未設定の助言が警告を出さなくなったので（#157）、残る警告は<b>このホスト自身の事実だけ</b>（<code>/tmp</code> world-writable・Swap・zram）。「ツールが自分の動作環境を正直に報告する」実例として使える</div></div>
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">Step 1 を Entry 2 に切り替え → 真のファイルを選択 → パスワードB を入力<br>→ Advanced security options で Clearing password（破壊用）を設定<br>→ 物体を外して「1 · Capture empty scene」<br>→ 物体B をかざして「2 · Capture access object」<br>→ かざしたまま「Protect file」</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Slot B. Same file on disk. Same demo dot vessel.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“A different object. A different password.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“And one more thing here, which I will use later.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“A second password for this slot.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Not one that opens it.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Both slots now live inside that one file.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">2つ目のスロットに「本当に守りたいファイル」を登録する。物体Bと別のパスワードを使う。ここで破壊用パスワード（Clearing password）も設定しておく — SCENE 9 で使う。同じ容器に2つ目が入る、ということを言葉で明示する。</div></div>
+            <div class="r"><div class="lab state">注意</div><div class="show-txt">Entry を切り替えたら必ず物体も差し替える。同じ物体を両方に使うと Object binding failed で拒否される。空シーンも撮り直しになる（前のものは使い回されない）。</div></div>
           </div>
         </div>
 
-<div class="beat"><div class="head"><span class="slide-chip">STEP 5 · 0:40</span><span class="title">Local WebUI — the boundary（見せるだけ）</span><span class="pill depth">切替① · 境界</span></div>
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 5 · 0:20</span><span class="title">Slot A opens</span></div>
           <div class="body">
-            <div class="r"><div class="lab do">DO</div><div class="show-txt">TUI で <span class="k">w</span> → プロジェクタをラップトップのブラウザへ切替、事前に <code>/unlock</code> を通しておいたタブを提示。<b>画面を見せるだけで操作はしない</b></div></div>
-            <div class="r"><div class="lab show">SHOW</div><div class="show-txt">ブラウザ上部に赤帯 <code>WEBUI ACTIVE — INTERFACE IS EXPOSED — ACCESS FROM TRUSTED NETWORK ONLY</code>。TUI 側にも <code>WEBUI ACTIVE AT http://10.12.194.1:8000 - PRESS [w] TO RETRACT</code></div></div>
-            <div class="r"><div class="lab line">LINE</div><div class="say">“The same device also serves a local web interface — bound to loopback by default. Reaching it from a tethered laptop over USB is an explicit opt-in that binds only the USB interface, and it still needs an access token. It never touches a network. <em>Both ends say plainly that the interface is exposed.</em>”</div></div>
-            <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“It <em>tells on itself.</em>”</div></div>
-            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>役割を限定すること。</b> Store/Retrieve は本編と同じ Vessel を操作するようになったが、統合経路を壇上でまだ実機で通していないため<b>ここで保存も復元もしない</b>。URL は <b><code>10.12.194.1:8000</code>（IP 直指定）</b> — <code>127.0.0.1</code> と <code>phasmid-pi.local</code> はラップトップから到達しない。起動が遅ければ口頭説明に留めて TUI へ戻る（時間優先）</div></div>
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">Retrieve 画面 → 物体A をかざす → 一致表示を待つ<br>→ パスワードA → Open protected file<br>→ 落ちてきたファイルを開いて中身を見せる</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Object A. Password A.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“And there it is.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“That is Slot A, out of demo dot vessel.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">Slot A が普通に開くことを確認するだけの短い場面。ここでは意味づけをしない。同じ操作に意味を与えるのは SCENE 8。先に「ただ動く」ところを見せておくから、あとで効く。</div></div>
           </div>
         </div>
 
-<div class="beat"><div class="head"><span class="slide-chip">STEP 6 · 1:20</span><span class="title">Silent Standby — Disclose</span><span class="pill star">★ 山場</span></div>
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 6 · 1:00</span><span class="title">The object alone is not enough</span><span class="pill star">★★ 実証</span></div>
           <div class="body">
-            <div class="r"><div class="lab do">DO</div><div class="show-txt">プロジェクタを TUI に戻す。<b><code>Ctrl+S</code></b> を押下。復帰は <code>Ctrl+R</code> または <code>Esc</code>。<b>フッタに出ないので指で覚えておく</b></div></div>
-            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><code>SYSTEM STATUS</code>（Storage integrity check: OK / Configuration directory: accessible / Local services: idle / Background tasks: none / System clock: synchronized）· <code>[ Re-authenticate to continue ]</code> · フッタは <code>^r Re-authenticate</code> のみ</div></div>
-            <div class="r"><div class="lab line">LINE</div><div class="say">“Now the moment it’s built for. One hotkey — <em>Silent Standby</em>. The sensitive surface drops away. And it is not just this screen: <em>the web interface goes down with it</em>, so a laptop tethered to this device loses access at the same instant. Recovery needs re-authentication. I’m not hiding from forensics — I’m buying <em>time</em> and <em>uncertainty</em>.”</div></div>
-            <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“One key. <em>And the second surface goes with it.</em>”</div></div>
-            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>ラップトップのブラウザを再読込して接続が切れていることを見せる — これを演出に使う。</b> 復帰後に「WebUI was retracted when standby engaged.」の通知が出る。Standby 発動時に<b>未消化のトースト通知も消える</b>（WebUI 起動通知にはアクセストークンが入っており、消さないと秘匿画面に平文で残る。実機で一度再現し修正済み）。Standby 中は <code>w</code> も封じられる</div></div>
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">同じ Retrieve 画面のまま、物体B に持ち替える → 一致表示を待つ（待たずに押すと拒否される）<br>→ まず パスワードA を入力 → Open protected file → 失敗<br>→ 続けて パスワードB を入力 → Open protected file → 成功<br>→ 落ちてきたファイルを開いて、SCENE 5 と中身が違うことを見せる</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Same screen. I have only changed the object.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“This is the object for Slot B.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“And I will type Slot A's password.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“No valid entry found.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“The object is right. The password is not. Nothing opens.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Now Slot B's own password.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“A different file — out of the same file on disk.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“One vessel. Two objects. Two passwords. Two files.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">画面はそのまま、物体だけをBに持ち替える。まず Slot A のパスワードを入れて失敗させ、次に正しいパスワードで成功させる。「正しい物体を持っていても、パスワードが違えば開かない」ことを見せる。そして同じ1つのファイルから違う中身が出てくる。</div></div>
+            <div class="r"><div class="lab state">注意</div><div class="show-txt">復元ファイル名は両方とも retrieved_payload.bin。名前では区別できない設計なので、必ず中身で見せる。2つ目は retrieved_payload(1).bin になるため、ダウンロードフォルダを事前に空にしておく。</div></div>
           </div>
         </div>
 
-<div class="beat"><div class="head"><span class="slide-chip">STEP 7 · 0:10</span><span class="title">Wrap</span></div>
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 7 · 0:40</span><span class="title">The password alone is not enough either</span><span class="pill star">★★ 実証</span></div>
           <div class="body">
-            <div class="r"><div class="lab line">LINE</div><div class="say">“That’s Prepare, Bind, Operate, Disclose — on real hardware. Come try it at the table.”</div></div>
-            <div class="r"><div class="lab do">DO</div><div class="show-txt"><code>Esc</code> で Simple Operator へ戻す → プロジェクタ入力をスライドへ復帰（Slide 25）</div></div>
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">同じ Retrieve 画面のまま、物体A に持ち替える → 表示が変わるのを待つ<br>→ パスワードB を入力 → Open protected file → 失敗</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Now the other way around.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“I keep Slot B's password. I change the object back to A.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Same result. No valid entry found.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Not 'wrong object'. Not 'object missing'.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“It will not tell you what it is waiting for.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“That is what 'the cue gates the operation' means.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">逆方向の対比。パスワードBは正しいまま、物体だけをAに戻して失敗させる。これで「物体だけでも駄目、パスワードだけでも駄目」の両方向が揃い、cue が操作そのものを門番していることの実証になる。</div></div>
+            <div class="r"><div class="lab state">注意</div><div class="show-txt">物体をカメラから外す場合は、手で覆うのではなく卓の下に下ろす。</div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 8 · 0:30</span><span class="title">Coercion — hand over Slot A</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">物体A → パスワードA → Open protected file（SCENE 5 と同一操作）<br>ここは手を速く動かさない。語りで見せる場面。</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Now change the situation.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Someone has the device. And they have me.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“'Give us the password.'”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“So I do. Object A. Password A.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“They get a file. A real file, that really opens.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Nothing on this screen says there is another one.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“That is the whole design.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">ここから状況を変える。「パスワードを言え、さもなくば」という場面を想定し、Slot A を開いて渡す。操作は SCENE 5 とまったく同じ。同じ操作が状況によって別の意味を持つ、というのがこの場面の主張で、外から見て区別がつかないこと自体が設計の目的である、と言い切る。</div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 9 · 0:50</span><span class="title">The other password</span><span class="pill star">★ 山場 · 不可逆</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">同じ Retrieve 画面。消したい方の物体（物体B）をかざす<br>→ パスワード欄に Clearing password（破壊用）を入力 → Open protected file<br>→ No valid entry found. と出る</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Worse case. They already know there is more.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Same screen. Same object. Same field. Same button.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“The only thing I change is which password I type.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“And it says — no valid entry found.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“That is the same sentence you get from a typo.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“But that entry is not locked. It is gone.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“The password they can compel is not the only one there is.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">さらに悪い状況。相手がもう1つあることを知っている場合を想定する。渡すくらいなら消す、という判断で破壊用パスワードを入力する。画面にはパスワードを打ち間違えたときと文字通り同じ文が出るので、相手からは区別がつかない。この場面が今回のデモの山場。</div></div>
+            <div class="r"><div class="lab state">注意</div><div class="show-txt">破壊の対象は画面の選択肢ではなくカメラにかざした物体で決まる。Slot B を消すには物体B が必要。この操作は失敗としてカウントされない（成功として記録される）ので、ロックアウトの心配はない。</div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 10 · 0:50</span><span class="title">Nothing left to open — and what the tool will not claim</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">物体B → パスワードB（正規のもの）→ Open protected file → 何も出てこない<br>続けて 物体A → パスワードA → Open protected file → 開く（時間が押していれば口頭のみ）<br>最後の3行は操作なし。手を止めて、客席を見て言う。</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Let me prove that.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Object B. Slot B's real password. The correct way.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“Nothing.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“I cannot get it back either. That is not a bug.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“And Slot A still opens, exactly as before.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“One thing this tool will never tell you:”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“whether your cover story is believable.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“That is your job. It does not pretend otherwise.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">破壊が本当に起きたことを確認する。正しい物体と正しいパスワードで、正規の手順どおりに開こうとする。もう出てこない。演者自身にも戻せない、という点をはっきり言う。そのうえで Slot A は無傷であることを見せて、破壊が片方だけに効いたことを示す。最後の3行が Audit ビートの代わり。破壊を見せた直後、観客がこの道具を強いと感じているその瞬間に、作った本人が先に限界を言う。画面を出すより、この位置で言う方が効く。</div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">SCENE 11 · 0:10</span><span class="title">Wrap</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">スライド（Slide 25）へ戻す。</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“One file. Two objects. Two passwords.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“And a password that ends one, instead of opening it.”</div></div>
+            <div class="r"><div class="lab line">LINE</div><div class="say">“On real hardware. Come and try it at the table.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">締め。卓上デモへ誘導してスライドに戻る。</div></div>
           </div>
         </div>
 
@@ -531,16 +630,18 @@
       <div class="view" data-v="fallback" hidden>
         <div class="beat"><div class="head"><span class="slide-chip">FALLBACK</span><span class="title">実機不調 → 録画 / 時間超過 → 要約</span></div>
           <div class="body">
-            <div class="r"><div class="lab do">DO</div><div class="show-txt">章扉（Slide 23）で頭出しした<b>録画に即切替</b>。Prepare→Bind→Operate→Disclose を録画上で辿る</div></div>
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">章扉（Slide 23）で頭出しした<b>録画に即切替</b>。口頭で「1つの容器・2つの物体・2つのパスワード・そして開くのではなく終わらせるパスワード」を辿る</div></div>
             <div class="r"><div class="lab line">LINE</div><div class="say">“The design points stand either way.”</div></div>
-            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">個別ステップは最大15秒で見切り、止まらず前進。認識が不安定なら起動スクリプトの既定 <code>demo</code> で確定的に見せる。それでも駄目なら <code>coercion_safe</code> の低信頼→開示面ルートを<b>設計意図として逆手に説明</b>する。WebUI がラップトップから見えないときは <b>Step 5 を口頭のみでスキップ</b>（Step 1–4・6・7 は WebUI に依存しない）</div></div>
-            <div class="r"><div class="lab state">時計</div><div class="show-txt"><b>26:00 到達で Step 4–5 を飛ばし、<span class="rej">Step 3b</span> と <span class="rej">Step 6</span> だけは必ず実機で見せて</b>締めへ。45:00 厳守</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">個別シーンは最大15秒で見切り、止まらず前進。認識が不安定なら起動スクリプトの既定 <code>demo</code> で確定的に見せる。それでも駄目なら <code>coercion_safe</code> の低信頼→開示面ルートを<b>設計意図として逆手に説明</b>する。WebUI がラップトップから見えないときは <b>SCENE 3〜6 を口頭要約に切り替え、物体なし拒否だけは TUI の <code>Recover File</code> で実施</b>（SCENE 8〜10 は WebUI 専用なので口頭に落とす）</div></div>
+            <div class="r"><div class="lab state">時計</div><div class="show-txt"><b>26:00 到達で <span class="rej">SCENE 5</span> と <span class="rej">SCENE 8</span> を落とす。SCENE 1・6・7・9・10 は何があっても実機で見せて</b>締めへ。45:00 厳守</div></div>
+            <div class="r"><div class="lab state">演目外</div><div class="show-txt"><b>Audit と Silent Standby は実演しない。</b> Silent Standby は実機で動作確認済みだが、<b>ブラウザ側に痕跡が残るため「WebUI ごと落ちる」という主張を画面が支えきれない</b>。Audit は上段で <code>Header absent</code> と言いながら下段で <code>Tracked Faces 2</code> と数え、その数字の出どころが容器ではなく手元の台帳なので、SCENE 1 の直後に出すと自分で作った印象を自分で崩す。<b>Audit は卓上デモと質疑の持ち札に回す</b>（<code>/operator/audit</code> をワンクリックで開ける）</div></div>
           </div>
         </div>
-        <div class="callout danger"><span class="badge">SAFETY</span><div>実秘匿データを絶対に投影しない（デモ用プロファイル／ダミーのみ）。パスフレーズはカメラ・投影に映さない。<b>WebUI は USB ガジェット面のみ。会場ネットワークに絶対に晒さない。</b>固定トークンはデモ専用値であり実運用に流用しない。<b>Face ラベルは両方とも無害な語にすること（<code>travel</code> / <code>backup</code>）。片方を “real” や “secret” と名付けると、壇上で設計思想を自ら否定することになる。</b></div></div>
+        <div class="callout danger"><span class="badge">SAFETY</span><div>実秘匿データを絶対に投影しない（デモ用プロファイル／ダミーのみ）。パスフレーズはカメラ・投影に映さない。<b>WebUI は USB ガジェット面のみ。会場ネットワークに絶対に晒さない。</b>固定トークンはデモ専用値であり実運用に流用しない。<b>Face ラベルは両方とも無害な語にすること（<code>travel</code> / <code>backup</code>）。片方を “real” や “secret” と名付けると、壇上で設計思想を自ら否定することになる。</b><br><b>ラップトップ1台構成では集中モードを必ずオンにする</b> — 通知が投影画面に出る。</div></div>
       </div>
     </div>
   </div>
+
 
   <!-- ============ PART 9 ============ -->
   <div class="part"><span class="tc">26:20–27:30</span><h2>9 · Quick start &amp; close</h2><span class="note">slides 25–26</span></div>
@@ -573,7 +674,7 @@ evaluate locally, in field-test conditions
     <div class="r"><div class="lab" style="color:var(--gold-ink)">LUKS?</div><div class="say">TUI の LUKS 連携に触れつつ、Phasmid は <em>開示制御の層</em> であり FDE の代替ではない（Slide 6・22）。</div></div>
     <div class="r"><div class="lab" style="color:var(--gold-ink)">否認可能性</div><div class="say">データ存在の否認は <em>部分的</em>、完全否認は <em>非主張</em>（Slide 22）。</div></div>
     <div class="r"><div class="lab" style="color:var(--gold-ink)">押収後は?</div><div class="say">ホスト侵害・カーネル奪取は <em>対象外</em>（Slide 8）。増やすのは不確実性と時間（Slide 21）。</div></div>
-    <div class="r"><div class="lab" style="color:var(--gold-ink)">cue は生体/鍵?</div><div class="say">否。<em>cue であって key ではない</em>（Slide 13）。壇上で失敗を実演済み（Step 3b）。</div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">cue は生体/鍵?</div><div class="say">否。<em>cue であって key ではない</em>（Slide 13）。壇上で失敗を両方向で実演済み（SCENE 6・7）。</div></div>
     <div class="r"><div class="lab" style="color:var(--gold-ink)">囮は誰が作る?</div><div class="say"><b>利用者が用意する。ツールは作らない。</b> “The tool has no idea what a believable version of your life looks like. You do. What it generates is filler for free space — that’s a volume problem, and it says so.”（Slide 14・22）</div></div>
     <div class="r"><div class="lab" style="color:var(--gold-ink)">score は何?</div><div class="say"><b>空き領域の占有率であって、説得力ではない。</b> Audit も Doctor も分量しか報告しない。判定できないものを判定に見せていた旧表示は撤去した。</div></div>
     <div class="r"><div class="lab" style="color:var(--gold-ink)">強要されたら?</div><div class="say">渡すのは<b>偽ファイル用のパスフレーズ</b>で、自分で用意した囮が開く。<b>制限（duress）パスフレーズは破壊資格であり、開示はしない。</b> 偽の中身を自動生成して差し出す経路は<em>意図的に持っていない</em> — それは偽造だから（Slide 21）。</div></div>
@@ -581,9 +682,9 @@ evaluate locally, in field-test conditions
     <div class="r"><div class="lab" style="color:var(--gold-ink)">法的に?</div><div class="say">偽造・改ざん・隠蔽は <em>行わない</em>。一方 <b>owner-triggered の破壊（silent-brick／purge）は実装されており、法的に危険</b>（§2232型）。合法性は管轄依存であり助言はしない（Slide 21）。</div></div>
   </div></div>
 
-  <div class="callout danger" style="margin-top:8px"><span class="badge">CONTINGENCY</span><div><b>押している（+3分〜）:</b> Slide 9・19・20 を各1行に圧縮、11 は口頭一言でスキップ。 <b>巻いている（-3分〜）:</b> Slide 8・14・21 を丁寧に、デモで Audit と Doctor を拡張。 <b>デモ不調:</b> 章扉で頭出しした録画へ即切替。 <b>時計:</b> 19:20 デモ開始、26:00 超で残手順を口頭要約 → 締め。<b>Step 3b と Step 6 だけは何があっても実機で見せる。</b>45:00 厳守。</div></div>
+  <div class="callout danger" style="margin-top:8px"><span class="badge">CONTINGENCY</span><div><b>押している（+3分〜）:</b> Slide 9・19・20 を各1行に圧縮、11 は口頭一言でスキップ。 <b>巻いている（-3分〜）:</b> Slide 8・14・21 を丁寧に、卓上誘導を厚めに。 <b>デモ不調:</b> 章扉で頭出しした録画へ即切替。 <b>時計:</b> 19:20 デモ開始、26:00 超で SCENE 5・8 を落とす → 締め。<b>SCENE 1・6・7・9・10 は何があっても実機で見せる。</b>45:00 厳守。</div></div>
 
-  <div class="foot">本書は <b>v0.3.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果</b>に基づく <b>v4</b>。<b>製品モデルの確定を反映した：囮ファイルはツールが作らず、利用者が用意する。</b>生成機能は空き領域の填充へ降格し、可信性スコアの表示は撤去した（分量しか測れないものを判定に見せていたため）。パスフレーズは3つ（真の復号／真の破壊／偽の復号）。<b>強要下では開示しない</b> — 制限パスフレーズは破壊資格であり取出資格ではない。<br><b>デモ構成を全 TUI に戻した。</b> 旧版は cue≠key の映像証拠を求めて WebUI で束ねる構成だったが、実機検証の結果 <b>Step 3b（物体を外して失敗させる対比）</b>の方が証明として強く、プロジェクタ切替も1往復で済む。WebUI は Step 5 でローカル境界を見せる用途に限定する（Store/Retrieve は TUI と同じ Vessel を操作するようになったが、統合経路を壇上でまだ実機で通していないため本編には含めない）。<br><b>解決済み:</b> ①「台本は localhost、実装既定は <code>0.0.0.0</code>」の食い違いは <b>PR #144</b> で解消（既定は loopback、USB gadget 公開は <code>PHASMID_WEBUI_EXPOSE_GADGET=1</code> の opt-in で gadget IP 1枚に bind）。②<b>PR #146</b> で WebUI にページ認証（<code>/unlock</code>）が入った。③Silent Standby が WebUI を落とさずトークンをトーストに残していた問題、Expert フッタが <code>w</code>/<code>q</code>/<code>?</code> を無言で落としていた問題、Doctor の Dummy Profile 助言が全端末で永久に警告していた問題（#157）は解消済み。<br><b>既知の未解決:</b> <b>#158</b> — TUI は物体照合の過程を一切表示しない。だから Step 3b の失敗対比が必須である。逐語トーク: <code>docs/submissions/Phasmid_Talk_Script_30min.md</code>（v4）／ 実施細部: <code>docs/submissions/Phasmid_Demo_Runbook.md</code>（8ステップ）／ デッキ: <code>Phasmid_DEFCON_DemoLabs.pptx</code>（26枚・v4）。すべて <a href="https://github.com/01rabbit/Phasmid">github.com/01rabbit/Phasmid</a> の <code>CLAIMS.md</code> / <code>NON_CLAIMS.md</code> と整合。</div>
+  <div class="foot">本書は <b>v0.3.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果</b>に基づく <b>v4</b>。<b>製品モデルの確定を反映した：囮ファイルはツールが作らず、利用者が用意する。</b>生成機能は空き領域の填充へ降格し、可信性スコアの表示は撤去した（分量しか測れないものを判定に見せていたため）。パスフレーズは3つ（真の復号／真の破壊／偽の復号）。<b>強要下では開示しない</b> — 制限パスフレーズは破壊資格であり取出資格ではない。<br><b>デモ構成を 12 シーンに組み直した。</b> Prepare だけ TUI で見せ、以降はすべて WebUI で行う（切替は片道1回）。<b>SCENE 1 で容器をディスク上の実物として見せる</b>のが今回の要で、これが無いと以降のシーンが「別々の入れ物を順に開いただけ」に見える。拒否は<b>両方向</b>（SCENE 6・7）。<b>Audit と Silent Standby は実演しない</b> — Standby はブラウザ側に痕跡が残るため主張を画面が支えきれず、Audit は自分の画面で <code>Header absent</code> と <code>Tracked Faces 2</code> を並べてしまうため。Audit は卓上デモと質疑の持ち札に回す。<br><b>解決済み:</b> ①「台本は localhost、実装既定は <code>0.0.0.0</code>」の食い違いは <b>PR #144</b> で解消（既定は loopback、USB gadget 公開は <code>PHASMID_WEBUI_EXPOSE_GADGET=1</code> の opt-in で gadget IP 1枚に bind）。②<b>PR #146</b> で WebUI にページ認証（<code>/unlock</code>）が入った。③Silent Standby が WebUI を落とさずトークンをトーストに残していた問題、Expert フッタが <code>w</code>/<code>q</code>/<code>?</code> を無言で落としていた問題、Doctor の Dummy Profile 助言が全端末で永久に警告していた問題（#157）は解消済み。<br><b>既知の未解決:</b> <b>#158</b> — TUI は物体照合の過程を一切表示しない。だから SCENE 6・7 の失敗対比が必須である。逐語トーク: <code>docs/submissions/Phasmid_Talk_Script_30min.md</code>（v4）／ 実施細部: <code>docs/submissions/Phasmid_Demo_Runbook.md</code>（12 シーン）／ 読み上げ台本: <code>Phasmid_Demo_RunOfShow.docx</code>／ デッキ: <code>Phasmid_DEFCON_DemoLabs.pptx</code>（26枚・v4）。すべて <a href="https://github.com/01rabbit/Phasmid">github.com/01rabbit/Phasmid</a> の <code>CLAIMS.md</code> / <code>NON_CLAIMS.md</code> と整合。</div>
 
 </div>
 

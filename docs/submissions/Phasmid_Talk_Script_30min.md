@@ -2,9 +2,11 @@
 
 **Deck:** Phasmid_DEFCON_DemoLabs.pptx（全26枚 / 各スライドに同内容のスピーカーノート埋め込み済み）
 **Presenter:** Makoto Sugita (Mr.Rabbit / 01rabbit)
-**改訂 v6（0.6.0・実機検証済み）:** 物体キューの登録を**2段階撮影**（空シーン→物体）に変更 — 従来は視野全体を鍵にしており、**物体を隠しても開いてしまっていた**（#184/#187）。**Step 4「物体なしでの失敗」を WebUI に移した** — 実機で WebUI 経路の拒否を確認したため。Step 3（成功）と Step 4（失敗）が**同じタブで連続**し、物体の有無だけが変わる。プロジェクタ切替は Step 1→2 と Step 4→5 の**1往復のみ**。**Step 4b（強要下でデータを守る）を任意ステップとして追加** — **同じ画面の同じ入力欄に破壊パスワードを入れると、かざしている Face が消える**（#189/#191）。画面は何も変わらず、応答は打ち間違えと同じ。もう一方の Face は無傷。
+**改訂 v7（0.6.1・実機検証済み）:** デモを **12 シーン**に組み直した。**SCENE 1 で容器をディスク上の実物として見せる**（`ls` / `file` / `xxd`）— これが無いと、以降で2つのファイルが出てきても「別々の入れ物から出た」としか見えず、主張が伝わらない。**拒否は両方向で見せる** — 物体だけ違う（SCENE 6）とパスワードだけ違う（SCENE 7）。片方だけでは「物体が鍵だ」と読まれてしまう。**強要と破壊を独立したシーンにした**（SCENE 8・9・10）。**Audit と Silent Standby は実演しない** — Standby はブラウザ側に痕跡が残るため主張を画面が支えきれず、Audit は同じ画面で `Header absent` と `Tracked Faces 2` を並べてしまう（Audit は卓上デモと質疑の持ち札に回す）。**画面切替は片道1回**になり、TUI には戻らない。**recover トークンの別タブ提示は削除** — セッションはクッキー1つで全タブ共有なので同一ブラウザでは成立しない。読み上げ用のカタカナ付き台本は `Phasmid_Demo_RunOfShow.docx`。
+
+> 旧 v6（0.6.0・実機検証済み）: 物体キューの登録を**2段階撮影**（空シーン→物体）に変更 — 従来は視野全体を鍵にしており、**物体を隠しても開いてしまっていた**（#184/#187）。**Step 4「物体なしでの失敗」を WebUI に移した** — 実機で WebUI 経路の拒否を確認したため。Step 3（成功）と Step 4（失敗）が**同じタブで連続**し、物体の有無だけが変わる。プロジェクタ切替は Step 1→2 と Step 4→5 の**1往復のみ**。**Step 4b（強要下でデータを守る）を任意ステップとして追加** — **同じ画面の同じ入力欄に破壊パスワードを入れると、かざしている Face が消える**（#189/#191）。画面は何も変わらず、応答は打ち間違えと同じ。もう一方の Face は無傷。
 > 旧 v5（0.4.0）: Slide 24 のデモ構成を、実機で検証済みの WebUI 中心の Bind/Operate に更新。**Step 2「Bind」と Step 3「Operate（正しい物体での復元）」は WebUI**（役割別トークン: store / recover）で行い、**Step 4「物体なしでの失敗」だけを TUI に残す**（この否定証明はWebUI側で今回のセッションでは未再検証のため）。プロジェクタ切替は Step 1→2 と Step 3→4 の**1往復のみ**に抑制。Issue #169（TUI の Add File・Doctor・Inspect を非活性化、WebUIと重複するため）を反映し、Slide 24 の手順表と Q&A の一部を更新。
-**改訂 v4:** 製品モデルの確定を反映。**囮ファイルはツールが作らない — 利用者が用意する。** 生成機能は「空き領域の填充」へ降格し、Slide 14・21・22 の記述を差し替え。**強要下では開示しない**（制限パスフレーズは破壊資格であり取出資格ではない）ことを Slide 21 で明言。**パスフレーズは3つ**（真の復号／真の破壊／偽の復号）を Slide 12 に明示。Slide 24 のデモ手順を実機ランブック（8ステップ）と一致させ、**Step 3b（物体なしでの失敗）** を山場として新設。**ステッカーは未作成のため Slide 25・26 の言及を削除**し、卓上デモへの導線に差し替え。
+> 旧 v4: 製品モデルの確定を反映。**囮ファイルはツールが作らない — 利用者が用意する。** 生成機能は「空き領域の填充」へ降格し、Slide 14・21・22 の記述を差し替え。**強要下では開示しない**（制限パスフレーズは破壊資格であり取出資格ではない）ことを Slide 21 で明言。**パスフレーズは3つ**（真の復号／真の破壊／偽の復号）を Slide 12 に明示。Slide 24 のデモ手順を実機ランブック（8ステップ）と一致させ、**Step 3b（物体なしでの失敗）** を山場として新設。**ステッカーは未作成のため Slide 25・26 の言及を削除**し、卓上デモへの導線に差し替え。
 > 旧 v3: 実装（silent_brick／purge／emergency_daemon）と整合させ、Slide 6・21 の「破壊しない」記述を撤回。核心を「**Phasmid destroys, but never fabricates**（破壊はする／偽造・隠蔽はしない）」へ変更し、owner-triggered destruction の存在と §2232 リスクを開示。
 > 旧 v2: 軍歴＝着想源＋inverse framing（Slide 2）、REAL CASE(2026)（Slide 4）、国境事案 Q&A を追加。
 
@@ -91,7 +93,7 @@
 
 ## [11:00] Slide 14 — Coercion-safe delaying　★製品モデルの核心
 **EN:** "This is what makes it coercion-*safe*. **Silent Standby** — a hotkey drops the sensitive UI into a harmless state; recovery needs re-auth. Then the material itself, and I want to be exact about this: **the file you would hand over is one *you* wrote and stored yourself**, before any coercion. **Phasmid does not manufacture your cover story.** A generated dataset would not survive five minutes of questioning by someone holding your passport — realism has to come from your own material, not from my random-text generator. What the tool *does* offer is a **filler** that occupies free space, so an otherwise empty container doesn't read as empty. That's a volume problem, and volume is something software can actually solve. And **context profiles** — travel, field engineer, researcher — tell you what 'normal' should look like, so you know what to prepare. In coercion-safe mode, a low-confidence match routes to the disclosure face instead of failing loudly. The goal isn't magic invisibility — it's **uncertainty and delay**."
-**JA:** **本トークで最も誤解されやすい点。** 「ツールが囮を作る」と思われた瞬間に設計の真実味が全部落ちる。**「囮は利用者が用意する」と「填充は空き領域対策に過ぎない」を分けて言い切る。** Silent Standby はデモで見せると予告。認識モードの帯を指す。
+**JA:** **本トークで最も誤解されやすい点。** 「ツールが囮を作る」と思われた瞬間に設計の真実味が全部落ちる。**「囮は利用者が用意する」と「填充は空き領域対策に過ぎない」を分けて言い切る。** **Silent Standby はデモで見せないので予告しない** — 概念としてここで説明しきる。認識モードの帯を指す。
 
 ## [12:20] Slide 15 — Design principles
 **EN:** "The design principle is **restraint**. The vault file alone isn't meant to be enough. Normal flows don't reveal structure or recovery. And metadata reduction is best-effort — I call it support, not sanitization. Restraint is the feature, not a limitation."
@@ -127,34 +129,39 @@
 
 ## [19:05] Slide 23 — LIVE DEMO（章扉）
 **EN:** "Alright — live demo."
-**JA:** 呼吸を整え実機へ。プロジェクタ入力をTUIへ切替。**バックアップ録画の頭出しを確認。**
+**JA:** 呼吸を整え実機へ。スペースをターミナル（TUI）へ切替。**バックアップ録画の頭出しを確認。**
 
-## [19:20] Slide 24 — Live demo（TUI + WebUI）　★中心 / 約7分半
-**EN（最小限・手を動かしながら）:** "This is the real system — the **TUI** handles prepare, refuse, and disclose; the local **WebUI**, reached over USB, handles bind and operate. I'll **create a vessel** here. Then I switch to the browser, log in with a store-scoped token, and **register two Faces**. Each one takes two shots: first the empty view, then the object — the difference between them is what the device keeps, so it describes the object and not my wall. I'll open one back with the correct object — it comes back — and show you a second, narrower session that can never reach Face setup at all. Then, **without switching anything**, the important part: **same tab, same file, same password — I only take the object away.** It refuses. That is what 'the cue gates the operation' means. Then I come back here for **Audit** — notice what it *doesn't* claim — and **Silent Standby**. Watch the bottom bar."
+## [19:20] Slide 24 — Live demo（TUI → WebUI）　★中心 / 約8分半
+**EN（最小限・手を動かしながら）:** "This is the real system. I'll **make a vessel** here on the TUI, and then show you what it looks like on disk — one file, no header, no magic bytes. Remember its name, because everything after this comes out of that one file. Then I move to the browser and **register two slots**: one file I would hand over, one I would not. Each takes two shots — first the empty view, then the object — so the device describes the object and not my wall. Then I open them. **Right object, wrong password: nothing. Right password, wrong object: nothing.** Both are needed, and neither one is the key. Then I change the situation: someone has the device, and they have me. I hand over the first slot — and **nothing on that screen says there is another one.** And if they know there is? **Same screen, same object, same field, same button — I just type a different password.** It says what it says when you mistype. Except that entry is not locked. It is gone."
 
-**JA デモ手順:** 詳細は別紙 **`docs/submissions/Phasmid_Demo_Runbook.md`（8ステップ、合計 ~7:30）** に従う。要点のみ：
+**JA デモ手順:** 詳細は別紙 **`docs/submissions/Phasmid_Demo_Runbook.md`（12シーン、合計 ~8:30）** に従う。読み上げ用のカタカナ付き台本は **`Phasmid_Demo_RunOfShow.docx`**。要点のみ：
 
-| # | 手順 | 目安 | 画面 | 要点 |
+| # | シーン | 目安 | 画面 | 要点 |
 |---|---|---|---|---|
-| 0 | オリエンテーション | 0:20 | TUI | Simple 画面の6キーを指す。最小面も coercion-aware 設計の一部 |
-| 1 | `n` Create Vessel | 0:50 | TUI | ヘッダなし・マジックバイトなし |
-| 2 | Bind — Face 1・Face 2 登録 | 1:30 | **WebUI**（store） | **プロジェクタ切替①。** **空シーン→物体の2枚撮り。** 物体は Face ごとに差し替え、**撮影から保存まで下ろさない** |
-| 3 | Operate — 復元成功／役割の境界 | 0:50 | **WebUI**（store・recover） | recover トークンには Store/Maintenance への導線が無いことを見せる |
-| 4 | **復元 失敗（物体なし）** | 0:50 | **WebUI**（Step 3 と同じタブ） | **★本デモ唯一の証明。画面を切り替えないこと自体が論証。** 間を取り、**必ず物体を戻して成功まで往復させる** |
-| 4b | （任意）**強要下でデータを守る** | 0:40 | **WebUI**（同じ画面・同じ入力欄） | **画面は何も変わらない。パスワードだけが違う。** 不可逆。枠が押していれば省略 |
-| 5 | `e` → `a` Audit | 0:50 | TUI Expert | **プロジェクタ切替②。** `Free Space Filler` を指す。**判定しないことを誇る** |
-| 6 | `Ctrl+S` Silent Standby | 1:20 | TUI | **山場。** WebUI も同時に落ちる。ゆっくり |
-| 7 | `Esc` で復帰・ラップ | 0:10 | TUI | Prepare→Bind→Operate→Disclose を一言で |
+| 0 | The console | 0:20 | TUI | Simple 画面のキーを指す。最小面も coercion-aware 設計の一部 |
+| 1 | **One file on disk** | 1:10 | TUI + シェル | **`ls` / `file` / `xxd` で実物を見せる。以降ファイル名で参照し続ける。** ここが全体の前提 |
+| ⟶ | **画面切替（片道1回・TUI には戻らない）** | — | — | — |
+| 2 | Into the browser | 0:50 | **WebUI**（store） | ログイン。**役割分離は口頭のみ**（同一ブラウザでは2セッションを並べられない） |
+| 3 | Slot A — 渡してもいい方 | 0:50 | **WebUI** | **空シーン→物体の2枚撮り。cue≠key の説明はここ** |
+| 4 | Slot B — 渡したくない方 | 1:00 | **WebUI** | 物体を差し替える。**破壊パスワードもここで設定** |
+| 5 | Slot A opens | 0:20 | **WebUI** | 機能確認のみ。意味づけはしない |
+| 6 | **物体だけでは足りない** | 1:00 | **WebUI**（同じ画面） | **★★**物体B＋パスワードA→失敗、パスワードB→成功。**中身で違いを見せる** |
+| 7 | **パスワードだけでも足りない** | 0:40 | **WebUI**（同じ画面） | **★★**逆方向。**両方向揃って初めて実証になる** |
+| 8 | 強要 — Slot A を渡す | 0:30 | **WebUI**（同じ画面） | **シーン5と同一操作。** 意味だけが違う |
+| 9 | **もう一つのパスワード** | 0:50 | **WebUI**（同じ画面） | **★山場。打ち間違いと同じ表示。不可逆** |
+| 10 | もう開くものがない | 0:50 | **WebUI**（同じ画面） | 破壊の確認＋**「説得力は判定しない」を言う** |
+| 11 | ラップ | 0:10 | **WebUI** | 1つのファイル・2つの物体・2つのパスワード |
 
 **JA 注意:**
 - **マウスは使わない。** SSH越しではクリックが Textual に届かない。`Tab` / `Enter` のみ。
 - **端末幅124桁以上。** 下回ると Expert フッタから `w WebUI` が無言で消える。
-- **プロジェクタ切替は1往復だけ。** Step 1→2 でTUIからブラウザへ、Step 3→4 でブラウザからTUIへ。以降は切替なし。
-- **`Fill Free Space` は壇上で実行しない**（実測約4分）。事前に埋めておき `Inspect` のみ。
-- **囮ファイルは事前に自分で用意しておく。** 壇上でツールに生成させない。保存自体は Step 2 の WebUI で行う（#169 で TUI の `Add File` は非活性化済み）。
-- **成功例だけを見せない。** Step 4 の対比が無ければ cue≠key は何も証明していない。
-- **Step 4b は不可逆で、成功しても画面には何も出ない。** 「打ち間違えたときと同じ表示」が正解。やるなら Step 5 の Audit の数字が「消した後」になることを承知の上で。省略しても本筋は通る。
-- **7分半で切り上げ、Q&Aに15分以上を残す。** 26:00 を超えたら Step 2〜3 を口頭要約。失敗時は録画へ切替し設計点を口頭補強。
+- **画面切替は片道1回だけ。** シーン1→2 でTUIからブラウザへ移り、そのまま戻らない。ラップトップ1台なら**フルスクリーンのスペースを3つ固定**し `Ctrl+←→` で送る。**集中モードを必ずオンに。**
+- **`Fill Free Space` は壇上で実行しない**（実測約4分）。事前に埋めておく。
+- **囮ファイルは事前に自分で用意しておく。** 壇上でツールに生成させない。保存はシーン3・4の WebUI で行う（#169 で TUI の `Add File` は非活性化済み）。
+- **成功例だけを見せない。** シーン6と7の対比が無ければ cue≠key は何も証明していない。**片方だけでも足りない** — 「物体が鍵だ」と読まれてしまう。
+- **シーン9は不可逆で、成功しても画面には何も出ない。** 「打ち間違えたときと同じ表示」が正解。
+- **Audit と Silent Standby は実演しない。** 理由は Runbook §0 と §4。Audit は卓上デモと質疑の持ち札に回す。
+- **8分半で切り上げ、Q&Aに15分以上を残す。** 26:00 を超えたらシーン5と8を落とす。失敗時は録画へ切替し設計点を口頭補強。
 
 ## [26:20] Slide 25 — Quick start
 **EN:** "Want to try it? Clone the repo, cd in, run `./phasmid` — first run sets up a venv and opens the console. Research software, Apache-2.0. Evaluate it locally, in field-test conditions — not as production protection."
@@ -185,7 +192,7 @@
 
 # コンティンジェンシー / Contingency
 - **押している（+3分以上）:** Slide 9・19・20 を各1行に圧縮。Slide 11 は口頭一言でスキップ可。
-- **巻いている（-3分以上）:** Slide 8・14・21 を丁寧に。デモで Audit と Doctor を実演拡張。
-- **デモ不調:** 章扉（23）で頭出しした録画へ即切替。「設計点は録画でも成立する」と明言し、口頭で Prepare→Bind→Operate→Disclose を辿る。
+- **巻いている（-3分以上）:** Slide 8・14・21 を丁寧に。デモ後の卓上誘導を厚めに（Audit を見せるならここ）。
+- **デモ不調:** 章扉（23）で頭出しした録画へ即切替。「設計点は録画でも成立する」と明言し、口頭で「1つの容器・2つの物体・2つのパスワード・そして開くのではなく終わらせるパスワード」を辿る。
 - **物体認識が不安定:** 起動スクリプトの既定は `demo` モード。それでも不安定なら `coercion_safe` の低信頼→開示面ルートを**設計意図として逆手に説明**する。
-- **時計運用:** 19:20 でデモ開始、**26:00 を超えたら Step 2〜3 を口頭要約**して締めへ。**Step 4 と Step 6 だけは何があっても見せる。** 45:00 厳守。
+- **時計運用:** 19:20 でデモ開始、**26:00 を超えたらシーン5と8を落とす**。**シーン1・6・7・9・10 は何があっても見せる。** 45:00 厳守。

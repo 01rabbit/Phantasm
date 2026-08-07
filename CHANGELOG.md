@@ -7,6 +7,57 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Changed
+
+- The live demo is 12 scenes instead of 9, and the screen switch is one-way.
+  What changed and why:
+
+  **The container is now shown on disk.** The old opening created a vessel and
+  moved on. Two files then came out of it later, and nothing on screen said
+  they had come out of the *same* one — so the demonstration read as "two
+  containers opened in turn," which is not the claim. `ls`, `file` and `xxd`
+  now run on the vessel the moment it exists, and every scene after that names
+  the file. The three lines also do something the deck could not: they put the
+  "no header, no magic bytes" claim in front of the audience as bytes rather
+  than as a bullet.
+
+  **The refusal is shown in both directions.** Only the object was varied
+  before. That is consistent with "the object is the key," which is the exact
+  misreading the demonstration exists to prevent. Right object with the wrong
+  password now fails first, then right password with the wrong object. Neither
+  alone opens anything, and it takes both failures to say so.
+
+  **Coercion and destruction are their own scenes.** Handing over the
+  disclosure slot uses the identical keystrokes as opening it a few minutes
+  earlier — that sameness is the point, and it needed room to be said rather
+  than being one line inside another step.
+
+  **Silent Standby and Audit are no longer performed.** Standby works on the
+  device and was verified again on this build, but the browser keeps traces of
+  a session the spoken line claims went down with the interface; a claim the
+  screen cannot support is worse on stage than no claim. Audit's own screen
+  reports `Header absent / Magic bytes absent` above `Tracked Faces 2`, and
+  that count comes from the local registry rather than from the container — so
+  opening it minutes after `xxd` undercuts the thing `xxd` just established.
+  It moves to the table and to Q&A, where the registry can be explained to one
+  person instead of implied to a room.
+
+  Both surfaces stay in the deck as concepts, and `a` (Audit) stays active in
+  the TUI. Nothing was removed from the product.
+
+- The runbook's Step 3 asked for a second browser tab holding a
+  `recover`-scoped session, to point at a navigation bar with no Store or
+  Maintenance link. The navigation gating is real, but the session is a single
+  cookie for the whole origin: unlocking in a second tab replaces the session
+  in the first. The step could not have worked as written. The role split is
+  now explained in a sentence and not performed.
+
+- The presenter's biography ran current employer, then a former trade, then
+  the military, with the research line in between — and repeated "in Tokyo"
+  from the line before it. It now runs current role first and then backwards,
+  says it once, and names the SOC as the current job rather than penetration
+  testing, which is the previous one.
+
 ### Added
 
 - `scripts/pi_zero2w/deploy_to_device.sh` — puts the repository onto the device
