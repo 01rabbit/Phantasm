@@ -9,6 +9,32 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ### Changed
 
+- Thirty-six spoken lines now say the same thing with words that survive being
+  read cold. The speaker's own reasoning after the first delivery: an easy word
+  read unrehearsed beats a hard word half-rehearsed. `re-authentication` is
+  `sign in again`, `manufacture` is `make up`, `uncertainty` is `doubt`,
+  `Architecturally` is `By design`, `Argon2id for key derivation` is
+  `Argon2id turns a password into a key`.
+
+  Nothing that carries the claim moved. `AES-GCM`, `Argon2id`, `HttpOnly`,
+  `authenticated encryption`, `coercion-aware`, `coercion-safe` all stay:
+  simplifying those would trade a hard word for a wrong one in front of an
+  audience that would notice. Word count is unchanged (2103 → 2128), so the
+  talk runs to the same clock.
+
+### Fixed
+
+- The previous pass's blanket `ヴ` → `ブ` turned two readings into different
+  Japanese words. `Travel` became `トラブル`, which is *trouble*, and `vault`
+  became `ボルト`, which is *bolt*. Now `トラベル` and `ボールト`. The rest of
+  the deck was swept for the same class of collision against nine common
+  katakana words; these two were the only ones.
+
+- Slide 14's delivery cue still told the speaker to promise a Silent Standby
+  demonstration, which was dropped from the running order two revisions ago. Slide 13
+  still pointed at "Step 4" from the pre-restructure numbering.
+
+
 - Every katakana reading in the deck's speaker notes now uses spellings
   Japanese actually writes. Reported after the first talk: under nerves the
   readings held - having one on every line is what kept the talk moving - but
