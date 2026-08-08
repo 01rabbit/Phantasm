@@ -7,6 +7,61 @@ and this project follows SemVer-style release intent for documented interfaces.
 
 ## [Unreleased]
 
+### Changed
+
+- Thirty-six spoken lines now say the same thing with words that survive being
+  read cold. The speaker's own reasoning after the first delivery: an easy word
+  read unrehearsed beats a hard word half-rehearsed. `re-authentication` is
+  `sign in again`, `manufacture` is `make up`, `uncertainty` is `doubt`,
+  `Architecturally` is `By design`, `Argon2id for key derivation` is
+  `Argon2id turns a password into a key`.
+
+  Nothing that carries the claim moved. `AES-GCM`, `Argon2id`, `HttpOnly`,
+  `authenticated encryption`, `coercion-aware`, `coercion-safe` all stay:
+  simplifying those would trade a hard word for a wrong one in front of an
+  audience that would notice. Word count is unchanged (2103 → 2128), so the
+  talk runs to the same clock.
+
+### Fixed
+
+- The previous pass's blanket `ヴ` → `ブ` turned two readings into different
+  Japanese words. `Travel` became `トラブル`, which is *trouble*, and `vault`
+  became `ボルト`, which is *bolt*. Now `トラベル` and `ボールト`. The rest of
+  the deck was swept for the same class of collision against nine common
+  katakana words; these two were the only ones.
+
+- Slide 14's delivery cue still told the speaker to promise a Silent Standby
+  demonstration, which was dropped from the running order two revisions ago. Slide 13
+  still pointed at "Step 4" from the pre-restructure numbering.
+
+
+- Every katakana reading in the deck's speaker notes now uses spellings
+  Japanese actually writes. Reported after the first talk: under nerves the
+  readings held - having one on every line is what kept the talk moving - but
+  three kinds of spelling cost a beat each time they appeared.
+
+  `ヴ` is gone, all 111 of it. `オヴ` alone was seventeen, and *of* turns up in
+  almost every line, so there was a decelerating point in most of them.
+  English-leaning diphthongs are gone too - `オウプンズ`, `オウンリー`, and
+  `フォウトウ`, which is *photo*, the word the speaker named as hardest on the
+  page; Japanese writes オープン, オンリー, フォト. And `ゥ` before ラ行, which
+  existed to keep right/light and wrong/long apart in three words - the
+  sentence already does that, and nothing was helping the speaker get through
+  `ゥライト` at speed.
+
+  The English is untouched. A reading closer to English is worth nothing if it
+  has to be decoded.
+
+- The demo notes are three labelled bands per beat instead of one continuous
+  script: **SAY** (read it through, hands still), **DO** (operate, nothing to
+  read), **THEN** (a line or two once the screen has changed). Reading and
+  operating at once is a double load in a second language, and the eye loses
+  its place the moment the hands move - reported as not knowing how far into
+  the script one had got. Announcing before acting costs no time; the audience
+  knows what to look for before it happens, and the silence while something
+  visibly runs reads as a pause rather than a gap.
+
+
 ### Fixed
 
 - The camera preview froze after decrypting a file, and changing tabs cleared
