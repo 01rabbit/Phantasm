@@ -1,0 +1,754 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Phasmid — DEF CON Demo Labs Run-of-Show</title>
+<style>
+  :root{
+    --bg:#f4f5ee; --panel:#ffffff; --panel-2:#eceee3;
+    --ink:#161a0f; --ink-soft:#434a35; --muted:#6a7358;
+    --line:#dde0d0; --line-strong:#c6cbb4;
+    --gold:#6c7628; --gold-ink:#5a641f; --gold-soft:#eef0d8;
+    --mint:#1f9e77; --violet:#6b4fb0; --amber:#9a7c17; --red:#c0403c;
+    --s-active:#1f9e77; --s-standby:#6b4fb0; --s-sealed:#6c7628; --s-dummy:#9a7c17;
+    --term-bg:#0b0f08; --term-fg:#d6ddc7; --term-dim:#79836a; --term-line:#1d2415;
+    --shadow:0 1px 2px rgba(20,24,12,.06),0 8px 24px rgba(20,24,12,.07);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI","Hiragino Sans","Noto Sans JP",sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0b0f08; --panel:#12160d; --panel-2:#181d11;
+      --ink:#e9ebdd; --ink-soft:#b7bea4; --muted:#818a6e;
+      --line:#252b19; --line-strong:#333a23;
+      --gold:#c7d482; --gold-ink:#cfda8f; --gold-soft:#c7d4821f;
+      --mint:#46d6a6; --violet:#b594de; --amber:#e0c24a; --red:#e4564c;
+      --s-active:#46d6a6; --s-standby:#b594de; --s-sealed:#c7d482; --s-dummy:#e0c24a;
+      --term-bg:#080b06; --term-fg:#d6ddc7; --term-dim:#6d7660; --term-line:#191f11;
+      --shadow:0 1px 2px rgba(0,0,0,.32),0 10px 30px rgba(0,0,0,.38);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f5ee;--panel:#fff;--panel-2:#eceee3;--ink:#161a0f;--ink-soft:#434a35;--muted:#6a7358;--line:#dde0d0;--line-strong:#c6cbb4;--gold:#6c7628;--gold-ink:#5a641f;--gold-soft:#eef0d8;--mint:#1f9e77;--violet:#6b4fb0;--amber:#9a7c17;--red:#c0403c;--s-active:#1f9e77;--s-standby:#6b4fb0;--s-sealed:#6c7628;--s-dummy:#9a7c17;--term-bg:#0b0f08;--term-fg:#d6ddc7;--term-dim:#79836a;--term-line:#1d2415;--shadow:0 1px 2px rgba(20,24,12,.06),0 8px 24px rgba(20,24,12,.07);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b0f08;--panel:#12160d;--panel-2:#181d11;--ink:#e9ebdd;--ink-soft:#b7bea4;--muted:#818a6e;--line:#252b19;--line-strong:#333a23;--gold:#c7d482;--gold-ink:#cfda8f;--gold-soft:#c7d4821f;--mint:#46d6a6;--violet:#b594de;--amber:#e0c24a;--red:#e4564c;--s-active:#46d6a6;--s-standby:#b594de;--s-sealed:#c7d482;--s-dummy:#e0c24a;--term-bg:#080b06;--term-fg:#d6ddc7;--term-dim:#6d7660;--term-line:#191f11;--shadow:0 1px 2px rgba(0,0,0,.32),0 10px 30px rgba(0,0,0,.38);
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:990px;margin:0 auto;padding:0 20px 96px;}
+  code,.mono{font-family:var(--mono);}
+
+  /* masthead */
+  header.mast{border-bottom:1px solid var(--line);margin-bottom:8px;padding:42px 0 26px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:600;display:flex;align-items:center;gap:10px;}
+  .eyebrow::before{content:"";width:26px;height:2px;background:var(--gold);display:inline-block;}
+  h1{font-size:clamp(28px,5vw,44px);line-height:1.08;margin:16px 0 10px;letter-spacing:-.02em;text-wrap:balance;font-weight:700;}
+  h1 .sub{display:block;font-size:clamp(15px,2.4vw,19px);font-weight:500;color:var(--ink-soft);letter-spacing:0;margin-top:10px;}
+  .metagrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:22px;}
+  .metagrid div{background:var(--panel);padding:12px 14px;}
+  .metagrid dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;}
+  .metagrid dd{margin:0;font-size:14px;font-weight:600;}
+
+  /* legends */
+  .legends{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0 8px;}
+  @media (max-width:680px){.legends{grid-template-columns:1fr;}}
+  .legend{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow);}
+  .legend h3{margin:0 0 12px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono);color:var(--muted);font-weight:600;}
+  .track-key{display:flex;flex-direction:column;gap:9px;}
+  .track-key .row{display:flex;align-items:baseline;gap:11px;font-size:13.5px;}
+  .tk{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:5px;white-space:nowrap;}
+  .tk.line{color:#fff;background:var(--gold-ink);} :root[data-theme="dark"] .tk.line,@media (prefers-color-scheme:dark){}
+  .tk.do{color:var(--term-fg);background:var(--term-bg);}
+  .tk.show{color:var(--ink);background:var(--panel-2);border:1px solid var(--line-strong);}
+  .tk.speak{color:#fff;background:var(--mint);}
+  .tk.cue{color:var(--ink-soft);background:transparent;border:1px dashed var(--line-strong);}
+  /* state ramp */
+  .ramp{display:flex;flex-direction:column;gap:9px;}
+  .rk{display:flex;align-items:center;gap:10px;font-size:13px;}
+  .rk .d{width:10px;height:10px;border-radius:50%;flex:none;}
+  .rk b{font-family:var(--mono);font-size:12.5px;}
+  .rk .gr{color:var(--muted);font-size:12px;}
+  .rk .ph{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em;}
+
+  .callout{display:flex;gap:12px;align-items:flex-start;margin:12px 0 2px;background:var(--gold-soft);border:1px solid color-mix(in srgb,var(--gold) 34%,transparent);border-radius:9px;padding:12px 15px;font-size:13.5px;}
+  .callout.plain{background:transparent;border-color:var(--line-strong);}
+  .callout .badge{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--gold-ink);border:1px solid var(--gold);padding:2px 6px;border-radius:5px;white-space:nowrap;margin-top:1px;}
+  :root[data-theme="dark"] .callout .badge{color:var(--gold);}
+  .callout.plain .badge{color:var(--muted);border-color:var(--line-strong);}
+  .callout b{color:var(--ink);} .callout code{font-size:.92em;}
+  .callout.danger{background:color-mix(in srgb,var(--red) 10%,transparent);border-color:color-mix(in srgb,var(--red) 40%,transparent);}
+  .callout.danger .badge{color:var(--red);border-color:var(--red);}
+
+  /* Version history: kept, not shown. It is a record, not a thing to read on the day. */
+  .hist{margin:12px 0 2px;border:1px solid var(--line);border-radius:9px;background:var(--panel);}
+  .hist>summary{cursor:pointer;list-style:none;padding:11px 15px;font-family:var(--mono);font-size:12px;letter-spacing:.03em;color:var(--muted);display:flex;align-items:center;gap:9px;}
+  .hist>summary::-webkit-details-marker{display:none;}
+  .hist>summary::before{content:"\25B8";color:var(--gold);font-size:10px;}
+  .hist[open]>summary::before{content:"\25BE";}
+  .hist>summary:hover{color:var(--ink);}
+  .hist>summary:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;border-radius:9px;}
+  .hist .callout{margin:0 13px 13px;}
+  body.speaker .hist{display:none;}
+
+  /* part header */
+  .part{display:flex;align-items:center;gap:14px;margin:48px 0 6px;padding-top:20px;border-top:2px solid var(--ink);}
+  .part .tc{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--gold-ink);background:var(--gold-soft);padding:4px 10px;border-radius:6px;letter-spacing:.04em;white-space:nowrap;}
+  :root[data-theme="dark"] .part .tc{color:var(--gold);}
+  .part h2{margin:0;font-size:21px;letter-spacing:-.01em;font-weight:700;}
+  .part .note{margin-left:auto;font-size:12.5px;color:var(--muted);font-family:var(--mono);}
+
+  /* beat */
+  .beat{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:16px 0;overflow:hidden;box-shadow:var(--shadow);}
+  .beat>.head{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);background:var(--panel-2);}
+  .slide-chip{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:2px 10px;white-space:nowrap;}
+  .beat>.head .title{font-weight:650;font-size:14.5px;}
+  .beat>.head .pill{margin-left:auto;font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;padding:3px 10px;border-radius:20px;}
+  .pill.star{color:#fff;background:var(--gold-ink);} :root[data-theme="dark"] .pill.star{color:#12160d;background:var(--gold);}
+  .pill.depth{color:var(--muted);border:1px solid var(--line-strong);}
+  .beat .body{padding:6px 18px 18px;}
+  .r{display:grid;grid-template-columns:74px 1fr;gap:14px;padding:12px 0;border-bottom:1px dashed var(--line);}
+  .r:last-child{border-bottom:none;}
+  .r>.lab{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.06em;padding-top:3px;}
+  .lab.line{color:var(--gold-ink);} :root[data-theme="dark"] .lab.line{color:var(--gold);}
+  .lab.do{color:var(--term-dim);} .lab.show{color:var(--muted);} .lab.speak{color:var(--mint);} .lab.cue{color:var(--ink-soft);} .lab.state{color:var(--violet);}
+  @media (max-width:560px){.r{grid-template-columns:1fr;gap:5px;}}
+  .say{font-size:15px;color:var(--ink);}
+  .say em{font-style:normal;font-weight:700;color:var(--gold-ink);} :root[data-theme="dark"] .say em{color:var(--gold);}
+  .say .k{font-family:var(--mono);font-size:.88em;background:var(--panel-2);padding:1px 5px;border-radius:4px;border:1px solid var(--line);}
+  .cue-txt{font-size:13.5px;color:var(--ink-soft);}
+  .cue-txt::before{content:"【 ";color:var(--muted);} .cue-txt::after{content:" 】";color:var(--muted);}
+  .show-txt{font-size:13.5px;color:var(--ink-soft);}
+  .speak-txt{font-size:14px;color:var(--ink);font-weight:600;}
+  .speak-txt em{font-style:normal;color:var(--mint);}
+
+  /* spoken lines: one .g per breath group. Inline here, one per line in
+     Speaker view, which is what the eye needs when you look up mid-sentence. */
+  .say .g{display:inline;}
+  .say .g+.g::before{content:"/";font-family:var(--mono);font-weight:400;color:var(--muted);opacity:.42;margin:0 .5em 0 .28em;}
+  .lab .secs{display:block;margin-top:4px;font-size:9.5px;letter-spacing:.06em;opacity:.72;}
+
+  /* Speaker view — the lines, large, with everything else out of the way */
+  .spk{position:fixed;right:18px;bottom:18px;z-index:60;font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.05em;cursor:pointer;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);padding:10px 16px;border-radius:22px;box-shadow:var(--shadow);display:inline-flex;align-items:center;gap:9px;}
+  .spk .d{width:8px;height:8px;border-radius:50%;background:var(--line-strong);}
+  .spk:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  /* --panel flips with the theme, so the label stays legible on the green in both. */
+  body.speaker .spk{background:var(--gold-ink);color:var(--panel);border-color:var(--gold-ink);}
+  body.speaker .spk .d{background:var(--mint);}
+  body.speaker .wrap{max-width:920px;}
+  body.speaker .mast .sub,
+  body.speaker .metagrid,
+  body.speaker .legends,
+  body.speaker .prep,
+  body.speaker .quickmap,
+  body.speaker .checklist,
+  body.speaker .pane,
+  body.speaker .qa-zone,
+  body.speaker .foot,
+  body.speaker .part .note,
+  body.speaker .callout:not(:has(.say)),
+  body.speaker .callout.plain,
+  body.speaker .callout .o,
+  body.speaker .speak-txt .cue-txt{display:none;}
+  body.speaker .beat:not(:has(.lab.line,.lab.speak)){display:none;}
+  body.speaker .r{display:none;grid-template-columns:62px 1fr;padding:15px 0;}
+  body.speaker .r:has(>.lab.line),body.speaker .r:has(>.lab.speak){display:grid;}
+  body.speaker .say{font-size:23px;line-height:1.34;}
+  body.speaker .say .g{display:block;padding:1.5px 0;}
+  body.speaker .say .g+.g::before{content:none;}
+  body.speaker .speak-txt{font-size:19px;}
+  body.speaker .callout{font-size:15px;}
+  @media (max-width:680px){body.speaker .say{font-size:19px;}body.speaker .r{grid-template-columns:1fr;}}
+  @media print{.spk{display:none;}}
+
+  /* terminal I/O panes */
+  .io{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:2px 0;}
+  @media (max-width:640px){.io{grid-template-columns:1fr;}}
+  .pane{border-radius:9px;overflow:hidden;border:1px solid var(--term-line);background:var(--term-bg);font-family:var(--mono);}
+  .pane.cmd{border-color:color-mix(in srgb,var(--gold) 42%,var(--term-line));}
+  .pane-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--term-line);}
+  .pane-lab{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;}
+  .pane-lab.cmd{color:var(--gold);} .pane-lab.out{color:var(--term-dim);}
+  .pane-lab .glyph{margin-right:6px;opacity:.8;}
+  .pane pre{margin:0;padding:12px 14px;overflow-x:auto;font-size:12.5px;line-height:1.62;color:var(--term-fg);white-space:pre;}
+  .pane.cmd .src .p{color:var(--mint);font-weight:700;user-select:none;}
+  .pane.cmd .src .a{color:var(--gold);}
+  .o{color:var(--term-dim);} .key{color:var(--gold);font-weight:700;} .ok{color:var(--mint);font-weight:700;} .rej{color:var(--red);} .hl{color:#eef2e4;font-weight:700;} .vio{color:var(--violet);font-weight:700;}
+
+  button.copy{margin-left:auto;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;color:var(--term-dim);background:transparent;border:1px solid var(--term-line);border-radius:6px;padding:3px 9px;display:inline-flex;align-items:center;gap:6px;transition:color .15s,border-color .15s;}
+  @media (prefers-reduced-motion:reduce){button.copy{transition:none;}}
+  button.copy:hover{color:var(--gold);border-color:var(--gold);}
+  button.copy:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  button.copy svg{width:12px;height:12px;} button.copy.copied{color:var(--mint);border-color:var(--mint);} button.copy.manual{color:var(--gold);border-color:var(--gold);}
+
+  /* state-machine ramp visual */
+  .sm{display:flex;align-items:stretch;gap:0;margin:4px 0 2px;flex-wrap:wrap;}
+  .sm .node{flex:1;min-width:120px;border:1px solid var(--line);background:var(--panel-2);padding:10px 12px;position:relative;}
+  .sm .node:not(:last-child){border-right:none;}
+  .sm .node:first-child{border-radius:9px 0 0 9px;} .sm .node:last-child{border-radius:0 9px 9px 0;}
+  .sm .st{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.04em;display:flex;align-items:center;gap:8px;}
+  .sm .st .d{width:9px;height:9px;border-radius:50%;}
+  .sm .sd{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4;}
+  .sm .trans{font-family:var(--mono);font-size:9.5px;color:var(--gold-ink);margin-top:6px;letter-spacing:.02em;}
+  :root[data-theme="dark"] .sm .trans{color:var(--gold);}
+  @media (max-width:620px){.sm{flex-direction:column;} .sm .node{border-right:1px solid var(--line)!important;border-radius:9px!important;margin-bottom:6px;}}
+
+  /* prep / quickmap */
+  .prep{background:var(--panel);border:1px dashed var(--line-strong);border-radius:12px;padding:18px 20px;margin:16px 0;}
+  .prep h4{margin:0 0 4px;font-size:14px;display:flex;align-items:center;gap:9px;}
+  .prep h4 .off{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);border:1px solid var(--line-strong);padding:2px 7px;border-radius:5px;}
+  .prep p{margin:4px 0 12px;font-size:13px;color:var(--muted);}
+  .pstep{padding:14px 0;border-top:1px dashed var(--line);}
+  .pstep-t{display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:650;margin-bottom:9px;}
+  .pnum{flex:none;width:22px;height:22px;border-radius:50%;background:var(--gold-ink);color:#fff;font-family:var(--mono);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;}
+  :root[data-theme="dark"] .pnum{background:var(--gold);color:#12160d;}
+  /* One item per line. Two columns raggedly interleaved items that run from
+     eight characters to four lines, and the eye lost its place between them.
+     minmax(0,…) so one unbreakable <code> cannot widen the page. */
+  .checklist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:0;}
+  /* The box is positioned, not laid out: flex or grid on the <li> would turn
+     every inline <b> and <code> inside it into a separate track, which is what
+     broke this list into columns of fragments. */
+  .checklist li{font-size:13px;color:var(--ink-soft);line-height:1.62;position:relative;padding:9px 2px 9px 26px;border-top:1px dashed var(--line);}
+  .checklist li:first-child{border-top:none;padding-top:2px;}
+  .checklist li::before{content:"";position:absolute;left:0;top:12px;width:15px;height:15px;border:1.5px solid var(--gold);border-radius:4px;}
+  .checklist li:first-child::before{top:5px;}
+  .checklist li b{color:var(--ink);} .checklist code{overflow-wrap:anywhere;}
+
+  .quickmap{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:16px 0;box-shadow:var(--shadow);}
+  .quickmap h4{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:9px;}
+  .quickmap h4 .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);border:1px solid var(--line-strong);padding:2px 7px;border-radius:5px;text-transform:uppercase;}
+  .quickmap .lead{margin:4px 0 14px;font-size:13px;color:var(--muted);}
+  .qsub{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:2px 0 8px;}
+  .qflow{display:flex;flex-direction:column;gap:10px;}
+  .qstep{display:grid;grid-template-columns:36px 1fr;gap:12px;align-items:start;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel-2);}
+  .qrn{font-family:var(--mono);font-weight:700;font-size:13px;color:#fff;background:var(--ink);border-radius:7px;width:36px;height:30px;display:inline-flex;align-items:center;justify-content:center;}
+  .qhead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;}
+  .qhead b{font-size:14px;}
+  .qkey{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--gold);background:var(--term-bg);border-radius:5px;padding:2px 7px;}
+  .qsay{font-size:12.5px;color:var(--ink-soft);margin-top:5px;}
+
+  /* switcher */
+  .switcher{margin:6px 0 2px;}
+  .seg{display:inline-flex;background:var(--panel-2);border:1px solid var(--line-strong);border-radius:9px;padding:3px;gap:3px;}
+  .seg-btn{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.03em;cursor:pointer;border:none;background:transparent;color:var(--muted);padding:6px 13px;border-radius:7px;display:inline-flex;align-items:center;gap:7px;transition:background .15s,color .15s;}
+  @media (prefers-reduced-motion:reduce){.seg-btn{transition:none;}}
+  .seg-btn .d{width:8px;height:8px;border-radius:50%;}
+  .seg-btn[aria-selected="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12);}
+  .seg-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .views{margin-top:11px;} .view[hidden]{display:none;}
+
+  .foot{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);line-height:1.7;}
+  .foot code{font-family:var(--mono);} a{color:var(--gold-ink);} :root[data-theme="dark"] a{color:var(--gold);}
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div class="eyebrow">DEF CON · Demo Labs · 30-min slot</div>
+    <h1>Phasmid — Demo Run-of-Show
+      <span class="sub">Beat by beat across 26 slides: the on-stage line, the delivery cue, and — for the ~7:30 live demo — nine steps plus one optional, TUI for Prepare and Disclose, WebUI for Bind and Operate, one round trip. The proof is a <b>contrast inside one unchanged tab</b>: the file comes back, then the same password is refused with only the object taken away — and, if the room is right, that same field takes a different password and the entry is simply gone.</span>
+    </h1>
+    <dl class="metagrid">
+      <div><dt>Presenter</dt><dd>Makoto “Mr. Rabbit” Sugita</dd></div>
+      <div><dt>Slot</dt><dd>45 min · hard stop</dd></div>
+      <div><dt>Content</dt><dd>~27–28 min · 26 slides</dd></div>
+      <div><dt>Live demo</dt><dd>~8:05 · 9 steps + 1 optional</dd></div>
+      <div><dt>セリフ実尺</dt><dd>~15:50 · 31本</dd></div><div><dt>Q&amp;A + table</dt><dd>~15 min</dd></div>
+    </dl>
+  </header>
+
+  <div class="legends">
+    <div class="legend">
+      <h3>How to read each beat</h3>
+      <div class="track-key">
+        <div class="row"><span class="tk line">LINE</span><span>壇上で話す英語。<b>/</b> は<b>息継ぎ</b> — そこで一度切る。チップの数字は読み上げの目安</span></div>
+        <div class="row"><span class="tk do">DO</span><span>TUI のキー操作・動作</span></div>
+        <div class="row"><span class="tk show">SHOW</span><span>画面に出るもの（指し示す対象）</span></div>
+        <div class="row"><span class="tk speak">SPEAK</span><span>その場の決めゼリフ（強調）</span></div>
+        <div class="row"><span class="tk cue">CUE</span><span>進行・演出（日本語・読まない）</span></div>
+        <div class="row"><span class="tk line" style="background:var(--mint)">読み上げ</span><span>右下のボタンで<b>セリフだけ</b>を大きく表示（<b>1行＝1息</b>）。日本語のキューと準備資料は隠れる</span></div>
+      </div>
+    </div>
+    <div class="legend">
+      <h3>Silent Standby — state ramp</h3>
+      <div class="ramp">
+        <div class="rk"><span class="d" style="background:var(--s-active)"></span><b>active</b><span class="gr">sensitive UI visible</span><span class="ph">NORMAL</span></div>
+        <div class="rk"><span class="d" style="background:var(--s-standby)"></span><b>standby</b><span class="gr">UI cleared · hotkey</span><span class="ph">·</span></div>
+        <div class="rk"><span class="d" style="background:var(--s-sealed)"></span><b>sealed</b><span class="gr">re-auth required</span><span class="ph">·</span></div>
+        <div class="rk"><span class="d" style="background:var(--s-dummy)"></span><b>dummy_disclosure</b><span class="gr">coercion-safe route</span><span class="ph">SAFE</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout plain"><span class="badge">THE IDEA</span><div>Phasmid は <b>Janus＝二つの面</b>。<b>見せる面</b>（capture-visible／圧力下で開示する、ありふれた面）と <b>守る面</b>（protected local state／可視経路の外）を一つの vessel に持つ。全編この対比を貫く — <b>“見せたものが全てではない。”</b> 信頼の核は2点：<b>cue ≠ key</b> と <b>倫理（Allowed / Disallowed）</b>。必ず明瞭に言い切る。</div></div>
+
+  <div class="callout danger"><span class="badge">新構成の落とし穴 · 2件</span><div><b>①Step 3 が Step 4 を破壊しうる。</b> <code>PHASMID_DURESS_MODE=1</code> だと第1モード（＝囮の面）へのアクセスが自動 purge を発火し、<b>Step 4 で開くはずの面が Step 3 の時点で消える</b>。<code>PHASMID_PURGE_CONFIRMATION=0</code> だと<b>成功した復元すべて</b>が他方を purge する。どちらも既定安全（<code>false</code> / <code>true</code>）で起動スクリプトも設定しないが、<b>両面を連続で開くのは本構成が初めて</b>なので、この落とし穴も本構成で初めて意味を持つ。<b>登壇前に <code>env | grep PHASMID</code> で両方が残っていないことを確認する。</b><br><b>②2つのダウンロードは同名になる。</b> <code>create_file_response</code> は元のファイル名を<b>意図的に使わず</b>、常に <code>retrieved_payload.bin</code> を返す（ファイル名がどの面が開いたかを漏らすため）。よって <b>Step 4 の「別のファイル」はファイル名では示せず、中身を開いて見せるしかない</b>。さらに2つ目が <code>retrieved_payload(1).bin</code> になってダウンロード欄で衝突するので、<b>事前にダウンロードフォルダを空にしておく</b>。聞かれたら capture-visible discipline の実例として説明できる。</div></div>
+
+  <div class="callout danger"><span class="badge">前版から変わった判断 · 2件</span><div><b>①「1容器・2パスワード・2ファイル」の対比は、現行の手順表から<u>落ちている</u>。</b> Step 2 で2つの Face を登録するところまでは同じだが、Step 3 で開くのは<b>片方だけ</b>で、2つ目のパスワードで別のファイルを出す beat が無い。<b>枠（~7:30）と、Step 4b をどう置くかの判断による。</b> 戻したいなら Step 3 の直後に <b>+0:30</b> で挿入できる（物体Bに持ち替え → 2つ目のパスワード → 別の中身を開いて見せる）。<b>両方の Face は Step 2 で既に登録済みなので追加の準備は要らない。</b> 入れる場合も Step 4 の「物体だけ外す」対比は<b>必ず残すこと</b> — 片方だけでは、前者は二重底のパスワード管理に、後者は物体認証つき暗号化に見える。<br><b>②破壊を壇上で実演する道が開いた。</b> 前版は「破壊は実演しない」と決めていた（理由は Part 8 のボックスに残してある。法的整合の論点は今も生きている）。#191 で<b>画面も操作手順も一切増えない</b>形になったため、<b>Step 4b として任意ステップに格上げした</b>。ただし<b>不可逆</b>で、実施すると次の Audit の数字が「消したあとの状態」を映す。<b>当日判断でよい。</b></div></div>
+
+  <details class="hist">
+    <summary>版ごとの変更履歴 — v4 / v0.4.0 / 最新 / 0.6.0 実機（当日は開かなくてよい）</summary>
+    <div class="callout"><span class="badge">v4 · 何が変わったか</span><div><b>①製品モデルが確定した。</b> <b>囮ファイルはツールが作らない — 利用者が用意する。</b> 生成機能は「空き領域の填充」へ降格し、画面上も <code>Free Space Filler</code> / <code>Fill Free Space</code> に改称済み。可信性スコアの表示は撤去した（分量しか測れないものを判定に見せていたため）。<b>②パスフレーズは3つ</b>（真の復号／真の破壊／偽の復号）。<b>③強要下では開示しない</b> — 制限パスフレーズは破壊資格であり取出資格ではない。<b>④証明は「成功」ではなく「対比」で作るという方針を確立した。</b> 物体を外して失敗させる否定形の対比が cue≠key の唯一の実証であり、以降の版はこの原則を保ったまま構成だけを更新している（現行は Step 4）。</div></div>
+    <div class="callout"><span class="badge">v0.4.0 · 何が変わったか</span><div><b>①Vessel の管理は TUI、日常の運用は WebUI</b> という役割分担が確定した。TUI が Vessel の <b>作成・削除</b>を担う（<code>del</code> で <b>Delete Vessel</b> — 使い終わった Vessel を完全に消去し、容量も解放する。強要下の <code>destroy-vessel</code> とは別物で、こちらは平時の後片付け）。WebUI は既存 Vessel への Store/Retrieve だけを担う。<b>②WebUI にロール別アクセストークンを追加。</b> <code>store</code> トークン（Face 登録・保存に到達）と <code>recover</code> トークン（復号・破壊のみ、Face 選択も制限パスフレーズ欄も一切出ない）を分離。固定値は <code>PHASMID_STORE_TOKEN</code> / <code>PHASMID_RECOVER_TOKEN</code>（役割トークンが1つでも発行されると <code>PHASMID_WEB_TOKEN</code> は <code>/unlock</code> に受理されなくなる）。<b>③WebUI 経由の Store/Retrieve 統合経路を実機で検証済み。</b> Face 1・Face 2 の登録から復元まで WebUI だけで完結する流れを確認した。<b>デモ本編もこれに合わせて改訂した</b> — Step 2「Bind」と Step 3「Operate（正しい物体での復元）」を TUI の <code>Add File</code> から WebUI の Store/Retrieve 画面へ移した。カメラのライブ映像と一致バッジが見える分、旧来の TUI 版より説得力が上がる。<b>Step 4「物体を完全に外して失敗させる」だけは TUI に残した</b>（この特定の否定証明は今回の実機確認では WebUI 側で再検証していないため）。<b>④その過程で見つけた3件の不具合を修正済み：</b> Retrieve 成功後にカメラが停止する問題／Vessel 新規作成時に前の Vessel の物体キューが残留し新規登録をブロックする問題／Store 画面で Entry（Face）を明示的に選べなかった問題。<b>⑤Expert フッタの安全端末幅が 123→145 桁に変更</b>（Access Tokens・Delete Vessel のキー追加のため）。</div></div>
+    <div class="callout"><span class="badge">最新 · 何が変わったか</span><div><b>①デモの主張を1段階正確にした。</b> 旧構成は「正しい物体で開く」までしか見せておらず、観客には<u>ただのパスワード復号</u>に見えていた。この版で <b>同じ vessel を2つのパスワードで開き、別々のファイルが出てくる</b>対比を導入した（<code>/retrieve</code> は入力パスワードと撮影した cue で全 Face を順に試すので追加実装は不要）。<b>0.6.0 の手順表からはこの beat は外れている</b> — 枠と Step 4b の兼ね合いによる。戻し方は上のボックス参照。<br><b>②「強要されてもデータを守る」とは言わない。</b> 守るのは<b>開示範囲</b>であってデータではない。「強要されたパスワードでデータは守れない。守れるのは<b>すべてが出ないこと</b>」— これが Slide 22 の <code>Data-existence deniability: partial</code> と整合する唯一の言い方。<br><b>③破壊は壇上で実演しない</b>（<b>0.6.0 で判断が変わった</b> → 上のボックス・Step 4b）。<b>④TUI の <code>Add File</code>・<code>Doctor</code>・<code>Inspect</code> を非活性化</b>（#169・WebUI と重複）。<code>Recover File</code> と <code>Audit</code> は意図的に残した（Audit は Step 5、<code>Recover File</code> は WebUI が落ちたときの否定証明用）。<b>⑤Expert フッタの安全端末幅が 145→124 桁に下がった</b>（フッタの項目が2つ減ったため）。<b>⑥Vessel レジストリの Face 詳細を暗号化</b>（#178/#180）— 以前は物体の知覚ハッシュと破壊用パスフレーズの検証子が平文だった。<b>⑦TUI は「構造が見える研究・検査面」と明文化</b>し、実地では <code>PHASMID_FIELD_MODE=1</code> で絞る（→ 後述）。</div></div>
+    <div class="callout"><span class="badge">0.6.0 · 実機で何が変わったか</span><div>ここから下は <b>Pi Zero 2 W の実機で全手順を通した結果</b>に基づく。設計からの推測ではない。<br><b>①物体の登録が2段階撮影になった（#184/#187）。</b> <code>1 · Capture empty scene</code>（物体をフレーム外にして空の視野を撮る）→ <code>2 · Capture access object</code>（物体をかざして撮る）。<b>この2枚の差分だけが特徴として登録される。</b>従来は視野全体を鍵にしていたため、三脚で固定した<b>背景そのものが鍵になり、物体を隠しても開いてしまっていた</b> — <u>旧版の否定証明は証明になっていなかった</u>。加えて<b>保存の瞬間にも一致を再確認する</b>ので、撮ってから物体を下ろして <code>Protect file</code> を押すと拒否される。<br><b>②否定証明（物体なし→拒否）を WebUI に移した。</b> 実機で WebUI 経路の拒否を確認済み。<b>Step 3（成功）と Step 4（失敗）が同じタブで連続する</b> — 画面を切り替えないこと自体が「他は何も変えていない」ことの担保になるので、TUI に置いていた旧構成より論証が強い。<b>プロジェクタ切替は1往復のまま</b>（折り返しが Step 4→5 に移った）。<br><b>③破壊がパスワードで制御できるようになった（#191）。</b> Step 3・4 と<b>同じ入力欄</b>にアクセスパスワードではなく破壊パスワードを入れると、<b>かざしている Face が消える</b>。画面は何も変わらず、応答は打ち間違えと<b>完全に同じ</b> <code>No valid entry found.</code>。もう一方の Face は無傷。<b>これで「破壊は壇上で実演しない」という前版の判断が変わった</b>（→ Step 4b）。<br><b>④復元時の照合が厳しすぎた件を調整（#188）。</b> 絶対値の閾値（50/30）は<b>視野全体を登録していた頃の校正</b>で、物体だけを切り出すとキーポイントが72程度まで減り、同じ数を要求すると6回中1回しか一致しなかった。テンプレート自身のキーポイント数に対する<b>割合</b>（25% / 15%）に変え、<b>絶対値で頭打ちにしてある（従来より厳しくなることはない）</b>。判別力は落ちない — 空シーンも別の物体も good match が<b>0</b>なので、境界は 42 対 0 であって 42 対 49 ではない。<br><b>⑤破壊経路の実機検証で3件の不具合が出て修正済み（#190/#192）。</b> 60秒ロックが解けたあとも1回間違えるだけで再ロックする／CLI 側の失敗カウンタが2回目以降を記録できていない／WebUI で登録した Face は CLI 由来の指紋を持たないため破壊が常に失敗する。<b>いずれもリハーサルで踏む類のもので、踏んだ。</b></div></div>
+  </details>
+
+  <div class="callout"><span class="badge">TUI 下部バー · #169 適用後</span><div><b>Simple ホーム（起動時・既定）</b> — <code>o Open · n New · g Guided · e Expert · q Quit · w WebUI</code>（<code>? Help</code> / <code>r Refresh</code> は非表示バインド）。<br><b>Expert ホーム（<code>e</code> で入る、<code>Esc</code> で戻る）</b> — <code>Esc Back · o Open · x Close · del Delete Vessel · c Create · f Faces · g Guided · a Audit · s Settings · t Tokens · l LUKS · ? Help · q Quit · w WebUI</code>。<br><b><code>d</code> Doctor と <code>i</code> Inspect はフッタから消えた</b>（#169・WebUI の <code>/operator/doctor</code>・<code>/operator/inspect</code> と完全に重複するため非活性化）。<b>削除ではなく非活性化</b>なので、コマンドパレット経由では引き続き到達できる。<b><code>a</code> Audit はあえて残した</b> — Step 6 でキー1つで直接使う。<code>l LUKS</code> は LUKS 無効時＝既定では非表示。<br><code>w</code> WebUI と Silent Standby ホットキーは<b>アプリ全体</b>のバインドで、どちらの層でも効く。デモは「話す前に、まず下部バーのキーを押す」。</div></div>
+
+  <div class="callout plain"><span class="badge">TUI は「見える面」· 意図</span><div>TUI は<b>二面構造が意図的に見える研究・検査面</b>だと明文化した（<code>docs/TUI_OPERATOR_CONSOLE.md</code>）。Simple 画面の <code>Files</code> 列は<b>全 Face の合計</b>を出し、Audit は <code>Tracked Faces</code> を報告する。モデルが動いていることを検証・実演するには構造が読めた方がよいからで、隠しているのではなく<b>選んでいる</b>。<br><b>だから壇上に出すのは TUI ではなく役割別 WebUI</b>（<code>recover</code> トークンは Face セレクタも Face 数も Store/Maintenance 導線も出さない）。<b>実地では <code>PHASMID_FIELD_MODE=1</code></b> にすると全 Face 合計が <code>-</code> に縮退する。<b>強要下で TUI を開いてはいけない</b> — 隠している側の存在と分量を自分から渡すことになる。</div></div>
+
+  <div class="callout danger"><span class="badge">本番でやってはいけない</span><div>実機で実際に踏んだものだけを挙げる。<br><b>①マウスでボタンを押す</b> — SSH 越しのターミナルではクリックが Textual に届かない。ボタンはフォーカスされるだけで発火しない。<b>全操作を <code>Tab</code> / <code>Shift+Tab</code> と <code>Enter</code> で行う。</b><br><b>②壇上で <code>Fill Free Space</code> を実行</b> — 64 MiB / 15% で<b>実測約4分</b>。枠は1:20。事前に埋めておき、壇上では <code>Inspect Free Space</code> のみ。<br><b>③囮をツールに作らせる</b> — 生成される填充物は汎用ファイルであり、開示材料としての真実味がない。<b>囮は運用者が用意する。</b><br><b>④素の <code>phasmid</code> で起動</b> — libcamera のログが TUI を破壊する／WebUI がラップトップから見えない／<code>Ctrl+S</code> が XOFF に食われる。<b><code>scripts/pi_zero2w/run_demo_console.sh</code> を使う。</b><br><b>⑤成功例だけを見せる</b> — 物体キューが効いている証明にならない。観客にはただのパスワード復号に見える。<b>Step 4（物体なし→拒否）を、Step 3 と同じタブのまま必ず見せる。</b><br><b>⑥端末幅を124桁未満にする</b> — Expert フッタから <code>w WebUI</code> が<u>無言で</u>消える。省略記号も出ない。露出した WebUI を引っ込めるキーが画面から失われる（#169 でフッタが2項目減り、145→124 桁に下がった）。<br><b>⑦TUI で <code>Add File</code> を探す</b> — #169 で非活性化済み。Operation セレクタには <code>Recover File</code> / <code>List Files</code> / <code>Remove File</code> しか出ない。<b>保存はすべて WebUI の Store 画面で行う。</b><br><b>⑧物体をかざしたまま <code>1 · Capture empty scene</code> を押す</b> — 空の視野に物体が写り込むと差分が物体を切り出せない。<b>1枚目は必ず物体をフレーム外に。</b> 逆に<b>2枚目を撮ってから物体を下ろして <code>Protect file</code></b> を押すのも拒否される（0.6.0 は保存時にも一致を再確認する）。<b>撮影から保存まで、かざし続ける。</b><br><b>⑨TUI で役割トークンを発行しようとする</b> — 起動スクリプトが <code>PHASMID_STORE_TOKEN</code> / <code>PHASMID_RECOVER_TOKEN</code> を固定するため、その間 <code>t</code> 画面からの発行・失効は <code>AccessTokenEnvPinned</code> で拒否される。<b><code>t</code> 画面は「ここで発行・失効できる」と見せるだけ</b>にし、ログインは固定値で行う。</div></div>
+
+  <!-- ============ TIMING MAP ============ -->
+  <div class="quickmap">
+    <h4>時間配分 <span class="tag">TIMING MAP</span></h4>
+    <p class="lead">1枠45分・毎時00分開始・45分ハード停止（非交渉）。安全側でコンテンツ約27–28分、Q&amp;A/交流を15分以上確保。遅れたら深掘り（9 STRIDE / 19 Crypto / 20 Guards）を1行に圧縮して取り戻す。</p>
+    <div class="qflow">
+      <div class="qstep"><div class="qrn" style="background:var(--gold-ink)">1</div><div><div class="qhead"><b>導入</b><span class="qkey">00:00–01:40</span></div><div class="qsay">Slide 1 Title → 3 Agenda。期待値を固定。</div></div></div>
+      <div class="qstep"><div class="qrn" style="background:var(--gold-ink)">2</div><div><div class="qhead"><b>問題提起</b><span class="qkey">01:40–03:10</span></div><div class="qsay">4 Problem → 5 Meme。over-disclosure を重く、一度ほぐす。</div></div></div>
+      <div class="qstep"><div class="qrn" style="background:var(--gold-ink)">3</div><div><div class="qhead"><b>コンセプト</b><span class="qkey">03:10–05:10</span></div><div class="qsay">6 IS/ISN’T → 7 Janus。二スロットを持ち帰らせる。</div></div></div>
+      <div class="qstep"><div class="qrn" style="background:var(--gold-ink)">4</div><div><div class="qhead"><b>脅威・構造</b><span class="qkey">05:10–08:50</span></div><div class="qsay">8 Adversary → 11 Layers。誠実さの要（in/out scope）。</div></div></div>
+      <div class="qstep"><div class="qrn" style="background:var(--gold-ink)">5</div><div><div class="qhead"><b>機構</b><span class="qkey">08:50–13:50</span></div><div class="qsay">12 Pillars（★3パスフレーズ）→ 16 Flow。★13 cue≠key、★14 囮は利用者が用意する。</div></div></div>
+      <div class="qstep"><div class="qrn" style="background:var(--gold-ink)">6</div><div><div class="qhead"><b>内部・実機</b><span class="qkey">13:50–17:05</span></div><div class="qsay">17 Tech → 20 Guards。★18 実機。数値はQ&amp;Aへ。</div></div></div>
+      <div class="qstep"><div class="qrn" style="background:var(--gold-ink)">7</div><div><div class="qhead"><b>倫理・限界</b><span class="qkey">17:05–19:05</span></div><div class="qsay">★21 Ethics（強要下では開示しない）→ 22 Scope。目を合わせる。No snake oil。</div></div></div>
+      <div class="qstep webui"><div class="qrn" style="background:var(--violet)">8</div><div><div class="qhead"><b>ライブデモ</b><span class="qkey">19:05–26:20</span></div><div class="qsay">23 Divider → 24 Demo。<b>TUI + WebUI・切替1往復</b>の8手・約7:30（Step 4b を入れると 8:10）。★Step 4（cue≠key）が証明の核。26:00超で残手順を口頭要約。</div></div></div>
+      <div class="qstep reset"><div class="qrn">9</div><div><div class="qhead"><b>締め → Q&amp;A</b><span class="qkey">26:20–45:00</span></div><div class="qsay">25 Quick start → 26 Closing。残り約18分をQ&amp;A・卓上デモ・交流へ。</div></div></div>
+    </div>
+    <div class="callout plain" style="margin-top:14px"><span class="badge">進行原則</span><div>デモは山場だが <b>約7分で切り上げ、延伸しない</b>。深い技術論争は歓迎しつつ <b>“let’s go deep in Q&amp;A / find me after”</b> でQ&amp;Aへ誘導。</div></div>
+  </div>
+
+  <!-- ============ DEMO AT A GLANCE ============ -->
+  <div class="quickmap">
+    <h4>デモ8手 — 一覧 <span class="tag">AT A GLANCE</span></h4>
+    <p class="lead">この表だけで通せる順序。<b>画面</b>が <code>WebUI</code> に変わる箇所（Step 1→2）と TUI に戻る箇所（Step 4→5）がプロジェクタ切替の2点。合計 ~7:30、Step 4b を入れると ~8:10。詳細は下の各 Step。</p>
+    <div class="qflow">
+      <div class="qstep"><div class="qrn">0</div><div><div class="qhead"><b>オリエンテーション</b><span class="qkey">TUI · 0:20</span></div><div class="qsay">Simple 画面の6キーを指す。最小面も coercion-aware 設計の一部</div></div></div>
+      <div class="qstep"><div class="qrn">1</div><div><div class="qhead"><b>Vessel 作成</b><span class="qkey">TUI · 0:50</span></div><div class="qsay"><span class="k">n</span> New・サイズは必ず <code>64M</code>。ヘッダなし・マジックバイトなし。（任意で <span class="k">t</span> Tokens を見せる）</div></div></div>
+      <div class="qstep" style="border-color:var(--violet)"><div class="qrn" style="background:var(--violet)">2</div><div><div class="qhead"><b>Bind — 2ファイルを1つの容器へ</b><span class="qkey">WebUI store · 1:30</span></div><div class="qsay"><b>切替①。</b> Entry 1 に物体A、Entry 2 に物体B（＋破壊パスワード）。<b>2段階撮影</b>（空シーン→物体）で、<b>物体をかざしたまま保存</b>する</div></div></div>
+      <div class="qstep" style="border-color:var(--violet)"><div class="qrn" style="background:var(--violet)">3</div><div><div class="qhead"><b>復元 成功／役割の境界</b><span class="qkey">WebUI · 0:50</span></div><div class="qsay">物体A＋パスワード → ファイルが返る。続けて <code>recover</code> ロールが設定画面に到達できないことを見せる。<b>画面はこのまま次へ</b></div></div></div>
+      <div class="qstep" style="border-color:var(--gold)"><div class="qrn" style="background:var(--gold-ink)">4</div><div><div class="qhead"><b>復元 失敗 — 物体だけ外す</b><span class="qkey">WebUI · 同じタブ · 0:50</span><span class="qkey" style="background:var(--gold-ink);color:#fff">★★ cue≠key</span></div><div class="qsay">同じタブ・同じファイル・同じパスワード、<b>物体だけ卓の下へ</b> → <code>No valid entry found.</code>。<b>物体を戻して成功させる往復まで見せる</b></div></div></div>
+      <div class="qstep" style="border-color:var(--red)"><div class="qrn" style="background:var(--red)">4b</div><div><div class="qhead"><b>（任意）強要下でデータを守る</b><span class="qkey">WebUI · 同じ入力欄 · 0:40</span><span class="qkey" style="background:var(--red);color:#fff">不可逆</span></div><div class="qsay">同じ画面・同じ欄に<b>破壊パスワード</b> → かざした Face が消える。表示は打ち間違えと同じ。<b>当日判断</b></div></div></div>
+      <div class="qstep"><div class="qrn">5</div><div><div class="qhead"><b>Audit</b><span class="qkey">TUI Expert · 0:50</span></div><div class="qsay"><b>切替②。</b> <span class="k">e</span> → <span class="k">a</span>。<code>Free Space Filler</code> を指す。<b>判定しないことを誇る</b></div></div></div>
+      <div class="qstep"><div class="qrn">6</div><div><div class="qhead"><b>Silent Standby</b><span class="qkey">TUI · 1:20</span><span class="qkey" style="background:var(--violet);color:#fff">★ 山場</span></div><div class="qsay"><code>Ctrl+S</code>。WebUI も同時に落ちる（ブラウザを再読込して見せる）。ゆっくり</div></div></div>
+      <div class="qstep"><div class="qrn">7</div><div><div class="qhead"><b>ラップ</b><span class="qkey">TUI · 0:10</span></div><div class="qsay"><code>Esc</code> で復帰。Prepare→Bind→Operate→Disclose を一言で</div></div></div>
+    </div>
+    <div class="callout danger" style="margin-top:14px"><span class="badge">絶対に落とさない2手</span><div>時間が押したら Step 4b と Step 5 Audit を削る。<b>Step 4（物体だけ外す→拒否、そして戻して成功）と Step 6（Standby）だけは何があっても実機で見せる。</b> Step 4 は<b>失敗と成功の往復まで含めて1手</b>である — 拒否だけ見せると「何を入れても拒否する状態」と区別がつかない。<b>Step 3 を削って Step 4 だけ残すことはできない</b>（対比の片側が消える）。削るならこの3つ以外から削る。</div></div>
+  </div>
+
+  <!-- ============ PRE-FLIGHT ============ -->
+  <div class="prep">
+    <h4>Pre-flight — 事前準備 <span class="off">OFF STAGE</span></h4>
+    <p>実秘匿データは絶対に投影しない。デモ用プロファイル／ダミーのみ。認識モードは <code>demo</code>（起動スクリプトの既定）。<b>最も重要な準備：囮ファイルと真のファイルを自分で作り、3つのパスフレーズと2つの物体プロップを決めておくこと。</b>壇上で考える時間はないし、囮をツールに作らせてはいけない。<b>保存操作自体は Step 2 で壇上の WebUI から行う</b>（TUI の <code>Add File</code> は #169 で非活性化済み）。<b>そのうえで、物体キューのリハーサルを本番と同じ三脚位置・照明で1回通しておくこと（約2分）</b> — 0.6.0 の2段階撮影は<b>背景と照明に依存する</b>ので、机上で決まっても会場で決まるとは限らない。</p>
+
+    <div class="pstep"><div class="pstep-t"><span class="pnum">A</span>T-30分（設営時）</div>
+      <ul class="checklist">
+        <li>実機（<b>Pi Zero 2 W + カメラ + 三脚</b>）を設置、給電確認</li>
+        <li>TUI を映す出力／画面ミラー経路を確立、<b>プロジェクタ切替キー</b>を把握</li>
+        <li>カメラのピント・画角・照明（物体が安定認識される距離に固定）</li>
+        <li><b>デモ用プロファイルで初期化</b>。起動は必ず <code>bash scripts/pi_zero2w/run_demo_console.sh</code>（<code>LIBCAMERA_LOG_LEVELS</code> / <code>PHASMID_WEBUI_EXPOSE_GADGET</code> / <code>PHASMID_STORE_TOKEN</code> / <code>PHASMID_RECOVER_TOKEN</code> / <code>PHASMID_RECOGNITION_MODE=demo</code> と <code>stty -ixon</code> を設定する。<b>素の起動ではデモが成立しない</b>）</li><li><b>前回デモの Vessel が残っていれば <code>del</code>（Delete Vessel）で完全に削除</b>してから新規作成する。物体キューの残留は Vessel 新規作成時に自動でクリアされる（旧版で必要だった手動リセットは不要になった）</li><li><b>【最重要】囮ファイルと真のファイルを自分で作る。</b>真のファイルによく似た、公開して差し支えない偽ファイルを1つ（同種の書式・同程度の分量の下書きなど）。<b>壇上で Step 2 に WebUI から保存する</b>ので、事前に保存しておく必要はない — <b>ファイル自体を用意しておくことが準備</b></li><li><b>3つのパスフレーズを決めて手元に。</b> <b>真の復号用・偽の復号用・破壊用</b>。<b>2つの Face には必ず違うパスワードを割り当てる</b> — Step 3→4 の対比はここが全て</li><li><b>物体プロップを2つ用意し、見た目をはっきり違えておく。</b> 同じ物体を両方の Face に使おうとすると <code>Object binding failed</code> で拒否される（cue≠key を壊さないための安全装置）</li>
+        <li><b>破壊パスワードは Store 画面の「Advanced security options」→「Restricted recovery password」で設定する。</b> ここを空にしたまま <code>Protect file</code> を押すと<b>設定されず、Step 4b は<u>ただの失敗</u>になる</b> — 画面上は区別がつかない</li><li><b>端末幅を124桁以上にする</b>（<code>tput cols</code>）。下回ると Expert フッタから <code>w WebUI</code> が無言で消える（#169 で 145→124 に低下）</li><li>（任意）<b><code>Fill Free Space</code> を事前実行</b>（約4分）。空き領域を埋め、容器が不自然に空でないようにする</li>
+        <li><b>【0.6.0・必須】物体キューのリハーサルを1回通す</b>（約2分・本番と同じ三脚位置と照明で）。<b>①</b> <code>1 · Capture empty scene</code> → <code>2 · Capture access object</code> が<b>1回で通ること</b>／<b>②</b> 物体を下ろして <code>Protect file</code> → <b>拒否されること</b>／<b>③</b> かざし直して保存できること／<b>④</b> Retrieve で<b>物体を隠して</b>正しいパスワード → <b>拒否されること</b>／<b>⑤</b> 物体を戻して同じパスワード → 復元できること。<b>④と⑤は必ず対で確認する</b> — ④だけでは「何をやっても拒否する状態」と区別がつかない</li>
+        <li><b>【Step 4b をやるなら】破壊まで<u>使い捨ての Vessel で</u>1回通す。</b> 本番用 Vessel でリハーサルすると<b>本番のデータが消える</b>。<b>成功しても画面には何も出ない</b>ので、「そのあと同じ物体とアクセスパスワードで開かないこと」で確認する。<b>この見分け方を体で覚えていないと壇上で判断できない</b></li>
+        <li><b>【0.6.0】Step 4 のリハーサルは TUI の <code>Recover File</code> で行う。</b> WebUI の <code>/retrieve</code> は<b>物体なしの拒否も失敗として記録し、5回で60秒ロック</b>する。ブラウザで繰り返すと本番の Step 4 が <code>Access temporarily unavailable.</code> で止まる（TUI 経路は失敗を記録しない）</li>
+        <li><b>卓上の背景はできるだけ無地に近づける。</b> 2段階撮影は差分で物体を切り出すので、背景が賑やかだと <code>Object does not stand out from the scene behind it.</code> で弾かれる。<b>撮影中は三脚に触れない</b>（動かすと <code>Too much of the view changed.</code>）</li>
+        <li><b>バックアップ録画</b>（2–3分クリップ）を再生機に用意し<b>頭出し</b></li>
+        <li><b>Pi をラップトップに USB ガジェットで直結</b>し、<b><code>PHASMID_WEBUI_EXPOSE_GADGET=1</code> を設定</b>（PR #144 以降、<b>既定は loopback のみでラップトップからは到達できない</b>）。ブラウザで gadget IP が開けることを確認。<b>SSH は使わない／開場前に停止</b></li>
+        <li><b>WebUI 用ブラウザタブを事前に開いてブックマーク</b>し、投影用にズーム調整（本文14px前後のため要拡大）</li>
+        <li><b>起動スクリプトが <code>PHASMID_STORE_TOKEN</code> / <code>PHASMID_RECOVER_TOKEN</code> を固定値でピン留めする</b>（実運用設定には持ち込まない）。役割トークンが1つでも発行されると <code>PHASMID_WEB_TOKEN</code> は無効化される点に注意</li>
+        <li><b><code>w</code> → <code>/unlock</code> → ホーム表示までを、<code>store</code>トークンと<code>recover</code>トークンの両方で1回ずつリハーサル</b>（0.4.0 のページ認証・ロール分離。解錠後は <code>w</code> でWebUIを止めておく）</li>
+        <li>opt-in 時の bind 先が <b>gadget インターフェース1枚</b>であることを <code>ss -ltnp</code> 等で確認（全インターフェース <code>0.0.0.0</code> になっていないこと）</li>
+        <li>予備電源・ケーブル／会場ネットには一切接続しない</li>
+      </ul>
+    </div>
+    <div class="pstep"><div class="pstep-t"><span class="pnum">B</span>T-5分（登壇直前）</div>
+      <ul class="checklist">
+        <li>TUI を <b>Simple ホーム</b>（<code>PHASMID</code> ／ <code>PROTECTED STORAGE</code> 表）で待機</li>
+        <li><b>Expert ホームの警告</b>（<code>! SYSTEM: n WARN</code>）を <code>e</code> で<b>事前に</b>確認し、<b><code>Esc</code> で Simple に戻して</b>待機（<code>! SYSTEM</code> は Simple 画面には出ない）。残る警告は<b>このホスト自身の事実だけ</b>（<code>/tmp</code> world-writable・Swap・zram）。Dummy Profile の4件は解消済み（#157）</li>
+        <li>デモ用パスフレーズ／物体プロップを手元に（<b>実秘匿は使わない</b>）</li>
+        <li><b>Silent Standby は <code>Ctrl+S</code>、復帰は <code>Ctrl+R</code> または <code>Esc</code>。フッタに出ないので指で覚えておく</b>（起動スクリプトが <code>stty -ixon</code> 済みなので XOFF に食われない）</li>
+        <li><b>プロジェクタの入力切替（端末 ⇄ ラップトップ）を2往復リハーサル</b>。切替は本番で往復1回だけ</li>
+        <li><b>WebUI はまだ起動しない</b>（10分の自動停止タイマーはTUIのキー入力でしか延びない。Step 2 で初めて <code>w</code> を押す）</li>
+        <li><b>事前解錠はしない／できない</b> — トークンはWebUIプロセス毎に再生成され、ページセッションはサーバのメモリ上にあるため、再起動すると無効になる</li>
+        <li>Simple ホームの <code>PROTECTED STORAGE</code> に<b>デモ用ストレージを1件だけ</b>置き、<b>カーソルをその行に載せておく</b>（<code>o</code> Open が空振りしない）</li>
+      </ul>
+    </div>
+    <div class="callout plain" style="margin-top:6px"><span class="badge">初期状態 &amp; リセット</span><div>Simple ホームの <code>PROTECTED STORAGE</code> は空（<code>No protected storage found.</code>）または既知のデモ用1件のみ。各サイクル後：Expert Home で <code>del</code>（<b>Delete Vessel</b>）してデモ用 Vessel を完全に削除、Silent Standby を <code>active</code> に復帰、WebUI 停止（または 10分 auto-kill）、<b>TUI を再起動して Simple ホームに戻す</b>。次サイクルの Vessel 新規作成時に物体キューも自動でクリーンな状態になるため、以前必要だった手動の <code>rm .state/store.bin .state/lock.bin</code> は不要。</div></div>
+
+    <div class="callout"><span class="badge">用語の橋渡し</span><div>刷新後の画面は <b>専門用語を出さない</b>。壇上で言う語 → 画面の語：<b>vessel</b> → <code>Protected storage</code> / <code>New protected storage</code>、<b>store / retrieve</b> → <code>Protect a File</code> / <code>Open a Protected File</code>、<b>object cue の登録</b> → <code>Set the physical access object</code>。<b>言い方は変えず、一度だけ橋を架ける</b>：<span class="say" style="font-size:13.5px"><span class="g">“The interface says ‘protected storage’.</span><span class="g">In the paper, it’s a <em>vessel</em>.</span><span class="g">Same thing — the interface just stopped shouting jargon at you.”</span></span></div></div>
+  </div>
+
+  <!-- ============ PART 1 ============ -->
+  <div class="part"><span class="tc">00:00–01:40</span><h2>1 · Open</h2><span class="note">slides 1–3</span></div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 1</span><span class="title">Title — 00:00 · clock starts</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:25</span></div><div class="say"><span class="g">“Hi. Thank you for coming.</span><span class="g">This is <em>Phasmid</em>.</span><span class="g">It’s the reference build of the <em>Janus Eidolon System</em>.</span><span class="g">Storage that stays local — and expects coercion.</span><span class="g">It’s built for one moment.</span><span class="g">Someone has your device… <em>and</em> they have you.</span><span class="g">I’m Makoto Sugita, from <em>GMO Cybersecurity by Ierae</em>, in Tokyo.</span><span class="g">Online — Mr. Rabbit.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">掴みは短く。バナーを一度指す。時計スタート</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 2</span><span class="title">whoami</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:45</span></div><div class="say"><span class="g">“Quick background.</span><span class="g">I’m a <em>senior engineer</em> at <em>GMO Cybersecurity by Ierae</em>, in Tokyo.</span><span class="g">I work in the <em>SOC</em>. Defence, every day.</span><span class="g">Before that — a <em>penetration tester</em>. CISSP.</span><span class="g">And before that, in uniform — a <em>Japan Ground Self-Defense Force</em> officer, in a cyber unit.</span><span class="g">Offensive work taught me the weak link is the <em>person</em>, not the algorithm.</span><span class="g">So I turn offensive experience into <em>defensive</em> tools.</span><span class="g">Deception. Delay. Coercion-aware design.</span><span class="g">Alongside that — security research, and open-source tools.</span><span class="g">You may know my other work — <em>Azazel</em>, and the <em>PAKURI</em> family.</span><span class="g">Black Hat Arsenal. BSides. SecTor. CODE BLUE.</span><span class="g">I’m <em>01rabbit</em> on GitHub.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">経歴は流す。ハンドルを指す</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 3</span><span class="title">Agenda</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:35</span></div><div class="say"><span class="g">“Here’s the plan for the next half hour.</span><span class="g">First, the problem: compelled access.</span><span class="g">Then the core idea — <em>Janus</em>.</span><span class="g">Then how it works: the object cue, and coercion-safe delay.</span><span class="g">Then under the hood — crypto, guards, and the hardware itself.</span><span class="g">Then the honest limits. Ethics, and scope.</span><span class="g">I finish with a <em>live demo</em>, and how to run it yourself.</span><span class="g">And I’ll keep time for questions at the end.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">6項目を指でなぞる。期待値を固定</div></div>
+    </div>
+  </div>
+
+  <!-- ============ PART 2 ============ -->
+  <div class="part"><span class="tc">01:40–03:10</span><h2>2 · The problem</h2><span class="note">slides 4–5</span></div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 4</span><span class="title">The Problem — over-disclosure</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:25</span></div><div class="say"><span class="g">“Here’s what Phasmid is built for.</span><span class="g">Attackers today don’t break your crypto.</span><span class="g">They take the <em>device</em>.</span><span class="g">At a border. At a checkpoint. At an arrest.</span><span class="g">And then they ask you to <em>unlock it</em>.</span><span class="g">Full-disk encryption is all or nothing.</span><span class="g">You open it once, under pressure — and <em>everything</em> is exposed.</span><span class="g">That’s over-disclosure.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">3枚を左→右で指す。淡々と、しかし重く</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 5</span><span class="title">Meme — pick your fate</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:20</span></div><div class="say"><span class="g">“So you get three bad options.</span><span class="g"><em>Refuse</em> — and you escalate.</span><span class="g"><em>Comply</em>, with full-disk encryption — and you hand over everything.</span><span class="g">Or… <em>controlled disclosure</em>.</span><span class="g">Show what’s visible. Protect the rest.</span><span class="g">Same demand. Very different blast radius.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">軽く笑いを取る。緊張を一度ほぐす</div></div>
+    </div>
+  </div>
+
+  <!-- ============ PART 3 ============ -->
+  <div class="part"><span class="tc">03:10–05:10</span><h2>3 · The concept</h2><span class="note">slides 6–7</span></div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 6</span><span class="title">What it is / isn’t</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:25</span></div><div class="say"><span class="g">“Let me be precise.</span><span class="g">Phasmid is a <em>field-evaluation research prototype</em> for disclosure control.</span><span class="g">Local-only by default. Not casual file encryption.</span><span class="g">And it is <em>not</em> a replacement for audited full-disk encryption.</span><span class="g">Not hardware-backed keys.</span><span class="g">Not a magic delete button.</span><span class="g">Not a complete answer to compelled disclosure.</span><span class="g">I’ll keep drawing that line, the whole way through.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">誠実さを最初に宣言。IS / NOT を左右で</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 7</span><span class="title">Core idea: Janus</span><span class="pill star">★ CORE</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:25</span></div><div class="say"><span class="g">“The core idea is <em>Janus</em>. Two faces.</span><span class="g">A two-slot model.</span><span class="g"><em>Slot A</em> is what the visible surface shows.</span><span class="g">Plausible. Ordinary. Disclosed under pressure.</span><span class="g"><em>Slot B</em> is protected local state. It stays off the visible path.</span><span class="g">And it’s bound to local conditions — not to a password alone.</span><span class="g">What you show is not all there is.”</span></div></div>
+      <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“Slot A is what you show. <em>Slot B is not on the visible path.</em>”</div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">概念の核。左右のスロットを指す。ゆっくり。必ず持ち帰らせる</div></div>
+    </div>
+  </div>
+
+  <!-- ============ PART 4 ============ -->
+  <div class="part"><span class="tc">05:10–08:50</span><h2>4 · Threat &amp; structure</h2><span class="note">slides 8–11</span></div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 8</span><span class="title">Adversary model</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:30</span></div><div class="say"><span class="g">“Who does it defend against?</span><span class="g">Five adversaries in scope.</span><span class="g">A physical captor. A passive observer. A local active attacker.</span><span class="g">A local-network attacker. And a coercing authority.</span><span class="g">And five explicitly <em>out</em> of scope.</span><span class="g">A compromised kernel. Hardware implants. Remote attackers.</span><span class="g">Supply chain. And breaking the crypto itself.</span><span class="g">If the host is owned, no user-space tool saves you.</span><span class="g">I won’t pretend otherwise.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">左=戦う相手、右=戦わない相手。誠実さの要</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 9</span><span class="title">STRIDE + LINDDUN</span><span class="pill depth">DEPTH · 遅れたら短縮</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:25</span></div><div class="say"><span class="g">“I didn’t hand-wave the threats.</span><span class="g"><em>Eighteen scenarios</em>. Each one tagged with STRIDE and LINDDUN.</span><span class="g">Offline cracking. Session replay. Header leakage.</span><span class="g">Timing side-channels. Object-cue spoofing. Coerced disclosure.</span><span class="g">Here are a few. The full matrix is in the repo.</span><span class="g">And if you want to argue with any of them — find me after.</span><span class="g">I’d enjoy that.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">表は全部読まない。代表2–3行を指す。遅れていたらここを最短で</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 10 · 11</span><span class="title">Architecture boundary &amp; document map</span><span class="pill depth">11 · 口頭一言でスキップ可</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:40</span></div><div class="say"><span class="g">“Architecturally, four things stay <em>explicit</em>.</span><span class="g">One. Two-slot storage.</span><span class="g">Two. Local access-key mixing — keys come from local state, not from a passphrase alone.</span><span class="g">Three. A restricted-action policy. It gates anything sensitive, and anything about recovery.</span><span class="g">Four. Capture-visible discipline.</span><span class="g">Normal flows never show the structure, the recovery path, or the order you’d try things in.</span><span class="g">Underneath are narrow local layers.</span><span class="g">Entry points, policy, crypto core, local state, deployment.</span><span class="g">None of this is folklore. It’s documented.</span><span class="g">Read it — and poke holes in it.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">4点を順に。専門聴衆が頷く箇所。11は流し気味</div></div>
+    </div>
+  </div>
+
+  <!-- ============ PART 5 ============ -->
+  <div class="part"><span class="tc">08:50–13:50</span><h2>5 · The mechanism</h2><span class="note">slides 12–16</span></div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 12</span><span class="title">Three pillars</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:35</span></div><div class="say"><span class="g">“Three moving parts.</span><span class="g">One — an <em>encrypted local vessel</em>. Authenticated encryption, password-derived keys.</span><span class="g">Two — <em>object-cue operation</em>. I’ll come right back to this. It’s the fun part.</span><span class="g">Three — <em>controlled disclosure</em>.</span><span class="g">And that third one is concrete, not a slogan.</span><span class="g">You set <em>three credentials</em>.</span><span class="g">One opens the real file.</span><span class="g">One opens the decoy.</span><span class="g">And one <em>destroys</em> the real file.</span><span class="g">Three passwords. Three very different outcomes.</span><span class="g">And only you know which is which.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">② を予告して引っ張る。<b>3パスフレーズはここが初出</b> — 指で3つ数えて見せると残る。破壊資格の意味は Slide 21 まで引っ張る</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 13</span><span class="title">The object is a cue, not a key</span><span class="pill star">★ 見せ場</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:50</span></div><div class="say"><span class="g">“Here’s the fun part.</span><span class="g">You show an everyday <em>object</em> to the camera, and that operates the access gate.</span><span class="g">Nothing to type. Nothing that looks like a secret.</span><span class="g">Now — this is the part people get wrong. So let me be clear.</span><span class="g">The object is a <em>cue, not a key</em>.</span><span class="g">It drives operation, and policy checks.</span><span class="g">It is <em>not</em> the encryption key.</span><span class="g">A photo of the object unlocks nothing.</span><span class="g">The crypto stays with Argon2id and AES-GCM.</span><span class="g">The object only decides whether you get to act.</span><span class="g">And you’ll watch this <em>fail, live</em>, in a few minutes.</span><span class="g">Same file. Same password. No object.”</span></div></div>
+      <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“A cue, not a key. <em>A photo of it unlocks nothing.</em>” <span class="cue-txt" style="margin-left:6px">— cue≠key を二度言う</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">ゆっくり。手元の物体を掲げると効果的。<b>最後の一文で Step 4 を予告する</b> — 実証を約束しておくとデモの山が強くなる</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 14</span><span class="title">Coercion-safe delaying</span><span class="pill star">★ CORE</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">1:20</span></div><div class="say"><span class="g">“This is what makes it coercion-<em>safe</em>.</span><span class="g">First, <em>Silent Standby</em>.</span><span class="g">One hotkey drops the sensitive interface into a harmless state.</span><span class="g">Coming back needs re-authentication.</span><span class="g">Second — the material itself. And I want to be exact here.</span><span class="g"><em>The file you would hand over is a file you wrote and stored yourself.</em></span><span class="g">Before any coercion.</span><span class="g"><em>Phasmid does not manufacture your cover story.</em></span><span class="g">Generated data would not survive five minutes of questioning.</span><span class="g">Not from someone holding your passport.</span><span class="g">Realism has to come from your own material — not from my random-text generator.</span><span class="g">What the tool <em>does</em> give you is <em>filler</em>.</span><span class="g">It occupies free space, so an empty container doesn’t read as empty.</span><span class="g">That’s a volume problem. And volume is something software can actually solve.</span><span class="g">Third — <em>context profiles</em>. Travel. Field engineer. Researcher.</span><span class="g">They tell you what ‘normal’ should look like, so you know what to prepare.</span><span class="g">And in coercion-safe mode, a low-confidence match goes to the disclosure face, instead of failing loudly.</span><span class="g">The goal isn’t magic invisibility.</span><span class="g">The goal is <em>uncertainty</em>, and <em>delay</em>.”</span></div></div>
+      <div class="r"><div class="lab state">STATE</div><div>
+        <div class="sm">
+          <div class="node"><div class="st"><span class="d" style="background:var(--s-active)"></span>active</div><div class="sd">sensitive UI visible</div><div class="trans">hotkey ▸</div></div>
+          <div class="node"><div class="st"><span class="d" style="background:var(--s-standby)"></span>standby</div><div class="sd">UI cleared instantly</div><div class="trans">auto ▸</div></div>
+          <div class="node"><div class="st"><span class="d" style="background:var(--s-sealed)"></span>sealed</div><div class="sd">re-auth to return</div><div class="trans">coercion-safe ▸</div></div>
+          <div class="node"><div class="st"><span class="d" style="background:var(--s-dummy)"></span>dummy_disclosure</div><div class="sd">operator's own decoy</div><div class="trans">not memory erase</div></div>
+        </div>
+      </div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>本トークで最も誤解されやすい点。</b>「ツールが囮を作る」と思われた瞬間に設計の真実味が全部落ちる。<b>「囮は利用者が用意する」と「填充は空き領域対策に過ぎない」を分けて言い切る。</b>Silent Standby はデモで見せると予告</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 15 · 16</span><span class="title">Design principle: restraint · Prepare → Bind → Operate → Disclose</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:40</span></div><div class="say"><span class="g">“The design principle is <em>restraint</em>.</span><span class="g">The vault file alone isn’t meant to be enough.</span><span class="g">Normal flows don’t reveal structure, or recovery.</span><span class="g">And metadata reduction is best-effort. Support — not sanitization.</span><span class="g">Operationally, it’s four steps.</span><span class="g"><em>Prepare</em> a vessel.</span><span class="g"><em>Bind</em> it — to local state, and to the object cue.</span><span class="g"><em>Operate</em> it — through the CLI, the TUI, or the local web interface.</span><span class="g"><em>Disclose</em> — controlled, under documented assumptions.</span><span class="g">Keep those four in your head. They’re the map for the demo.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">4ステップを順に指す。デモの地図と予告</div></div>
+    </div>
+  </div>
+
+  <!-- ============ PART 6 ============ -->
+  <div class="part"><span class="tc">13:50–17:05</span><h2>6 · Under the hood &amp; hardware</h2><span class="note">slides 17–20</span></div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 17</span><span class="title">Tech: small, local, boring</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:25</span></div><div class="say"><span class="g">“Small. Local. Boring by design.</span><span class="g"><em>Argon2id</em> for key derivation.</span><span class="g"><em>AES-GCM</em> for authenticated encryption.</span><span class="g">The web interface bound to <em>localhost</em>.</span><span class="g">All of it on a <em>Pi Zero 2 W</em>.</span><span class="g">Parameters tuned for that little board. Per-record encryption. No plaintext header.</span><span class="g">Boring is good. Boring is auditable.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">数値は帯を指す程度。詳細は次 / Q&amp;A</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 18</span><span class="title">Field hardware — the actual thing</span><span class="pill star">★ ENGAGE</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:30</span></div><div class="say"><span class="g">“And here’s the actual thing.</span><span class="g">A Pi Zero 2 W, in a 3D-printed case.</span><span class="g">A camera for the object cue. On a small tripod.</span><span class="g">You reach the web interface over <em>USB, at localhost</em>.</span><span class="g">It never touches a network.</span><span class="g">It’s meant to read as an unremarkable little gadget.</span><span class="g">And it’s right here on the table.</span><span class="g">Come and look — and try it — after the talk.”</span></div></div>
+      <div class="r"><div class="lab do">DO</div><div class="show-txt">現物を指す／持ち上げる → 卓上デモ・Q&amp;A への導線</div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">「ただの小さなガジェットに見える」を強調</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 19 · 20</span><span class="title">Cryptographic core (v3) · Operational guards</span><span class="pill depth">DEPTH · 遅れたら各1行</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:40</span></div><div class="say"><span class="g">“For the crypto people.</span><span class="g">Argon2id, with local access-key material mixed in, and device binding.</span><span class="g">An optional external secret, as a third factor.</span><span class="g">AES-GCM per record, with authenticated metadata.</span><span class="g">No plaintext marker in the vault.</span><span class="g">Startup self-tests check the primitives first.</span><span class="g">And the web interface is hardened — not an afterthought.</span><span class="g">Localhost binding. Per-process tokens.</span><span class="g">A restricted-confirmation session: HttpOnly, and short-lived.</span><span class="g">Attempt limiting. Rate limiting. Inactivity auto-kill. Hardened headers.</span><span class="g">And an opt-in, HMAC-chained audit log.</span><span class="g">Happy to go deep in Q and A.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">全部読まない。左列を指す。個別値は Q&amp;A へ</div></div>
+    </div>
+  </div>
+
+  <!-- ============ PART 7 ============ -->
+  <div class="part"><span class="tc">17:05–19:05</span><h2>7 · Ethics &amp; scope</h2><span class="note">slides 21–22</span></div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 21</span><span class="title">Design ethics — will &amp; won’t</span><span class="pill star">★ ETHICS</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:30</span></div><div class="say"><span class="g">“Now the ethics. And this matters — especially in this room.</span><span class="g">Phasmid <em>allows</em> plausible controlled disclosure.</span><span class="g">Standby. Workflows that preserve ambiguity.</span><span class="g">It <em>explicitly disallows</em> rootkits. Kernel-level hiding.</span><span class="g">Anti-forensic destruction. Forensic-tool bypass.</span><span class="g">And fabricating false events, or false timestamps.</span><span class="g">It increases uncertainty. It delays a confident conclusion.</span><span class="g">It does <em>not</em> claim forensic invisibility.</span><span class="g">That line is deliberate. And it’s in the code.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">フォレンジック/法執行の聴衆へ誠実に。目を合わせる。信頼獲得点</div></div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 22</span><span class="title">Scope, honestly drawn</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:45</span></div><div class="say"><span class="g">“Scope, drawn honestly.</span><span class="g">Hiding that the software exists — <em>out</em>.</span><span class="g">Denying that the data exists — <em>partial</em>.</span><span class="g">Controlled disclosure — <em>in, and central</em>.</span><span class="g">Coercion-aware fallback — <em>in</em>.</span><span class="g">And here’s what it never claims.</span><span class="g">Perfect deniability. Forensic immunity.</span><span class="g">Secure deletion on flash. Protection from a compromised host.</span><span class="g"><em>And one more thing it never claims: that your cover story is convincing.</em></span><span class="g">It can tell you how much space is occupied.</span><span class="g">It cannot tell you whether anyone will believe you.</span><span class="g">And it doesn’t pretend to. No snake oil.</span><span class="g">All right. Enough talk. Let me show you.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">誠実さの締め。最後の一文でデモへ橋渡し</div></div>
+    </div>
+  </div>
+
+  <!-- ============ PART 8 — LIVE DEMO ============ -->
+  <div class="part"><span class="tc">19:05–26:30</span><h2>8 · Live demo — one tab, one thing changed</h2><span class="note">slides 23–24 · ~7:30 · centerpiece</span></div>
+
+  <div class="callout danger"><span class="badge">構成の根拠 · 必読</span><div><b>証明は「成功」ではなく「対比」で作る。そして対比は、画面を切り替えないことで初めて成立する。</b><br><b>Step 3 → Step 4 が本デモの論証そのもの。</b> 同じタブ、同じファイル、同じパスワード、同じボタン。<b>変えるのは物体の有無だけ。</b> 成功例を1つ見せるだけでは、観客には<u>ただのパスワード復号</u>にしか見えない。物体が鍵ではなく<b>操作の門</b>であることは、この否定形でしか示せない。<br><b>画面を切り替えないこと自体が論証の一部である。</b> 0.6.0 でこの否定証明を TUI から WebUI に移したのはそのため — 別の画面で失敗を見せると「他にも何か変えたのでは」が最後まで残る。<b>切替は Step 1→2（TUI→ブラウザ）と Step 4→5（ブラウザ→TUI）の1往復だけ</b>で、証明はその往復の<b>内側</b>で完結する。<br><b>拒否だけでは足りない。</b> 直後に物体を戻して同じパスワードで成功させるところまでが1手。往復を見せないと「壊れている」「何を入れても拒否する」と区別がつかない。<br><b>Step 4b を入れるなら、それも同じタブで続く。</b> 変わるのは入力する<b>パスワードだけ</b>で、画面も操作手順も増えない — それが #191 の設計上の主張であり、実演としての価値でもある。</div></div>
+
+  <div class="callout"><span class="badge">SLIDE 23 · 章扉</span><div><b>LINE:</b> “Alright — live demo.” <span class="o" style="font-family:var(--mono)">— 呼吸を整え実機へ。プロジェクタ入力を TUI へ切替。<b>バックアップ録画の頭出しを確認。</b></span></div></div>
+  <div class="callout"><span class="badge">SLIDE 24 · DEMO INTRO</span><div><b>LINE:</b> <span class="say"><span class="g">“Here’s what you’re about to see.</span><span class="g">I’ll <b>create one container</b> on the device.</span><span class="g">Then, in the local web interface, I’ll put <b>two different files</b> into it.</span><span class="g">Each one behind its own password, and its own everyday object.</span><span class="g">Then I open them. One object, one password — one file.</span><span class="g">A different object, a different password — <em>a different file</em>.</span><span class="g">Same container. That is the two-slot model, working.</span><span class="g">And then the part that matters most.</span><span class="g"><em>I don’t touch the screen.</em></span><span class="g">Same tab. Same file. Same password. Same button.</span><span class="g">I simply <b>take the object off the table</b>.</span><span class="g">And watch it refuse.</span><span class="g">Then <b>Audit</b>. And <b>Silent Standby</b>.”</span></span> <span class="o" style="font-family:var(--mono)">— 話しすぎない／画面を指す／各ステップで一呼吸。7分半で切り上げる。</span></div></div>
+
+  <div class="callout plain"><span class="badge">破壊を実演するか · 判断（0.6.0 で更新）</span><div><b>前版の結論は「実演しない」だった。</b> #191 で<b>画面も操作手順も増えない</b>形になったため、<b>任意ステップ 4b として実演可能になった</b> — ただし下の理由①（法的整合）は<u>今も生きている</u>ので、やるなら Slide 21 の言い方と揃えること。理由②③は 0.6.0 で状況が変わった（②は Step 4b が片方の Face しか消さないため再作成は Face 1つ分、③は破壊が明示操作であることに変わりはないが、その明示操作が<b>ブラウザの同じ入力欄</b>になった）。以下、当初の3つの理由を記録として残す。<br><b>①法的整合。</b> Slide 4 で「duress-wipe 機能で連邦訴追された事案」を警鐘として提示している。その10分後に同じ挙動を売りとして実演すると、自分の問題提起と衝突する。Slide 21 が通るのは破壊が <b>owner-triggered で deliberate</b> だからで、開示の副作用として自動発火させるとその立場が消える。<br><b>②運用。</b> 壇上で vessel を壊すと、次のサイクル前に再作成＋空き領域の再填充（<b>実測約4分</b>）が必要になる。Demo Labs は繰り返し回す枠なので現実的でない。<br><b>③実装の事実。</b> 破壊はパスワード入力の副作用ではなく<b>明示的な操作</b>（WebUI の <code>/emergency/brick</code>・<code>/purge_other</code>、確認フレーズ必須。<code>recover</code> ロールから到達可）。自動発火経路 <code>PHASMID_DURESS_MODE</code> は<b>既定オフのまま据え置き</b>。<br><b>壇上の言い方：</b> <span class="say" style="font-size:13.5px"><span class="g">“There’s a third credential. It destroys, instead of opening.</span><span class="g">It exists. It’s deliberate. And it is <em>dangerous</em>.</span><span class="g">Destroying data at the moment of seizure can itself be a crime.</span><span class="g">I’m not going to fire it on stage.</span><span class="g">Come to the table, and I’ll show you.”</span></span></div></div>
+
+  <div class="switcher" id="demo-mode">
+    <div class="seg" role="tablist" aria-label="Demo mode">
+      <button class="seg-btn" role="tab" data-t="live" aria-selected="true"><span class="d" style="background:var(--mint)"></span>実機ライブ（TUI + WebUI・9手＋任意1・切替1往復・~8:05）</button>
+      <button class="seg-btn" role="tab" data-t="fallback" aria-selected="false"><span class="d" style="background:var(--violet)"></span>フォールバック（録画・要約）</button>
+    </div>
+    <div class="views">
+      <div class="view" data-v="live">
+
+        <div class="beat"><div class="head"><span class="slide-chip">STEP 0 · 0:20</span><span class="title">Orientation</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt"><b>Simple ホーム</b>を提示。下部バーを指す（<code>o · n · g · e · q · w</code> の6つだけ）</div></div>
+            <div class="r"><div class="lab line">LINE<span class="secs">0:20</span></div><div class="say"><span class="g">“This is the real console — <em>Local Disclosure Control</em>.</span><span class="g">The home screen is deliberately small.</span><span class="g">Open. New. Guided. Expert.</span><span class="g">Under pressure, you don’t want a wall of options.</span><span class="g">The full control set is one key away.”</span></div></div>
+            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><code>PHASMID</code> ロゴ · <code>PROTECTED STORAGE</code> 表 · 下部バー6項目</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">この最小面こそが coercion-aware 設計の一部である旨を一言。<b><code>! SYSTEM: n WARN</code> はこの画面には出ない</b>（Expert 専用）— 誠実性の話は Step 5 (Audit) で行う</div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">STEP 1 · 0:50</span><span class="title">Create a Vessel — Prepare</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt"><span class="k">n</span> New → <code>vessel-path</code> → <code>vessel-size</code> を <b><code>64M</code> に変更</b>（Select・既定 <code>512M</code>。<b>既定のまま作らない</b>）→ <code>vessel-label</code>（任意・無害な語）→ <code>create-btn</code></div></div>
+            <div class="r"><div class="lab line">LINE<span class="secs">0:15</span></div><div class="say"><span class="g">“First I create a <em>vessel</em> — a deniable container file.</span><span class="g">This is the <em>Prepare</em> step.</span><span class="g">It has no header. No magic bytes.</span><span class="g">On disk, it’s indistinguishable from random data.”</span></div></div>
+            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><code>PROTECTED STORAGE</code> に新規行。下段パネルが <code>Choose an action:</code> に変わる</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">Vessel を作ると <b>Face が2つ自動生成される</b>（<code>face_a</code>/<code>face_b</code>）。物体キューも自動でクリーンな状態から始まる。<b>Create Face は押さない。</b> <b>サイズは必ず <code>64M</code></b> — 作成はコンテナ全体を乱数で埋めるため、<code>512M</code> だと Pi Zero 2 W で枠の0:50に収まらない（実機で OOM kill を1度踏み、チャンク書き込みに修正済み。それでもサイズなりの時間はかかる）。失敗時は既存デモ Vessel を <span class="k">o</span> Open して継続</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>任意・トークンの見せ場：</b> <span class="k">e</span> → <span class="k">t</span> で Access Tokens 画面を一瞬見せ「役割別のトークンをここで発行・失効できる」と一言。<b>ただし発行はしない</b> — 起動スクリプトが固定値をピン留めしている間は <code>AccessTokenEnvPinned</code> で拒否される。<code>Esc</code> で戻る</div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">STEP 2 · 1:30</span><span class="title">Bind — put two different files into one container</span><span class="pill star">★ BIND · 切替①</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">TUI で <span class="k">w</span> → プロジェクタをラップトップのブラウザへ切替 → 事前ブックマークの <code>/unlock</code> タブに <b><code>store</code> トークン</b>を入力 → <b>Store</b> 画面。<br><b>1回目：</b>「Choose the entry」で <b>Entry 1</b> → ファイル → パスワード → <b>物体を手元に置いたまま</b> <code>1 · Capture empty scene</code> → <b>物体Aをかざして</b> <code>2 · Capture access object</code> → <b>かざしたまま</b> <code>Protect file</code><br><b>2回目：</b><b>Entry 2</b> に切替 → 別ファイル → 別パスワード → <b>物体を外して</b> <code>1 · Capture empty scene</code> → <b>物体Bをかざして</b> <code>2 · Capture access object</code> → <b>Advanced security options → <code>Restricted recovery password</code> に破壊パスワード</b> → <b>かざしたまま</b> <code>Protect file</code></div></div>
+            <div class="r"><div class="lab line">LINE<span class="secs">0:50</span></div><div class="say"><span class="g">“Now I switch to the browser.</span><span class="g">The same device serves a local web interface.</span><span class="g">I’m logged in with a token scoped to the <em>store</em> role.</span><span class="g">I’m putting <em>two different files</em> into the one container I just made.</span><span class="g">Now watch — it takes two shots.</span><span class="g"><em>First the empty view. Then the object.</em></span><span class="g">The difference between those two frames is what the device keeps.</span><span class="g">Otherwise it would be describing my wall.</span><span class="g">And then <em>my wall</em> would open the file.</span><span class="g">And remember what that object is. A <em>cue, not a key</em>.</span><span class="g">It gates the operation. It is not the encryption key.</span><span class="g">A photograph of it unlocks nothing.”</span></div></div>
+            <div class="r"><div class="lab show">SHOW</div><div class="show-txt">1枚目で <code>Empty scene captured. Now hold the object in front of it.</code> → 2枚目で <code>Object cue matched</code>、<code>Access object: Captured</code>。オーバーレイが <code>No object cue match</code> から一致表示へ。Entry を切り替えると <code>Not captured</code> にリセットされ、<b>空シーンの撮り直しから</b>やり直しになる（前の空シーンは使い回されない）</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>撮影から保存まで物体を下ろさない。</b> 0.6.0 は保存の瞬間にも一致を再確認するので、下ろすと <code>That entry is already set up. Hold its access object…</code> で拒否される（#186）— <b>これは正常な挙動</b>。慌てずかざし直して押す。<b>Entry を切り替えたら必ず物体も差し替える</b>（同じ物体を両方に使うと <code>Object binding failed</code>）。<br><b>失敗メッセージ別：</b> <code>Object does not stand out from the scene behind it.</code> → 物体をカメラに近づける／背景を無地に。<code>Too much of the view changed.</code> → <b>三脚が動いた・照明が変わった</b>、空シーンから撮り直し。<code>Rejected: the cue still matches the empty scene</code> → <b>安全装置が働いた証拠</b>、別の物体に替える。<br>破壊パスワードは <b>Entry 2 側だけ</b>に設定する（Step 4b をやるなら必須。<b>入力しただけ・押さずに離れた場合は設定されない</b>）</div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">STEP 3 · 0:50</span><span class="title">Operate — the file comes back, and the role boundary</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">同じ <code>store</code> タブで <b>Retrieve</b> へ。<b>物体A</b>を提示 → パスワード → <code>Open protected file</code>。<br><b>続けて役割の境界：</b>別タブで <b><code>recover</code> トークン</b>で解錠しておいたウィンドウを一瞬提示 — ナビに <code>Store</code> / <code>Maintenance</code> が<b>一切無い</b>ことを指す</div></div>
+            <div class="r"><div class="lab show">SHOW</div><div class="show-txt">緑のトーストで復元成功。<code>recover</code> タブのナビは <code>Home</code> / <code>Retrieve</code> / <code>Lock</code> だけ（Face セレクタも制限パスフレーズ欄も出ない）</div></div>
+            <div class="r"><div class="lab line">LINE<span class="secs">0:25</span></div><div class="say"><span class="g">“Same object. Correct password. The file comes back.</span><span class="g">And here’s a second session. A narrower one.</span><span class="g">Logged in with a different token — a different role.</span><span class="g">It can decrypt, and it can destroy.</span><span class="g">It can never reach Face setup at all.</span><span class="g">It can’t even see that there is more than one entry.”</span></div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>画面はこのまま。何も閉じない、何も切り替えない。</b> 次の Step 4 は同じタブ・同じファイル・同じパスワードで物体だけを外す — <b>切り替えないことが「他は何も変えていない」ことの担保</b>になる。<br><b>次は Step 3b。</b> 同じ画面のまま<b>物体を持ち替える</b>だけなので、ここでタブを触らないこと</div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">STEP 3b · 0:35</span><span class="title">The second object, the second password — a different file</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt"><b>同じ Retrieve 画面のまま</b>、<b>物体Bに持ち替える</b> → <b>2つ目のパスワード</b> → <code>Open protected file</code>。<b>落ちてきたファイルを開いて中身を見せる</b></div></div>
+            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><b>別のファイル</b>が復元される。<b>ファイル名は両方とも <code>retrieved_payload.bin</code></b>（どの Face が開いたかを漏らさないための設計）なので、<b>名前ではなく中身で違いを見せる</b></div></div>
+            <div class="r"><div class="lab line">LINE<span class="secs">0:25</span></div><div class="say"><span class="g">“Now the same screen. The same container.</span><span class="g">But a <em>different object</em> — and a <em>different password</em>.</span><span class="g">And a <em>different file</em> comes back.</span><span class="g">One container. Two objects. Two passwords. <em>Two files</em>.</span><span class="g">That is Slot A and Slot B — on the table, in front of you.”</span></div></div>
+            <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“Same container. Different object — <em>a different file</em>.”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>これが Slot A / Slot B の直接実証</b> — Slide 7 で言った「見せたものが全てではない」が、ここで初めて<b>目に見える</b>。<code>/retrieve</code> は入力パスワードと撮影した cue で全 Face を順に試すので<b>追加実装は不要</b>。<br><b>2つ目のダウンロードは <code>retrieved_payload(1).bin</code> になる</b>ので、<b>事前にダウンロードフォルダを空にしておく</b>。聞かれたら capture-visible discipline の実例として説明できる。<br><b>物体を持ち替えたら一致表示を待ってから押す</b> — 待たずに押すと拒否される</div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">STEP 4 · 0:50</span><span class="title">Same tab, same password — the object is gone, and it refuses</span><span class="pill star">★★ cue≠key の証明</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt"><b>Step 3 と同じ Retrieve 画面のまま。</b> <b>物体をカメラの視野から完全に外す</b>（手で覆うのではなく<b>卓の下に下ろす</b>）→ <b>オーバーレイが <code>No object cue match</code> に変わるのを待つ</b> → <b>Step 3 と同じパスワード</b> → <code>Open protected file</code>。<br><b>直後に物体を戻して同じパスワードで再実行し、成功させる（0:15）</b></div></div>
+            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><span class="rej"><code>No valid entry found.</code></span> のエラートースト。ファイルは出てこない。オーバーレイは <code>No object cue match</code> / <code>Present a bound object to continue</code>。<code>/status</code> の <code>object_state</code> は <code>none</code></div></div>
+            <div class="r"><div class="lab line">LINE<span class="secs">0:25</span></div><div class="say"><span class="g">“Same tab. Same file. Same password. Same everything.</span><span class="g">I have only taken the object away.</span><span class="g">And look at what it says. <em>‘No valid entry found.’</em></span><span class="g">Not ‘wrong object’. Not ‘object missing’.</span><span class="g">It won’t even tell you what it’s waiting for.</span><span class="g">That is deliberate.</span><span class="g"><em>That</em> is what ‘the cue gates the operation’ means.”</span></div></div>
+            <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“Only the object is gone. <em>And it refuses.</em>”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>ここで間を取る。これが cue≠key の唯一の実証。</b> <b>物体を戻して成功させる往復は省略しない</b> — 省くと「何を入れても拒否する状態」と区別がつかない。<br><b>ロックアウト（WebUI に移したことで新たに効く）：</b> <code>/retrieve</code> は<b>物体なしの拒否も失敗として記録する</b>。既定は<b>5回で60秒ロック</b>。壇上の失敗は1回なので問題ないが、<b>直前のリハーサルで使い切ると本番が <code>Access temporarily unavailable.</code> で止まる</b>。<b>リハーサルは TUI の <code>Recover File</code> で行う</b>（TUI 経路は失敗を記録しない）。入ってしまったら60秒待つ</div></div>
+            <div class="r"><div class="lab state">技術</div><div class="show-txt">質問されたら：<code>collect_auth_sequence()</code> が <code>wait_for_reference_match(timeout=10.0)</code> を呼び、不一致なら <code>match_none</code> を返す。この値は<b>復号の入力そのもの</b>（<code>_read_face_namespace</code> に渡る）なので<b>照合を迂回した復元は成立しない</b>。0.6.0 では加えて、参照テンプレート自体が<b>空シーンとの差分領域からのみ</b>作られ、保存前に「空シーンに一致しないこと」を検証している（#184）— <b>背景が鍵になる経路を実装として塞いである</b></div></div>
+          </div>
+        </div>
+
+<div class="beat" style="border-color:var(--red)"><div class="head" style="background:color-mix(in srgb,var(--red) 8%,transparent)"><span class="slide-chip">STEP 4b · 0:40</span><span class="title">同じ欄に、違うパスワード — エントリが消える</span><span class="pill star" style="background:var(--red);color:#fff">任意 · 不可逆</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt"><b>Step 3・4 とまったく同じ Retrieve 画面。</b> <b>消したい Face の物体をかざす</b> → パスワード欄に、そのアクセスパスワードではなく <b>Clearing password</b>（Store の Advanced security options で設定した2つめ）を入力 → <code>Open protected file</code></div></div>
+            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><span class="rej"><code>No valid entry found.</code></span> — <b>打ち間違えたときと完全に同じ表示。</b> ファイルは出てこない。<b>これが正しい挙動。</b> その後、同じ物体と<b>アクセス</b>パスワードで開こうとしても、もう復元されない。<b>もう一方の Face は無傷</b></div></div>
+            <div class="r"><div class="lab line">LINE<span class="secs">0:40</span></div><div class="say"><span class="g">“Now watch this screen — because nothing on it is going to change.</span><span class="g">Same tab. Same object. Same field. Same button.</span><span class="g">The only thing I do differently… is type <em>a different password</em>.</span><span class="g">And it says what it says when you mistype. No valid entry found.</span><span class="g">Except that entry is not locked.</span><span class="g"><em>It is gone.</em></span><span class="g">The other one is untouched. And I can still open it.</span><span class="g">That’s my answer to ‘they’ll just make you type the password.’</span><span class="g"><em>The password they can compel is not the only one there is.</em>”</span></div></div>
+            <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“Nothing on the screen changed. <em>The entry is gone.</em>”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>消えるのは「かざした Face」</b> — 画面の選択肢ではなくカメラの物体で決まる。<b>真の Face を消すには真の物体を出す必要がある</b>という設計上の論点があり、質問されたら<b>隠さずそう答える</b>。他方の物体をかざした状態で入れても<b>何も起きない</b>。<br><b>確認も成功表示も無い。それが狙いであり、代償でもある</b> — 見ている相手に何も伝えないための設計なので、<b>操作者にも成否が伝わらない</b>。成功したかどうかは「その Face がもう開かないこと」でしか分からない。<b>必ずリハーサルで一度通しておく</b>（本番用ではなく使い捨ての Vessel で）。<br><b>不可逆。</b> 実施すると次の Step 5（Audit）の数字は<b>消したあとの状態</b>を映す — 不都合ではなく<b>「今消したものが空として読める」ことを見せる材料</b>になる。数字を事前の想定どおりに見せたいなら 4b を省く</div></div>
+            <div class="r"><div class="lab state">別経路</div><div class="show-txt">落ち着いた状況で意図的に片付けるなら Retrieve 画面の <b>「Clear this entry instead of opening it」</b>（破壊パスワード＋確認語 <code>DESTROY FACE</code>）。<b>壇上ではこちらは使わない</b> — 画面が変わると対比が弱まる。WebUI が使えない場合の CLI は <code>phasmid emergency destroy-face &lt;vessel&gt; --face face_a --camera-object --confirm "DESTROY FACE"</code></div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">STEP 5 · 0:50</span><span class="title">Audit — free space, and what it won’t judge</span><span class="pill star">★ 誠実性</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt"><b>ここでプロジェクタを TUI に戻す（切替②・往復の折り返し。以降は切替なし）。</b> <span class="k">e</span> Expert → <span class="k">a</span> Audit。<b><code>Free Space Filler</code> セクション</b>を指す（戻るのは <code>Esc</code>）。<code>a</code> は #169 の非活性化対象から<b>意図的に外してある</b> — この Step でキー1つで直接使うため</div></div>
+            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><code>Tracked Vessels / Tracked Faces / Faces with free space filled / Faces partially filled / Faces with little or no filler / Disclosure material: operator-supplied; filler is not disclosure material</code></div></div>
+            <div class="r"><div class="lab line">LINE<span class="secs">0:40</span></div><div class="say"><span class="g">“<em>Audit</em> reports per face.</span><span class="g">Now notice what it does <em>not</em> claim.</span><span class="g">It doesn’t tell me my cover story is convincing.</span><span class="g">The file I would hand over is one I wrote, and stored, myself.</span><span class="g">The tool can’t judge whether it’s believable. And it doesn’t pretend to.</span><span class="g">All it reports here is how much free space is filled —</span><span class="g">so an otherwise empty container doesn’t read as empty.</span><span class="g">Judging the cover story is the operator’s job.</span><span class="g">And the tool is honest about that boundary.”</span></div></div>
+            <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“It reports what it can measure. <em>It refuses to score what it can’t.</em>”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b><code>d</code> Doctor はフッタから消えている</b>（#169・WebUI の <code>/operator/doctor</code> と重複するため非活性化）。開きたければコマンドパレット経由で到達できるが、<b>壇上では探さない</b> — 時間を食うだけで Audit の話と重複する。Doctor に触れるなら口頭で一言：未設定の助言が警告を出さなくなったので（#157）、残る警告は<b>このホスト自身の事実だけ</b>（<code>/tmp</code> world-writable・Swap・zram）</div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">STEP 6 · 1:20</span><span class="title">Silent Standby — Disclose</span><span class="pill star">★ 山場</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt"><b><code>Ctrl+S</code></b> を押下。復帰は <code>Ctrl+R</code> または <code>Esc</code>。<b>フッタに出ないので指で覚えておく</b></div></div>
+            <div class="r"><div class="lab show">SHOW</div><div class="show-txt"><code>SYSTEM STATUS</code>（Storage integrity check: OK / Configuration directory: accessible / Local services: idle / Background tasks: none / System clock: synchronized）· <code>[ Re-authenticate to continue ]</code> · フッタは <code>^r Re-authenticate</code> のみ</div></div>
+            <div class="r"><div class="lab line">LINE<span class="secs">0:30</span></div><div class="say"><span class="g">“Now — the moment it’s built for.</span><span class="g">One hotkey. <em>Silent Standby</em>.</span><span class="g">The sensitive surface drops away.</span><span class="g">And it’s not only this screen. <em>The web interface goes down with it.</em></span><span class="g">A laptop tethered to this device loses access at the same instant —</span><span class="g">including the two browser tabs I just used.</span><span class="g">Coming back needs re-authentication.</span><span class="g">I’m not hiding from forensics.</span><span class="g">I’m buying <em>time</em>, and <em>uncertainty</em>.”</span></div></div>
+            <div class="r"><div class="lab speak">SPEAK</div><div class="speak-txt">“One key. <em>And the second surface goes with it.</em>”</div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt"><b>可能ならラップトップのブラウザを再読込して接続が切れていることを見せる — これを演出に使う。</b> 復帰後に「WebUI was retracted when standby engaged.」の通知が出る。Standby 発動時に<b>未消化のトースト通知も消える</b>（WebUI 起動通知にはアクセストークンが入っており、消さないと秘匿画面に平文で残る。実機で一度再現し修正済み）。Standby 中は <code>w</code> も封じられる</div></div>
+          </div>
+        </div>
+
+<div class="beat"><div class="head"><span class="slide-chip">STEP 7 · 0:10</span><span class="title">Wrap</span></div>
+          <div class="body">
+            <div class="r"><div class="lab line">LINE<span class="secs">0:10</span></div><div class="say"><span class="g">“That’s Prepare, Bind, Operate, Disclose. On real hardware.</span><span class="g">Come and try it at the table.”</span></div></div>
+            <div class="r"><div class="lab do">DO</div><div class="show-txt"><code>Esc</code> で Simple Operator へ戻す → プロジェクタ入力をスライドへ復帰（Slide 25）</div></div>
+          </div>
+        </div>
+
+      </div>
+      <div class="view" data-v="fallback" hidden>
+        <div class="beat"><div class="head"><span class="slide-chip">FALLBACK</span><span class="title">実機不調 → 録画 / 時間超過 → 要約</span></div>
+          <div class="body">
+            <div class="r"><div class="lab do">DO</div><div class="show-txt">章扉（Slide 23）で頭出しした<b>録画に即切替</b>。Prepare→Bind→Operate→Disclose を録画上で辿る</div></div>
+            <div class="r"><div class="lab line">LINE<span class="secs">0:05</span></div><div class="say"><span class="g">“The design points stand either way.”</span></div></div>
+            <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">個別ステップは最大15秒で見切り、止まらず前進。認識が不安定なら起動スクリプトの既定 <code>demo</code> で確定的に見せる。それでも駄目なら <code>coercion_safe</code> の低信頼→開示面ルートを<b>設計意図として逆手に説明</b>する。<br><b>WebUI がラップトップから見えない／不安定なとき</b>（URLが <code>10.12.194.1:8000</code> のIP直指定か、<code>PHASMID_WEBUI_EXPOSE_GADGET=1</code> が効いているかを確認）<b>は Step 2–4 を口頭要約に切り替え、Step 0・1・5・6・7 は実機で続行</b>（これらは WebUI に依存しない）。<b>この場合 Bind も否定証明もブラウザでは見せられなくなる</b>ので、<u>TUI の <code>Recover File</code> で否定証明だけは実機で成立させる</u> — <code>Add File</code> は #169 で非活性化されたが <b><code>Recover File</code> はこのために残してある</b>。物体を視野の外に置いたまま実行すると約10秒後に <code>no bound object matched</code> で拒否される</div></div>
+            <div class="r"><div class="lab state">時計</div><div class="show-txt"><b>26:00 到達で Step 4b と Step 5 Audit を削り、<span class="rej">Step 3→4</span>（物体だけ外す→拒否→戻して成功）と <span class="rej">Step 6</span>（Standby）だけは必ず実機で見せて</b>締めへ。45:00 厳守</div></div>
+          </div>
+        </div>
+        <div class="callout danger"><span class="badge">SAFETY</span><div>実秘匿データを絶対に投影しない（デモ用プロファイル／ダミーのみ）。パスフレーズはカメラ・投影に映さない。<b>WebUI は USB ガジェット面のみ。会場ネットワークに絶対に晒さない。</b>固定トークンはデモ専用値であり実運用に流用しない。<b>Face ラベルは両方とも無害な語にすること（<code>travel</code> / <code>backup</code>）。片方を “real” や “secret” と名付けると、壇上で設計思想を自ら否定することになる。</b><br><b>デモ機では本番用の物体・パスフレーズを使わない。</b> Face 詳細（物体の知覚ハッシュ・破壊用パスフレーズの検証子）は <code>vessel_registry.bin</code> に local state key で封入されるようになったが（#180）、state key を復元されれば復号される。デモ機は人前に置き、触られる前提の機体である。</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PART 9 ============ -->
+  <div class="part"><span class="tc">26:20–27:30</span><h2>9 · Quick start &amp; close</h2><span class="note">slides 25–26</span></div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 25</span><span class="title">Quick start</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:20</span></div><div class="say"><span class="g">“Want to try it?</span><span class="g">Clone the repo. Change into it. Run <span class="k">./phasmid</span>.</span><span class="g">The first run sets up a virtual environment and opens the console.</span><span class="g">Research software. Apache 2.0.</span><span class="g">Evaluate it locally, in field-test conditions.</span><span class="g"><em>Not</em> as production protection.”</span></div></div>
+      <div class="io">
+        <div class="pane cmd"><div class="pane-head"><span class="pane-lab cmd"><span class="glyph">▸</span>Command · copy &amp; run</span></div>
+<pre class="src"><span class="p">$</span> git clone https://github.com/01rabbit/Phasmid
+<span class="p">$</span> cd Phasmid
+<span class="p">$</span> ./phasmid      <span class="o"># builds a venv, opens the console</span></pre></div>
+        <div class="pane out"><div class="pane-head"><span class="pane-lab out">Note</span></div>
+<pre>research software · <span class="key">Apache-2.0</span>
+evaluate locally, in field-test conditions
+<span class="o"># not production protection</span></pre></div>
+      </div>
+    </div>
+  </div>
+  <div class="beat"><div class="head"><span class="slide-chip">SLIDE 26</span><span class="title">Closing → Q&amp;A</span></div>
+    <div class="body">
+      <div class="r"><div class="lab line">LINE<span class="secs">0:25</span></div><div class="say"><span class="g">“That’s <em>Phasmid</em>.</span><span class="g">Local-only. Coercion-aware. Honest limits included.</span><span class="g">The code, the threat model, and the architecture are all on GitHub, at <em>01rabbit</em>.</span><span class="g">The device is right here on the table.</span><span class="g">Come and try it. And please — come and break it.</span><span class="g">I’ve got time for questions.”</span></div></div>
+      <div class="r"><div class="lab cue">CUE</div><div class="cue-txt">約27分で着地。残り約18分を Q&amp;A・卓上デモ・交流へ。<b>ステッカーは未作成 — 実機体験への導線に差し替え済み。45分で必ず終了。</b></div></div>
+    </div>
+  </div>
+
+  <div class="qa-zone">
+  <!-- ============ Q&A ============ -->
+  <div class="part" style="border-top-width:1px"><span class="tc">Q&amp;A</span><h2>Q&amp;A funnel &amp; anticipated questions</h2><span class="note">honest, then “find me after”</span></div>
+  <div class="callout plain"><span class="badge">誘導</span><div>深入りしそうな話題は Q&amp;A へ送る：<b>“Great question — let’s go deep on that in Q&amp;A / come find me after.”</b> ／ <b>“The full matrix / parameters are in the repo; I’ll point you to the exact file.”</b></div></div>
+  <div class="beat"><div class="body" style="padding-top:12px">
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">LUKS?</div><div class="say">TUI の LUKS 連携に触れつつ、Phasmid は <em>開示制御の層</em> であり FDE の代替ではない（Slide 6・22）。</div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">否認可能性</div><div class="say">データ存在の否認は <em>部分的</em>、完全否認は <em>非主張</em>（Slide 22）。</div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">押収後は?</div><div class="say">ホスト侵害・カーネル奪取は <em>対象外</em>（Slide 8）。増やすのは不確実性と時間（Slide 21）。</div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">cue は生体/鍵?</div><div class="say">否。<em>cue であって key ではない</em>（Slide 13）。壇上で失敗を実演済み（Step 4）。</div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">囮は誰が作る?</div><div class="say"><b>利用者が用意する。ツールは作らない。</b> <span class="g">“The tool has no idea what a believable version of your life looks like.</span><span class="g">You do.</span><span class="g">What it generates is filler for free space.</span><span class="g">That’s a volume problem — and it says so.”</span>（Slide 14・22）</div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">score は何?</div><div class="say"><b>空き領域の占有率であって、説得力ではない。</b> Audit も Doctor も分量しか報告しない。判定できないものを判定に見せていた旧表示は撤去した。</div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">強要されたら?</div><div class="say">渡すのは<b>偽ファイル用のパスフレーズ</b>で、自分で用意した囮が開く。<b>制限（duress）パスフレーズは破壊資格であり、開示はしない。</b> 偽の中身を自動生成して差し出す経路は<em>意図的に持っていない</em> — それは偽造だから（Slide 21）。</div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">WebUI と TUI で違う?</div><div class="say"><b>保管層は統一済み。</b> 以前は TUI が <code>*.vessel</code>、WebUI が別の <code>vault.bin</code> を操作していたが、現在は両者とも同じ Vessel を操作する。<b>デモ本編の Step 2〜4b はすべて WebUI で行っており</b>、否定証明（物体なし→拒否）も破壊も含めて実機検証済み（0.6.0）。役割分担は <b>Vessel の作成・削除は TUI、日常の保存・復元は WebUI</b>。WebUI には <code>store</code>/<code>recover</code> のロール別トークンがあり、<code>recover</code> セッションは Face 選択画面にすら到達できない。<b>TUI の <code>Recover File</code> は WebUI が使えないときの代替として残してある。</b><br><span class="say" style="font-size:13.5px"><span class="g">“Everything you saw tonight — storing, retrieving, and the refusal —</span><span class="g">ran through the same web interface. On that device.</span><span class="g">The terminal is there to build and tear down the container. And as a fallback.”</span></span></div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">強要されてもデータは守れる?</div><div class="say"><b>守れない。守れるのは「開示範囲」であってデータではない。</b> ここは正確に言う — <span class="say" style="font-size:13.5px"><span class="g">“Phasmid doesn’t promise that a compelled password protects your data.</span><span class="g">It promises that a compelled password doesn’t disclose <em>everything</em>.</span><span class="g">Destruction is a separate, deliberate act by the owner.</span><span class="g">Never a side effect of typing a password.</span><span class="g"><em>A booby trap is not disclosure control.</em>”</span></span> Slide 22 の <code>Data-existence deniability: partial</code> / <code>Controlled disclosure: in, and central</code> と整合する唯一の言い方。「強要されてもデータを守る」と言うと Slide 6 の <code>not a complete answer to compelled disclosure</code> と自分で衝突する。</div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">ローカル状態から二面構造は漏れない?</div><div class="say"><b>以前は漏れていた。直した。</b> Face ごとの分量・どちらが填充済みか・<b>物体の知覚ハッシュ</b>・<b>破壊用パスフレーズの検証子</b>が config ディレクトリに平文で置かれており、端末を持っている者がパスフレーズ無しで読めた。現在は発見インデックスだけを平文に残し、Face 詳細は local state key で <code>vessel_registry.bin</code> に封入している（#178/#180）。<b>副次的に、purge 済みの Face と未使用の Face が平文側で区別できなくなった</b> — 以前は「破壊が行われた事実」がローカル状態から読め、duress 機構が法的リスクだけ負って否認の利益を得られない状態だった。<b>残る残余リスクは正直に：</b> state key を復元されれば sidecar は復号される。<code>THREAT_MODEL.md</code> の Configuration Directory Surface に明記済み。</div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">なぜ TUI で二面が見える?</div><div class="say"><b>意図的な研究・検査面だから</b>（<code>docs/TUI_OPERATOR_CONSOLE.md</code> に明文化）。モデルが動いていることを検証・実演するには構造が読めた方がよい。<b>だから壇上に出すのは役割別 WebUI で、実地では <code>PHASMID_FIELD_MODE=1</code> で絞る</b>（全 Face 合計が <code>-</code> に縮退）。<b>強要下で TUI を開くのは自己矛盾</b>であり、運用手順としてそう書いてある。研究用の姿勢は「表示を選ぶ」話であって、「ローカル状態が安全」という主張ではない。</div></div>
+    <div class="r"><div class="lab" style="color:var(--gold-ink)">法的に?</div><div class="say">偽造・改ざん・隠蔽は <em>行わない</em>。一方 <b>owner-triggered の破壊（silent-brick／purge）は実装されており、法的に危険</b>（§2232型）。合法性は管轄依存であり助言はしない（Slide 21）。</div></div>
+  </div></div>
+
+  <div class="callout danger" style="margin-top:8px"><span class="badge">CONTINGENCY</span><div><b>押している（+3分〜）:</b> Slide 9・19・20 を各1行に圧縮、11 は口頭一言でスキップ。 <b>巻いている（-3分〜）:</b> Slide 8・14・21 を丁寧に、デモで Step 4b（破壊パスワード）と Audit を入れる。 <b>デモ不調:</b> 章扉で頭出しした録画へ即切替。 <b>時計:</b> 19:20 デモ開始、26:00 超で残手順を口頭要約 → 締め。<b>Step 3→4（物体だけ外す→拒否→戻して成功）と Step 6（Standby）だけは何があっても実機で見せる。</b>45:00 厳守。</div></div>
+
+  </div>
+
+  <div class="foot">本書は <b>v0.4.0 実機（Pi Zero 2 W / Raspberry Pi OS Trixie）で全手順を通した結果</b>に基づく。<b>製品モデル：囮ファイルはツールが作らず、利用者が用意する。</b>生成機能は空き領域の填充へ降格し、可信性スコアの表示は撤去した（分量しか測れないものを判定に見せていたため）。パスフレーズは3つ（真の復号／偽の復号／破壊）。
+<br><b>0.6.0（実機検証済み）:</b> 物体の登録を<b>2段階撮影</b>にした（空シーン→物体・#184/#187）。従来は視野全体を鍵にしており、<b>物体を隠しても開いてしまっていた</b> — 旧版の否定証明は証明になっていなかった。<b>否定証明を WebUI に移し</b>、Step 3（成功）と Step 4（失敗）が<b>同じタブで連続</b>するようにした。<b>破壊をパスワードで制御できるようにした</b>（#191）— 同じ入力欄に別のパスワードを入れると、かざしている Face が消える。画面も応答も打ち間違えと区別がつかない。任意ステップ <b>Step 4b</b> として実演可能。<b>1容器2パスワード2ファイルの beat は既定の手順表から外した</b>（枠と 4b の兼ね合い。+0:30 で戻せる）。プロジェクタ切替は <b>Step 1→2 と Step 4→5 の1往復</b>。
+<br><b>「強要されてもデータを守る」とは言わない。</b> 守るのは<b>開示範囲</b>であってデータではない。<b>破壊は壇上で実演しない</b> — Slide 4 で duress-wipe 訴追事案を警鐘として提示している以上、同じ挙動を売りとして実演すると自分の問題提起と衝突する。破壊は明示的操作（<code>/emergency/brick</code>・<code>/purge_other</code>、確認フレーズ必須、<code>recover</code> ロールから到達可）であり、自動発火経路 <code>PHASMID_DURESS_MODE</code> は<b>既定オフのまま据え置き</b>。実演は卓上デモ／Q&amp;A へ。
+<br><b>0.4.0 以降で解決済み:</b> ①<b>#169</b> — TUI の <code>Add File</code>・<code>Doctor</code>・<code>Inspect</code> を非活性化（WebUI と完全重複）。<code>Recover File</code> と <code>Audit</code> は意図的に残した（Audit は Step 5 で使い、<code>Recover File</code> は WebUI が落ちたときに否定証明を成立させる唯一の代替経路）。削除ではなく非活性化で、コマンドパレット経由では到達可。<b>Expert フッタの安全端末幅が 145→124 桁に低下</b>。②<b>#178/#180</b> — Vessel レジストリの Face 詳細（分量・填充プロファイル・物体の知覚ハッシュ・破壊用パスフレーズの検証子）を local state key で <code>vessel_registry.bin</code> に封入。以前は config ディレクトリに平文で、端末を持つ者がパスフレーズ無しで読めた。破壊用検証子は廃止せず（<code>purge_mode</code>/<code>silent_brick</code> は生バイトを上書きし復号を経ないため、コンテナ側検証にすると壊れたコンテナを破壊できなくなる）、コストを Argon2 と同じ 32 MiB 相当へ引き上げ KDF パラメータを記録。<b>purge 済み Face と未使用 Face が平文側で区別不能になった</b>。③<b>#181</b> — テストが実際の Phasmid 設定ディレクトリを汚染／汚染される問題を修正。④<b>TUI を「構造が意図的に見える研究・検査面」と明文化</b>し、実地は <code>PHASMID_FIELD_MODE=1</code> で絞る。⑤役割別トークンは起動スクリプトが固定値をピン留めするため、その間 TUI の <code>t</code> 画面からの発行・失効は拒否される（<b>見せるだけ</b>にする）。
+<br>0.4.0 で解決済み: Vessel の作成・削除は TUI／既存 Vessel の Store・Retrieve は WebUI という役割分担の確定と <b>Delete Vessel</b>（<code>del</code>）の追加、<b>ロール別アクセストークン</b>（<code>store</code>/<code>recover</code>）、Retrieve 成功後のカメラ停止・Vessel 新規作成時の物体キュー残留・Store 画面で Entry を選べない問題の修正、Simple ホームへの永続 WebUI 露出警告。0.3.0 以前: bind 先の食い違い（<b>PR #144</b>）、ページ認証 <code>/unlock</code>（<b>PR #146</b>）、Standby のトークン残留・フッタ無言消失・Doctor の永久警告（#157）。
+<br><b>既知の未解決:</b> <b>#158</b> — TUI は物体照合の過程を表示しない。0.6.0 で Open Vessel の待ちが<b>ワーカーに移り、経過秒数と何を待っているかは出る</b>ようになったが、<b>一致したかどうかは今も出さない</b>（失敗時に手掛かりを与えない方針と正面から衝突するため、そちらは開いたまま）。本編の否定証明は WebUI に移ったので影響は小さい。<b>残余リスク:</b> state key を復元されれば封入した Face 詳細は復号される（<code>THREAT_MODEL.md</code> の Configuration Directory Surface に明記）。<b>本番前に必ず通すこと:</b> Step 4b をやるなら<b>使い捨ての Vessel で一度通しておく</b> — 成功しても画面は何も言わないので、成否の見分け方を体で覚えていないと壇上で判断できない。
+<br>逐語トーク: <code>docs/submissions/Phasmid_Talk_Script_30min.md</code>／実施細部: <code>docs/submissions/Phasmid_Demo_Runbook.md</code>／デッキ変更点: <code>docs/submissions/Phasmid_DEFCON_DemoLabs_PPTX_Changes_v0.4.0.md</code>（Slide 23・24 の変更前後テキスト）／デッキ: <code>Phasmid_DEFCON_DemoLabs.pptx</code>（26枚）。すべて <a href="https://github.com/01rabbit/Phasmid">github.com/01rabbit/Phasmid</a> の <code>CLAIMS.md</code> / <code>NON_CLAIMS.md</code> と整合。CHANGELOG: <a href="https://github.com/01rabbit/Phasmid/blob/main/CHANGELOG.md">v0.4.0</a>。</div>
+
+</div>
+
+<button class="spk" type="button" id="spk" aria-pressed="false"><span class="d"></span><span class="t">読み上げ表示</span></button>
+
+<script>
+(function(){
+  var COPY='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+  var CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  function extract(pane){var el=pane.querySelector('.src');if(!el)return null;
+    var t=el.textContent.replace(/ /g,' ');
+    t=t.split('\n').map(function(l){return l.replace(/\s+$/,'');}).join('\n');
+    // keep only lines that begin with a prompt ($ or ›), strip the prompt + trailing comments
+    t=t.split('\n').filter(function(l){return /^\s*[\$›]/.test(l);})
+      .map(function(l){return l.replace(/^\s*[\$›]\s?/,'').replace(/\s{2,}#.*$/,'').replace(/\s+$/,'');})
+      .filter(function(l){return l.length;}).join('\n').trim();
+    return t;
+  }
+  function legacyCopy(text){var ok=false;try{var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.top='0';ta.style.left='0';ta.style.width='1px';ta.style.height='1px';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{ta.setSelectionRange(0,text.length);}catch(e){}ok=document.execCommand&&document.execCommand('copy');document.body.removeChild(ta);}catch(e){ok=false;}return ok;}
+  function selectSrc(pane){var pre=pane.querySelector('.src');if(!pre)return;try{var r=document.createRange();r.selectNodeContents(pre);var s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(e){}}
+  function flash(btn,html,cls,ms){btn.classList.remove('copied','manual');if(cls)btn.classList.add(cls);btn.innerHTML=html;clearTimeout(btn._t);btn._t=setTimeout(function(){btn.classList.remove('copied','manual');btn.innerHTML=COPY+'<span>Copy</span>';},ms||1600);}
+  document.querySelectorAll('.pane.cmd').forEach(function(pane){
+    var cmd=extract(pane);if(!cmd)return;
+    var head=pane.querySelector('.pane-head');if(!head)return;
+    var btn=document.createElement('button');btn.type='button';btn.className='copy';btn.setAttribute('aria-label','Copy command to clipboard');btn.innerHTML=COPY+'<span>Copy</span>';
+    btn.addEventListener('click',function(){
+      if(legacyCopy(cmd)){flash(btn,CHECK+'<span>Copied</span>','copied');return;}
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(cmd).then(function(){flash(btn,CHECK+'<span>Copied</span>','copied');}).catch(function(){selectSrc(pane);flash(btn,COPY+'<span>選択済→⌘/Ctrl+C</span>','manual',3000);});return;}
+      selectSrc(pane);flash(btn,COPY+'<span>選択済→⌘/Ctrl+C</span>','manual',3000);
+    });
+    head.appendChild(btn);
+  });
+  var spk=document.getElementById('spk');
+  if(spk){spk.addEventListener('click',function(){
+    var on=document.body.classList.toggle('speaker');
+    spk.setAttribute('aria-pressed',on?'true':'false');
+    spk.querySelector('.t').textContent=on?'通常表示に戻す':'読み上げ表示';
+    window.scrollTo({top:0});
+  });}
+  document.querySelectorAll('.switcher').forEach(function(sw){
+    var btns=sw.querySelectorAll('.seg-btn');var views=sw.querySelectorAll('.view');
+    function show(which){btns.forEach(function(b){b.setAttribute('aria-selected',b.dataset.t===which?'true':'false');});views.forEach(function(v){v.hidden=(v.dataset.v!==which);});}
+    btns.forEach(function(b){b.addEventListener('click',function(){show(b.dataset.t);});});
+  });
+})();
+</script>
+</body></html>
